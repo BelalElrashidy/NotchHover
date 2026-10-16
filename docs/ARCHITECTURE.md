@@ -240,6 +240,29 @@ and thirteen unlabelled tabs ran along the bottom edge clipping whatever sat abo
 The layout follows Boring Notch and Atoll instead: navigation in the wings, no bottom bar,
 and few tabs — everything else is a Home card, a header button or a shortcut.
 
+### Rest, peek, open
+
+Resting on the notch waits `HoverDelay` (0.3s) — passing it on the way to the menu bar
+does nothing — then brings up the **peek**: the resting bar grown into a small card,
+~490×72 against the panel's 738×184. The band keeps the resting bar's artwork and meter;
+one row underneath shows what is playing with its controls, a call about to start with
+Join, or the date and what's next. A click on it, a swipe down or a shortcut opens the
+full panel; leaving it puts it back at once. It is one more rect in the same morph, and
+`PeekView` only hit-tests while it is on screen. `HoverAction` set to `open` skips it.
+
+### Calendar, accessories, Claude Code
+
+- `CalendarService` is the one EventKit store; `MeetingLink` finds Zoom, Meet, Teams,
+  FaceTime and Webex links in an event's URL, location or notes and opens Zoom and
+  Teams in their apps. Two minutes before a call with a link, the notch pops.
+- `DeviceBatteryMonitor` reads accessory levels from `system_profiler` and the I/O
+  registry — when an audio device comes or goes, and every ten minutes while anything
+  is connected — and pops on connect and at 20% and 10%.
+- `ClaudeSessionMonitor` reads `~/.claude/projects` transcripts for metadata only, each
+  from where the last read stopped, every three seconds: active sessions and their
+  state, token use today and over the last five hours, and "Claude is done" when a
+  session hands the turn back.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to

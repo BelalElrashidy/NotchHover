@@ -38,9 +38,18 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
   site it's on, with that site's own icon
 - Pinned playlists you can start from the notch
 
+**Rest, peek, open**
+- Rest on the notch for a moment and a small **peek** comes up: what's playing with its
+  controls, a call about to start with **Join**, or the date and what's next. Click it, or
+  swipe down, for the full panel; move away and it's gone
+- Prefer the panel straight away? Settings → Appearance → On hover
+
 **Live activities**
 - Volume, brightness, keyboard backlight, battery and timer changes pop out of the notch
 - Notification banners are mirrored into it
+- **AirPods and Bluetooth accessories** pop with their charge when they connect, and again
+  when one runs low
+- A call with a link pops two minutes before it starts
 - The resting bar takes a breath when something starts playing
 
 **Getting things done**
@@ -49,11 +58,19 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - **Clipboard history** — search, pin and paste back with <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
 - **Quick notes** — <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> to start one, <kbd>⌘</kbd><kbd>↩</kbd> to keep it
 - **Controls** — output volume, microphone gain and mute, display brightness, keyboard backlight
-- Calendar, countdown timer, macOS Shortcuts and app launchers
+- **Calendar** with a **Join** button on every Zoom, Meet, Teams, FaceTime or Webex call —
+  Zoom and Teams open straight in their apps
+- Countdown timer, macOS Shortcuts, app launchers, and a **Batteries** card for the Mac
+  and everything connected
 
 **Claude Code**
 - Approve or deny Claude Code's tool calls from the notch, without switching windows —
   free, open source, and without an account.
+- A **Claude Code** card shows each active session — project, branch, and whether it's
+  running a tool, thinking or waiting for you — with today's token use. When a session
+  finishes and hands the turn back, the notch tells you.
+- Read from the transcripts Claude Code keeps on your Mac; only metadata, never your
+  prompts or code.
 
 **Yours to shape**
 - Six themes, from solid graphite to Liquid Glass
@@ -78,7 +95,7 @@ every shortcut.
 | Where | Keys |
 |---|---|
 | Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again |
-| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
+| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
 | Playing | <kbd>Space</kbd> play or pause · <kbd>⌘</kbd><kbd>←</kbd> <kbd>⌘</kbd><kbd>→</kbd> previous, next · <kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd> volume · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> mute the microphone |
 | Clipboard | <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>↩</kbd> copy · <kbd>⌘</kbd><kbd>↩</kbd> paste into the front app · <kbd>⌘</kbd><kbd>P</kbd> pin · <kbd>⌘</kbd><kbd>⌫</kbd> delete |
 | Notes, Shelf | <kbd>⌘</kbd><kbd>↩</kbd> save · <kbd>⌘</kbd><kbd>N</kbd> new · <kbd>⌘</kbd><kbd>[</kbd> <kbd>⌘</kbd><kbd>]</kbd> other notes · <kbd>⌘</kbd><kbd>S</kbd> send the shelf · <kbd>⌘</kbd><kbd>R</kbd> show in Finder |
@@ -121,7 +138,8 @@ asks the first time that feature is used.
 | Automation → Spotify, Music | Reading what's playing and controlling playback |
 | Automation → Safari | Naming the page Safari is playing |
 | Accessibility | Mirroring notification banners into the notch |
-| Calendars | Showing your next events |
+| Calendars | Your next events, and the Join button for calls |
+| Bluetooth | Your accessories' battery levels |
 | Camera | The mirror |
 
 Seeing which app is playing needs no permission, and neither does naming the page in
@@ -182,7 +200,6 @@ How it's put together is written up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 ## Roadmap
 
-- **Three sizes** — the resting bar, a glance on hover, and a full panel on click
 - **A command bar** — type to jump, search and run actions, Raycast-style
 - Signed and notarized builds, so the first launch just works
 

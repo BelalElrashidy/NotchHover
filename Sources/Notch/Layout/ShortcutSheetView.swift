@@ -18,7 +18,8 @@ enum KeyboardShortcutList {
             ("⌘1 – ⌘5", "Switch views"),
             ("⌃⇥", "Next tab"),
             ("⎋  ⌘W", "Close"),
-            ("⌘,  ⌘/", "Settings, these keys")
+            ("⌘,  ⌘/", "Settings, these keys"),
+            ("⌘J", "Join the next call")
         ]),
         Group(title: "Playing", entries: [
             ("Space", "Play or pause"),

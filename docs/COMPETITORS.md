@@ -32,10 +32,10 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | | NotchHover | Boring | Atoll | NotchNook | Alcove | Dyn. Notch | Crest | NotchBay | Droppy | OneNotch |
 |---|---|---|---|---|---|---|---|---|---|---|
 | **How it opens** | | | | | | | | | | |
-| Rest → hover peek → click full | | | ✅ | ✅ | | | ✅ | ✅ | | |
-| Hover delay before opening | | ✅ 0.3s | | | | | | | | |
-| Trackpad gestures | | ✅ | ✅ | ✅ | ✅ | | ✅ | | | |
-| Haptics | | ✅ | ✅ | ✅ | | | | | | |
+| Rest → hover peek → click full | ✅ | | ✅ | ✅ | | | ✅ | ✅ | | |
+| Hover delay before opening | ✅ | ✅ 0.3s | | | | | | | | |
+| Trackpad gestures | ✅ | ✅ | ✅ | ✅ | ✅ | | ✅ | | | |
+| Haptics | ✅ | ✅ | ✅ | ✅ | | | | | | |
 | Keyboard shortcut to open | ✅ | | ✅ | | | ✅ | | | | |
 | Every display, notchless Macs | ✅ | ✅ | | | | | ✅ | ✅ | ✅ | ✅ |
 | **Media** | | | | | | | | | | |
@@ -54,13 +54,13 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Screenshots | | | | | | | | | ✅ | ✅ |
 | **Time and work** | | | | | | | | | | |
 | Calendar | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ |
-| One-click meeting join | | | | | | ✅ | ✅ | ✅ | ✅ | |
+| One-click meeting join | ✅ | | | | | ✅ | ✅ | ✅ | ✅ | |
 | Meeting controls (mute, camera, leave) | | | | | | | | ✅ | ✅ | |
 | Timer / Pomodoro | ✅ | ✅ | ✅ | | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **System** | | | | | | | | | | |
 | Volume and brightness HUD | ✅ | ✅ | | | ✅ | ✅ | | ✅ | ✅ | |
 | Microphone gain and mute | ✅ | | | | | | | | | |
-| Battery, AirPods and devices | 🟡 | | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| Battery, AirPods and devices | ✅ | | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | Notifications mirrored | ✅ | | | | ✅ | | | ✅ | ✅ | |
 | Reply to messages from the notch | | | | | | | | ✅ | ✅ | |
 | Lock screen widgets | | | ✅ | | ✅ | | | ✅ | ✅ | ✅ |
@@ -70,7 +70,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Camera mirror | ✅ | ✅ | ✅ | | | ✅ | | | | |
 | **Coding agents** | | | | | | | | | | |
 | Answer approvals from the notch | ✅ | | | | | | ✅ | | | |
-| Session state, tokens, plan limits | | | ✅ | | | | ✅ | ✅ | ✅ | ✅ |
+| Session state, tokens, plan limits | 🟡 | | ✅ | | | | ✅ | ✅ | ✅ | ✅ |
 | **Beyond the notch** | | | | | | | | | | |
 | Spotlight-style search / commands | | | | | | | | | ✅ | |
 | Adapts to the front app | | | | | | | | ✅ | | |
@@ -82,7 +82,11 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 
 ## What this says
 
-### The three states are the norm, and we have two
+### The three states are the norm — done in October 2026
+
+*Since this survey: NotchHover now rests, peeks after a 0.3s dwell, and opens on a click,
+and has gestures, haptics, meeting join, accessory batteries and Claude Code sessions and
+tokens. 🟡 on agents means no plan limits: only Anthropic's servers know them.*
 
 Every app that gets this right separates *glancing* from *using*:
 

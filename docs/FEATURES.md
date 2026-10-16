@@ -57,7 +57,7 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Battery | Percent, time left, charging activity | IOKit power sources | S | ⬜ |
 | CPU / memory / network | Small live gauges | `host_statistics`, `getifaddrs` | M | ⬜ |
 | Disk space | Free space, eject external drives | `FileManager`, `NSWorkspace` | S | ⬜ |
-| Bluetooth devices | Connected devices and battery | IOBluetooth (deprecated) | M | ⬜ |
+| Bluetooth devices | AirPods, headphones, speakers and Magic devices, with battery | `system_profiler` and the I/O registry | M | ✅ |
 | Focus mode | Show and toggle Focus | Shortcuts app | S | ⬜ |
 | Do-not-disturb while sharing screen | Hide the panel when sharing | `CGWindowList` | M | ⬜ |
 | Caffeinate | Keep the Mac awake for N minutes | `IOPMAssertion` | S | ⬜ |
@@ -73,8 +73,8 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Pomodoro | Work/break cycles with a counter | Extends the timer | S | ⬜ |
 | Stopwatch | | Extends the timer | S | ⬜ |
 | Reminders | Today's reminders, tick them off | EventKit | M | ⬜ |
-| Meeting countdown | "Standup in 4 min" in the resting bar | EventKit | S | ⬜ |
-| Meeting join | Join button for Zoom, Meet, Teams, FaceTime links | The event's URL and notes | S | ⬜ |
+| Meeting countdown | "Standup in 4 min" in the resting bar | EventKit | S | ✅ |
+| Meeting join | Join button for Zoom, Meet, Teams, FaceTime, Webex links | `MeetingLink` from the event's URL, location, notes | S | ✅ |
 | World clocks | | `TimeZone` | S | ⬜ |
 | Weather | | Needs the internet — skipped, or read a local cache | — | — |
 
@@ -97,11 +97,12 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Approve / deny tool calls | | Local socket bridge | — | ✅ |
 | Keyboard approve | ⌘↩ approve, ⎋ deny while open | Panel key handling | S | ⬜ |
 | Project badge on approvals | Which repo is asking | Hook payload `cwd` | S | ⬜ |
-| Session list | What each session is doing | Read the local transcript folder | M | ⬜ |
-| "Claude is done" activity | Resting bar pulse when a task finishes | `Stop` hook to the same bridge | S | ⬜ |
+| Session list | What each session is doing | Read the local transcript folder | M | ✅ |
+| "Claude is done" activity | The notch pops when a session hands the turn back | Transcript state, no hook needed | S | ✅ |
 | Approval history | What you allowed today | Local log | M | ⬜ |
 | Always-allow rules | Per project, per tool | Write the project's settings file | M | ⬜ |
-| Token / cost counter | Session use and plan limits — most competitors now show this | Transcript usage fields | M | ⬜ |
+| Token counter | Today and the last five hours, from transcript usage | Transcript usage fields | M | ✅ |
+| Plan limits | % of the 5-hour and weekly allowance | Only Anthropic's servers know — not done, no network | — | — |
 
 ## The panel itself
 
@@ -109,8 +110,8 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 |---|---|---|---|---|
 | Flexible widget row, sizes, themes | | — | — | ✅ |
 | Tabs beside the notch | Home, Shelf, Notes left; clipboard, mirror, gear right; no bottom bar | — | M | ✅ |
-| Three states | Rest → hover peek → click for the full panel | One more rect in the existing morph | M | ⬜ |
-| Hover dwell | Wait ~0.3s before opening, so passing the notch doesn't open it | Boring Notch's default | S | ⬜ |
+| Three states | Rest → hover peek → click for the full panel | One more rect in the existing morph | M | ✅ |
+| Hover dwell | Wait ~0.3s before opening, so passing the notch doesn't open it | `HoverDelay` | S | ✅ |
 | Trackpad gestures | Two-finger swipe down to open, up to close, sideways for tabs or tracks | `SwipeRecognizer` over scroll events | M | ✅ |
 | Everything by keyboard | Global ⌃⌥ keys, ⌘1–5, media, clipboard arrows, approvals; ⌘/ lists them | Panel key handler | M | ✅ |
 | Command bar | Raycast-style: search clips, notes, files, apps; run actions | Builds on the full panel | L | ⬜ |
