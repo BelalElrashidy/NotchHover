@@ -21,7 +21,11 @@ final class NotchPanel: NSPanel {
         // window nor the card casts one.
         hasShadow = false
         isMovable = false
-        level = .statusBar
+        // Above the menu bar — which full-screen apps slide down over the notch when the
+        // pointer reaches the top — matching Boring Notch and Atoll.
+        level = .mainMenu + 3
+        // Every Space, including other apps' full-screen ones, without moving as Spaces
+        // change and without joining ⌘` window cycling.
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         animationBehavior = .none
     }

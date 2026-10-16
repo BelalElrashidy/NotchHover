@@ -1,7 +1,12 @@
 import AppKit
 
-/// Owns the notch panel: the resting bar, hover expansion, what the detail pane is
-/// showing, and the queue of Claude Code permission requests waiting on an answer.
+/// Owns the notch on every display: the resting bar, hover expansion, what the detail
+/// pane is showing, and the queue of Claude Code permission requests waiting on an answer.
+///
+/// Each display has its own panel (`NotchDisplay`). What everyone should see — now
+/// playing, activities, the timer, the approvals badge — is broadcast to all of them.
+/// Anything interactive goes to the *active* display: the one that is open, or was
+/// last opened.
 final class NotchController {
     private enum Constants {
         /// Grace period so a pointer that clips the edge does not dismiss the panel.
@@ -19,11 +24,19 @@ final class NotchController {
     private let countdown: CountdownTimer
     private let audioActivity = AudioActivityMonitor()
 
-    private var panel: NotchPanel?
-    private var contentView: NotchContentView?
-    private var builtGeometryKey: String?
+    private var displays: [CGDirectDisplayID: NotchDisplay] = [:]
+    /// The display that is open, or was last opened.
+    private var active: NotchDisplay?
 
-    private var geometry: NotchGeometry?
+    /// The active display's parts. Interactive paths — hover, typing, approvals — only
+    /// ever concern the display the pointer is on.
+    private var panel: NotchPanel? { active?.panel }
+    private var contentView: NotchContentView? { active?.content }
+    private var geometry: NotchGeometry? { active?.geometry }
+
+    /// The last thing shown, replayed into displays built later — one plugged in, or
+    /// rebuilt for a new theme — so they start current instead of on "Loading…".
+    private var lastState: NowPlayingState = .message("Nothing playing")
     private var mouseMonitors: [Any] = []
     private var hideWorkItem: DispatchWorkItem?
     private var isExpanded = false
@@ -119,11 +132,11 @@ final class NotchController {
         }
 
         NotificationWatcher.shared.onCapture = { [weak self] _ in
-            self?.contentView?.refreshNotifications()
+            self?.broadcast { $0.refreshNotifications() }
         }
 
         countdown.onTick = { [weak self] remaining in
-            self?.contentView?.updateTimer(remaining: remaining)
+            self?.broadcast { $0.updateTimer(remaining: remaining) }
         }
         countdown.onFinish = { [weak self] in
             self?.activityCenter.post(.timer(remaining: 0))
@@ -135,6 +148,15 @@ final class NotchController {
             queue: .main
         ) { [weak self] _ in
             self?.applyChangedSettings()
+        }
+
+        // A display plugged in or out, or a resolution change, moves the notches.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.syncDisplays()
         }
 
         // Clicking into another app takes keyboard focus away; that is the cue to close.
@@ -170,13 +192,13 @@ final class NotchController {
             Log.system.notice("Audio source: \(audioSource.name, privacy: .public)")
         }
         refreshBrowserPage()
-        if contentView == nil, wantsRestingBar { buildForResting() }
-        contentView?.isAudioPlaying = active
+        if displays.isEmpty, wantsRestingBar { syncDisplays() }
+        broadcast { $0.isAudioPlaying = active }
         // The bar is showing whatever is making the sound, so it has to be told what
         // that is now rather than at the next poller tick — the poller only knows
         // about Spotify and Music.
-        if isPlaying == false { contentView?.renderNowPlaying(nowPlayingState(for: lastTrack)) }
-        if isExpanded == false { settleToRestingState() }
+        if isPlaying == false { render(nowPlayingState(for: lastTrack)) }
+        settleToRestingState()
         // Sound starting is the event; sound stopping takes the bar away by itself.
         if active, isPlaying == false { breathe() }
     }
@@ -194,7 +216,7 @@ final class NotchController {
                 Log.system.notice("Playing page: \(page.shortHost, privacy: .public) — icon: \(page.iconData != nil, privacy: .public)")
             }
             guard self.isPlaying == false else { return }
-            self.contentView?.renderNowPlaying(self.nowPlayingState(for: self.lastTrack))
+            self.render(self.nowPlayingState(for: self.lastTrack))
         }
     }
 
@@ -233,8 +255,18 @@ final class NotchController {
     /// A breath is a reaction, not a state: the bar takes a couple and is still again.
     /// Only worth it while the bar is the thing on screen.
     private func breathe(cycles: Int = NotchBreath.cycles) {
-        guard isExpanded == false else { return }
-        contentView?.breathe(cycles: cycles)
+        // Each display only breathes while it is resting, so the open one sits it out.
+        broadcast { $0.breathe(cycles: cycles) }
+    }
+
+    /// Shows the same thing on every display, and remembers it for displays to come.
+    private func render(_ state: NowPlayingState) {
+        lastState = state
+        broadcast { $0.renderNowPlaying(state) }
+    }
+
+    private func broadcast(_ body: (NotchContentView) -> Void) {
+        displays.values.forEach { body($0.content) }
     }
 
     func stop() {
@@ -246,7 +278,7 @@ final class NotchController {
         pendingRequests.removeAll()
         permissionBridge.stop()
         audioActivity.stop()
-        panel?.orderOut(nil)
+        displays.values.forEach { $0.panel.orderOut(nil) }
     }
 
     // MARK: - Hover handling
@@ -265,10 +297,11 @@ final class NotchController {
             return
         }
 
-        guard let screen = NotchGeometry.activeScreen else { return }
-        let geometry = NotchGeometry(screen: screen)
-        if geometry.isPointerInHoverArea(location) {
-            expand(using: geometry)
+        // Every display has its own notch to hover. Displays are built lazily, so the
+        // first hover on a new one builds it.
+        if displays.isEmpty { syncDisplays() }
+        if let display = displays.values.first(where: { $0.geometry.isPointerInHoverArea(location) }) {
+            expand(display)
         }
     }
 
@@ -300,28 +333,35 @@ final class NotchController {
 
     // MARK: - Presentation
 
-    private func expand(using geometry: NotchGeometry) {
-        self.geometry = geometry
-        let panel = makePanel(for: geometry)
+    private func expand(_ display: NotchDisplay) {
+        // Only one display is ever open: moving to another closes the first.
+        if isExpanded, let current = active, current !== display {
+            collapse()
+        }
 
+        active = display
         isExpanded = true
         cancelScheduledHide()
 
-        panel.setFrame(geometry.expandedFrame(size: panelSize(for: geometry)), display: true)
+        let panel = display.panel
+        panel.setFrame(display.geometry.expandedFrame(size: display.panelSize), display: true)
         // Only take clicks while open; the resting bar must not block the menu bar.
         panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()
-        contentView?.present(.expanded)
+        display.content.present(.expanded)
 
         poller.interval = Constants.openInterval
         poller.refresh()
     }
 
-    /// Brings the panel up without a hover — used when a permission request lands.
+    /// Brings a panel up without a hover — a permission request, a shortcut. It opens
+    /// on the display the pointer is on, since that is where the user is looking.
     private func ensureExpanded() {
         guard isExpanded == false else { return }
-        guard let screen = NotchGeometry.activeScreen ?? NSScreen.main else { return }
-        expand(using: NotchGeometry(screen: screen))
+        if displays.isEmpty { syncDisplays() }
+        let screen = NotchGeometry.activeScreen ?? NSScreen.main
+        guard let display = screen.flatMap(display(for:)) ?? displays.values.first else { return }
+        expand(display)
     }
 
     /// Opens straight to a pane from a keyboard shortcut, ready to type.
@@ -390,44 +430,73 @@ final class NotchController {
         settleToRestingState()
     }
 
-    /// Playing music leaves a slim bar hugging the notch; otherwise the panel goes away.
+    /// Playing music leaves a slim bar hugging every notch; otherwise the panels go
+    /// away. The display that is open is left alone.
     private func settleToRestingState() {
-        guard isExpanded == false, let panel, let contentView else { return }
-        // An activity is mid-flight; it will settle the bar when it finishes.
+        // An activity is mid-flight; it will settle the bars when it finishes.
         guard activityWorkItem == nil else { return }
 
-        panel.ignoresMouseEvents = true
+        for display in displays.values where (isExpanded && display === active) == false {
+            let panel = display.panel
+            panel.ignoresMouseEvents = true
 
-        if wantsRestingBar {
-            contentView.present(.idle)
-            panel.orderFrontRegardless()
-        } else {
-            contentView.present(.hidden)
-            // Let the collapse animation finish before pulling the window.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) { [weak self] in
-                guard self?.isExpanded == false, self?.wantsRestingBar == false else { return }
-                panel.orderOut(nil)
+            if wantsRestingBar {
+                display.content.present(.idle)
+                panel.orderFrontRegardless()
+            } else {
+                display.content.present(.hidden)
+                // Let the collapse animation finish before pulling the window.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) { [weak self, weak display] in
+                    guard let self, let display, self.wantsRestingBar == false,
+                          (self.isExpanded && display === self.active) == false else { return }
+                    display.panel.orderOut(nil)
+                }
             }
         }
     }
 
-    private func panelSize(for geometry: NotchGeometry) -> CGSize {
-        NotchContentView.Metrics.panelSize(
-            notchWidth: geometry.hasNotch ? geometry.notchRect.width : 0,
-            notchHeight: geometry.hasNotch ? geometry.notchRect.height : 0
-        )
+    // MARK: - Displays
+
+    /// The display built for this screen, building it if there is none yet.
+    private func display(for screen: NSScreen) -> NotchDisplay? {
+        guard let id = NotchDisplay.identifier(of: screen) else { return nil }
+        if let display = displays[id], display.matches(screen) { return display }
+        syncDisplays()
+        return displays[id]
     }
 
-    private func makePanel(for geometry: NotchGeometry) -> NotchPanel {
-        let notchWidth = geometry.hasNotch ? geometry.notchRect.width : 0
-        let notchHeight = geometry.hasNotch ? geometry.notchRect.height : 0
-        let key = "\(notchWidth)x\(notchHeight)"
-
-        if let panel, builtGeometryKey == key {
-            return panel
+    /// Makes the set of displays match the screens attached right now: new screens get
+    /// a notch, unplugged ones lose theirs, and a screen whose notch moved — a new
+    /// resolution — is rebuilt. Everything built is brought up to date immediately.
+    private func syncDisplays() {
+        var current: [CGDirectDisplayID: NSScreen] = [:]
+        for screen in NSScreen.screens {
+            if let id = NotchDisplay.identifier(of: screen) { current[id] = screen }
         }
 
-        let contentView = NotchContentView(notchWidth: notchWidth, notchHeight: notchHeight)
+        for (id, display) in displays where current[id].map(display.matches) != true {
+            if display === active {
+                collapse()
+                active = nil
+            }
+            display.panel.orderOut(nil)
+            displays[id] = nil
+        }
+
+        var built = false
+        for (id, screen) in current where displays[id] == nil {
+            displays[id] = makeDisplay(id: id, screen: screen)
+            built = true
+        }
+
+        guard built else { return }
+        Log.ui.notice("Notch on \(self.displays.count, privacy: .public) display(s)")
+        settleToRestingState()
+    }
+
+    private func makeDisplay(id: CGDirectDisplayID, screen: NSScreen) -> NotchDisplay {
+        let display = NotchDisplay(id: id, screen: screen)
+        let contentView = display.content
         contentView.onPlayPause = { [weak self] in self?.perform(.playPause) }
         contentView.onNextTrack = { [weak self] in self?.perform(.nextTrack) }
         contentView.onPreviousTrack = { [weak self] in self?.perform(.previousTrack) }
@@ -447,14 +516,20 @@ final class NotchController {
         contentView.onSeek = { [weak self] seconds in self?.perform(.seek(seconds)) }
         contentView.onPlayURI = { [weak self] uri in self?.perform(.play(uri: uri)) }
         contentView.onStartTimer = { [weak self] minutes in
-            self?.countdown.start(minutes: minutes)
-            self?.contentView?.updateTimer(remaining: self?.countdown.remaining ?? 0)
+            guard let self else { return }
+            self.countdown.start(minutes: minutes)
+            let remaining = self.countdown.remaining
+            self.broadcast { $0.updateTimer(remaining: remaining) }
         }
         contentView.onCancelTimer = { [weak self] in
             self?.countdown.cancel()
-            self?.contentView?.updateTimer(remaining: 0)
+            self?.broadcast { $0.updateTimer(remaining: 0) }
         }
-        contentView.onFilesDropped = { [weak self] in self?.ensureExpanded() }
+        // Files dropped on a notch open that notch, not whichever was open last.
+        contentView.onFilesDropped = { [weak self, weak display] in
+            guard let self, let display else { return }
+            self.expand(display)
+        }
         contentView.onPasteClipboard = { [weak self] item in self?.pasteFromClipboard(item) }
         contentView.onDismiss = { [weak self] in self?.dismiss() }
         contentView.onOpenSettings = { [weak self] in
@@ -464,14 +539,13 @@ final class NotchController {
         }
         contentView.onApprove = { [weak self] in self?.resolveFrontRequest(.allow) }
         contentView.onDeny = { [weak self] in self?.resolveFrontRequest(.deny) }
-        contentView.renderNowPlaying(.message("Loading…"))
 
-        let panel = NotchPanel(contentView: contentView)
-        panel.setFrame(geometry.expandedFrame(size: panelSize(for: geometry)), display: false)
-        self.panel = panel
-        self.contentView = contentView
-        builtGeometryKey = key
-        return panel
+        // Start current: whatever every other display is already showing.
+        contentView.isAudioPlaying = isAudioPlaying
+        contentView.renderNowPlaying(lastState)
+        contentView.setPendingCount(pendingRequests.count)
+        contentView.updateTimer(remaining: countdown.remaining)
+        return display
     }
 
     private func openCurrentSource() {
@@ -518,8 +592,9 @@ final class NotchController {
 
     private func presentFrontRequest() {
         guard let request = pendingRequests.first, let contentView else { return }
-        contentView.setPendingCount(pendingRequests.count)
-        contentView.showPermission(request, queued: pendingRequests.count - 1)
+        let count = pendingRequests.count
+        broadcast { $0.setPendingCount(count) }
+        contentView.showPermission(request, queued: count - 1)
     }
 
     private func resolveFrontRequest(_ decision: PermissionDecision) {
@@ -536,7 +611,8 @@ final class NotchController {
         timeouts[id] = nil
         Log.permissions.notice("\(request.toolName, privacy: .public) resolved: \(decision.rawValue, privacy: .public)")
 
-        contentView?.setPendingCount(pendingRequests.count)
+        let count = pendingRequests.count
+        broadcast { $0.setPendingCount(count) }
 
         if pendingRequests.isEmpty {
             contentView?.showMedia()
@@ -555,47 +631,49 @@ final class NotchController {
         // Never yank the panel out from under a pending approval.
         guard pendingRequests.isEmpty else { return }
 
-        let themeChanged = contentView?.themeID != ThemeStore.selected.id
+        let themeChanged = displays.values.contains { $0.content.themeID != ThemeStore.selected.id }
 
         Log.ui.notice("Settings applied; rebuild needed: \(themeChanged, privacy: .public)")
 
         if themeChanged {
-            panel?.orderOut(nil)
-            panel = nil
-            contentView = nil
-            builtGeometryKey = nil
+            // The material is baked in at build time, so every display is rebuilt; each
+            // new one replays the current state as it is made.
+            displays.values.forEach { $0.panel.orderOut(nil) }
+            displays.removeAll()
+            active = nil
             isExpanded = false
+            syncDisplays()
         } else {
-            contentView?.reloadLists()
+            broadcast { $0.reloadLists() }
         }
 
         poller.refresh()
-        if isExpanded == false {
-            settleToRestingState()
-        }
+        settleToRestingState()
     }
 
     // MARK: - Live activities
 
     /// Shows a system event on the resting bar, then hands the bar back.
     private func present(_ activity: LiveActivity) {
-        if contentView == nil {
-            buildForResting()
-        }
-        guard let contentView, let panel, isExpanded == false else { return }
+        if displays.isEmpty { syncDisplays() }
+        // The open panel already shows everything; the event goes to the resting ones.
+        let resting = displays.values.filter { (isExpanded && $0 === active) == false }
+        guard resting.isEmpty == false else { return }
 
         Log.system.notice("Activity: \(String(describing: activity), privacy: .public)")
         activityWorkItem?.cancel()
         // showActivity sizes the bar to the event and pops it out of the notch; it
         // brings the bar up itself if it was away, so nothing else may present here.
-        contentView.showActivity(activity)
-        panel.ignoresMouseEvents = true
-        panel.orderFrontRegardless()
+        for display in resting {
+            display.content.showActivity(activity)
+            display.panel.ignoresMouseEvents = true
+            display.panel.orderFrontRegardless()
+        }
 
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.activityWorkItem = nil
-            self.contentView?.clearActivity()
+            self.broadcast { $0.clearActivity() }
             self.settleToRestingState()
             // One breath as the bar shrinks back, so the hand-off is not a dead stop.
             if self.wantsRestingBar { self.breathe(cycles: 1) }
@@ -607,8 +685,8 @@ final class NotchController {
     // MARK: - Data
 
     private func apply(_ result: Result<TrackInfo?, MediaError>) {
-        guard let contentView else {
-            // Nothing built yet: only something playing is worth building a panel for,
+        if displays.isEmpty {
+            // Nothing built yet: only something playing is worth building panels for,
             // whether that is a track we can name or audio we can only hear.
             if case .success(let track) = result {
                 isPlaying = track?.isPlaying == true
@@ -616,10 +694,8 @@ final class NotchController {
                 guard wantsRestingBar else { return }
                 lastTrackKey = track.map { "\($0.name)|\($0.artist)" }
                 lastTrack = track
-                buildForResting()
-                self.contentView?.isAudioPlaying = isAudioPlaying
-                self.contentView?.renderNowPlaying(nowPlayingState(for: track))
-                settleToRestingState()
+                lastState = nowPlayingState(for: track)
+                syncDisplays()
                 breathe()
             }
             return
@@ -659,26 +735,16 @@ final class NotchController {
             audioSource = AudioSourceProbe.current()
             refreshBrowserPage()
         }
-        contentView.renderNowPlaying(nowPlayingState(for: lastTrack, fallback: fallback))
-
-        if isExpanded == false {
-            settleToRestingState()
-        }
+        render(nowPlayingState(for: lastTrack, fallback: fallback))
+        settleToRestingState()
 
         // After settling, so the bar is out and resting before it takes the breath.
         if startedSomething { breathe() }
 
         // Keep an open app pane current, so "what's going on" stays true while watched.
-        if isExpanded, contentView.mode == .app, let shortcut = selectedShortcut {
+        if isExpanded, contentView?.mode == .app, let shortcut = selectedShortcut {
             showDetails(for: shortcut)
         }
-    }
-
-    private func buildForResting() {
-        guard let screen = NotchGeometry.activeScreen ?? NSScreen.main else { return }
-        let geometry = NotchGeometry(screen: screen)
-        self.geometry = geometry
-        _ = makePanel(for: geometry)
     }
 
     private func perform(_ action: MediaAction) {
