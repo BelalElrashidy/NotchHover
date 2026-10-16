@@ -971,6 +971,7 @@ final class NotchController {
     // MARK: - Data
 
     private func apply(_ result: Result<TrackInfo?, MediaError>) {
+        LyricsService.shared.update(try? result.get())
         if displays.isEmpty {
             // Nothing built yet: only something playing is worth building panels for,
             // whether that is a track we can name or audio we can only hear.

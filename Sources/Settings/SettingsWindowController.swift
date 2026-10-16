@@ -364,9 +364,20 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         hapticsToggle.set(isOn: Haptics.isEnabled, notify: false)
         hapticsToggle.onChange = { isOn in UserDefaults.standard.set(isOn, forKey: "Haptics") }
 
+        // The one switch that reaches the internet says exactly what it sends.
+        let lyricsToggle = ToggleRow(title: "Synced lyrics")
+        lyricsToggle.set(isOn: LyricsService.isEnabled, notify: false)
+        lyricsToggle.onChange = { isOn in LyricsService.isEnabled = isOn }
+        let lyricsNote = SettingsStyle.label(
+            "Uses the internet. For each Spotify or Music song, its title, artist, album and length are sent once to lrclib.net, an open lyrics database, and the answer is kept on this Mac. Nothing else is sent, and nothing at all while this is off.",
+            size: 11,
+            secondary: true
+        )
+
         var rows: [NSView] = [
             SettingsStyle.heading("Advanced"),
             gesturesToggle, gesturesNote, hapticsToggle,
+            lyricsToggle, lyricsNote,
             clipboardToggle, clipboardNote, clearClipboard,
             toggle, status
         ]

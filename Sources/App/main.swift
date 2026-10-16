@@ -42,6 +42,12 @@ if CommandLine.arguments.contains("--devices-selftest") {
     DevicesSelfTest.run()
 }
 
+// Lyrics parsing and timing: --lyrics-selftest [live]
+if let index = CommandLine.arguments.firstIndex(of: "--lyrics-selftest") {
+    app.setActivationPolicy(.prohibited)
+    LyricsSelfTest.run(live: CommandLine.arguments.dropFirst(index + 1).first == "live")
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

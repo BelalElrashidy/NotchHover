@@ -376,6 +376,10 @@ final class NotchContentView: NSView {
         peekContent.onNext = { [weak self] in self?.onNextTrack?() }
         peekContent.onPrevious = { [weak self] in self?.onPreviousTrack?() }
         peekContent.onJoin = { [weak self] in self?.joinMeeting() }
+        LyricsService.shared.addObserver { [weak self] _ in
+            guard let self, case .track = self.lastNowPlaying else { return }
+            self.refreshPeek()
+        }
     }
 
     /// The peek's one line, in order of what matters: what is playing, then a call about
@@ -385,7 +389,9 @@ final class NotchContentView: NSView {
         case .track(let track):
             peekContent.show(.playing(
                 title: track.name,
-                subtitle: [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
+                // The line being sung, when lyrics are on: the peek is where a glance lands.
+                subtitle: LyricsService.shared.currentLine
+                    ?? [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
                 icon: artwork,
                 isPlaying: track.isPlaying,
                 isControllable: true

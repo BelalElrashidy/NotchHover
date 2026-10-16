@@ -14,6 +14,8 @@ struct TrackInfo: Equatable {
     /// The player's own volume, 0-100, or nil if unavailable.
     let volume: Int?
     let isShuffling: Bool
+    /// Only lyrics use it, to tell one recording of a song from another.
+    var album = ""
 
     var menuBarText: String {
         artist.isEmpty ? name : "\(name) - \(artist)"

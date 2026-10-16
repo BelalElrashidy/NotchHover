@@ -13,6 +13,11 @@ final class MediaDetailView: NSView {
     private let artworkView = Style.roundedImageView(cornerRadius: 8)
     private let titleLabel = Style.label(size: 13, weight: .semibold)
     private let artistLabel = Style.label(size: 11, color: Style.secondaryText)
+    /// The line being sung, when synced lyrics are on and the song has them.
+    private let lyricLabel = Style.label(size: 12, weight: .medium)
+    private var lyricsObserver: UUID?
+    private var artistText = ""
+    private var showsTrack = false
     private lazy var previousButton = Style.symbolButton("backward.fill", pointSize: 13, target: self, action: #selector(handlePrevious))
     private lazy var playPauseButton = Style.symbolButton("play.fill", pointSize: 17, target: self, action: #selector(handlePlayPause))
     private lazy var nextButton = Style.symbolButton("forward.fill", pointSize: 13, target: self, action: #selector(handleNext))
@@ -31,6 +36,11 @@ final class MediaDetailView: NSView {
         self.isCompact = isCompact
         super.init(frame: .zero)
         configure()
+        lyricsObserver = LyricsService.shared.addObserver { [weak self] _ in self?.showLyric() }
+    }
+
+    deinit {
+        lyricsObserver.map(LyricsService.shared.removeObserver)
     }
 
     @available(*, unavailable)
@@ -79,8 +89,9 @@ final class MediaDetailView: NSView {
         bottomRow.alignment = .centerY
         bottomRow.spacing = 8
 
-        // A zone column has no room for the scrubber and volume bar.
-        let root = NSStackView(views: isCompact ? [topRow, transport, progressRow] : [topRow, progressRow, bottomRow])
+        // A zone column has no room for the scrubber and volume bar, nor a line of its
+        // own for lyrics: there they take the artist's place.
+        let root = NSStackView(views: isCompact ? [topRow, transport, progressRow] : [topRow, lyricLabel, progressRow, bottomRow])
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = 8
@@ -99,6 +110,7 @@ final class MediaDetailView: NSView {
             topRow.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             topRow.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             progressRow.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            lyricLabel.widthAnchor.constraint(lessThanOrEqualTo: root.widthAnchor),
             progressRow.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             root.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             root.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
@@ -106,6 +118,20 @@ final class MediaDetailView: NSView {
         ])
 
         artworkView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleOpenSource)))
+        lyricLabel.lineBreakMode = .byTruncatingTail
+        lyricLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        lyricLabel.isHidden = true
+    }
+
+    private func showLyric() {
+        let line = showsTrack ? LyricsService.shared.currentLine : nil
+        if isCompact {
+            artistLabel.stringValue = line ?? artistText
+            artistLabel.textColor = line == nil ? Style.secondaryText : Style.primaryText
+        } else {
+            lyricLabel.stringValue = line ?? ""
+            lyricLabel.isHidden = line == nil
+        }
     }
 
     private var trackDuration: Double = 0
@@ -114,7 +140,10 @@ final class MediaDetailView: NSView {
         switch state {
         case .track(let track):
             titleLabel.stringValue = track.name
-            artistLabel.stringValue = track.artist.isEmpty ? track.sourceName : track.artist
+            artistText = track.artist.isEmpty ? track.sourceName : track.artist
+            showsTrack = true
+            artistLabel.stringValue = artistText
+            showLyric()
             setControlsEnabled(true)
             playPauseButton.image = Style.symbolImage(track.isPlaying ? "pause.fill" : "play.fill", pointSize: 17)
             shuffleButton.contentTintColor = track.isShuffling ? Style.accent : Style.tertiaryText
@@ -135,6 +164,8 @@ final class MediaDetailView: NSView {
             // No track, no transport — but at least say what is making the sound, and
             // for a browser that means the page rather than the browser.
             titleLabel.stringValue = source.displayName
+            showsTrack = false
+            showLyric()
             artistLabel.stringValue = source.detail
             setControlsEnabled(false)
             trackDuration = 0
@@ -148,6 +179,8 @@ final class MediaDetailView: NSView {
 
         case .message(let message):
             titleLabel.stringValue = message
+            showsTrack = false
+            showLyric()
             artistLabel.stringValue = ""
             setControlsEnabled(false)
             trackDuration = 0

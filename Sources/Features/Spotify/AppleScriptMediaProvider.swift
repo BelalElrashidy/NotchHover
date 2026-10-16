@@ -60,7 +60,11 @@ final class AppleScriptMediaProvider {
             try
                 set shuf to (shuffling as text)
             end try
-            return (name of current track) & "||" & (artist of current track) & "||" & artURL & "||" & isPlayingText & "||" & pos & "||" & dur & "||" & vol & "||" & shuf
+            set alb to ""
+            try
+                set alb to album of current track
+            end try
+            return (name of current track) & "||" & (artist of current track) & "||" & artURL & "||" & isPlayingText & "||" & pos & "||" & dur & "||" & vol & "||" & shuf & "||" & alb
         end tell
         """
     }
@@ -117,7 +121,8 @@ final class AppleScriptMediaProvider {
             position: Double(value(4)) ?? 0,
             duration: reportsDurationInMilliseconds ? rawDuration / 1000 : rawDuration,
             volume: volume >= 0 ? volume : nil,
-            isShuffling: value(7) == "true"
+            isShuffling: value(7) == "true",
+            album: value(8)
         )
     }
 

@@ -194,6 +194,24 @@ enum PreviewRenderer {
             view.present(.idle, animated: false)
         }
 
+        // Synced lyrics: the line being sung, in the peek, the Now Playing tab and the
+        // Home card, where it stands in for the artist.
+        LyricsService.shared.showLineForPreview("Yesterday I woke up sucking a lemon")
+        write(named: "peek-lyrics", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.idle, animated: false)
+            view.showPeekForPreview()
+        }
+        write(named: "expanded-lyrics", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.nowPlaying)
+        }
+        write(named: "expanded-lyrics-home", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.home)
+        }
+        LyricsService.shared.showLineForPreview(nil)
+
         write(named: "expanded-page", directory: directory) { view in
             view.isAudioPlaying = true
             view.renderNowPlaying(.external(browser))
