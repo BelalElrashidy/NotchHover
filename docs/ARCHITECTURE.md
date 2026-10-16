@@ -144,9 +144,15 @@ Two rules worth preserving:
 - **One bus.** Anything momentary — volume, brightness, battery, a notification, a timer
   finishing — is posted to `ActivityCenter` and surfaces in the resting bar.
 - **Two answers to "is something playing".** `NowPlayingPoller` knows what Spotify and
-  Music are doing. `AudioActivityMonitor` only knows whether sound is leaving the default
-  output device — which is the half that covers a video in a browser, a call, a game.
-  The bar shows up for either; only the poller can name a track.
+  Music are doing. `AudioActivityMonitor` covers everything else — a video in a browser,
+  a call, a game — and is stricter than "the output device is running", because that
+  alone lies: macOS's own `corespeechd` holds the output open in silence, and Safari's
+  audio helper went on holding it for two minutes after its last window closed. So it
+  counts only an **app** running output, and not a browser last seen with no tabs open.
+  It still can't hear silence: an app that keeps its stream open while idle, like a
+  paused video in an open tab or a chat app, reads as playing. Telling those apart needs
+  either the system audio-recording permission or macOS's private Now Playing state, and
+  neither is used.
 - **Whoever is playing gets shown as itself.** When no player we can talk to owns the
   sound, `AudioSourceProbe` asks CoreAudio which processes are running output and turns
   the first real one into an app: its icon on the resting bar, its name in the panel,

@@ -58,6 +58,14 @@ enum AudioSourceProbe {
                   let bundleIdentifier = app.bundleIdentifier,
                   ignoredBundleIdentifiers.contains(bundleIdentifier) == false else { continue }
 
+            // A browser with nothing open isn't playing, even if its audio helper still
+            // holds the output. Its tabs stay watched, so a window reopened and played
+            // counts again on the next look.
+            if BrowserPageReader.handles(bundleIdentifier) {
+                BrowserPageReader.shared.refresh(for: bundleIdentifier, current: nil) { _ in }
+                if BrowserPageReader.shared.hasNoOpenTabs(bundleIdentifier) { continue }
+            }
+
             return AudioSource(
                 name: app.localizedName ?? bundleIdentifier,
                 bundleIdentifier: bundleIdentifier,

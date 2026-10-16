@@ -218,7 +218,14 @@ final class AudioActivityMonitor {
         var running = UInt32(0)
         var size = UInt32(MemoryLayout<UInt32>.size)
         let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &running)
-        return status == noErr && running != 0
+        guard status == noErr, running != 0 else { return false }
+
+        // The device being busy isn't enough. macOS's own daemons — corespeechd, for
+        // dictation and Siri — hold it open in silence, which lit the resting bar with
+        // nothing playing. Only an app making sound counts. Before 14.4 there is no way
+        // to ask which process holds it, so the device has to do.
+        guard #available(macOS 14.4, *) else { return true }
+        return AudioSourceProbe.current() != nil
     }
 
     private func bind(to device: AudioDeviceID?) {

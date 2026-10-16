@@ -77,6 +77,24 @@ final class BrowserPageReader {
     /// last answer from the main thread must never wait behind a parse in flight.
     private let lock = NSLock()
     private var cache: [String: (modified: Date, page: BrowserPage?)] = [:]
+    /// Browsers last seen with nothing open. Safari's audio helper went on holding the
+    /// sound output for two minutes after its last window closed; a browser with no
+    /// tabs can't be playing, whatever its helper is doing.
+    private var withoutTabs: Set<String> = []
+
+    /// Whether this browser was last seen with no tabs open at all. Unknown counts as
+    /// open: a browser that won't say is never ruled out.
+    func hasNoOpenTabs(_ bundleIdentifier: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return withoutTabs.contains(bundleIdentifier)
+    }
+
+    private func setHasOpenTabs(_ hasOpenTabs: Bool, for bundleIdentifier: String) {
+        lock.lock()
+        if hasOpenTabs { withoutTabs.remove(bundleIdentifier) } else { withoutTabs.insert(bundleIdentifier) }
+        lock.unlock()
+    }
 
     /// What was read last time, if anything. Cheap, and safe on the main thread.
     func cachedPage(for bundleIdentifier: String) -> BrowserPage? {
@@ -104,7 +122,7 @@ final class BrowserPageReader {
                 if let cached, Date().timeIntervalSince(cached.modified) < Self.safariInterval {
                     page = cached.page
                 } else {
-                    page = Self.safariPage(bundleIdentifier: bundleIdentifier)
+                    page = self.safariPage(bundleIdentifier: bundleIdentifier)
                     self.store(page, modified: Date(), for: bundleIdentifier)
                 }
             } else {
@@ -115,7 +133,9 @@ final class BrowserPageReader {
                     // answer changed. This is the usual case: it saves every few seconds.
                     page = cached.page
                 } else {
-                    page = Self.playingPage(in: url)
+                    let read = Self.playingPage(in: url)
+                    page = read.page
+                    self.setHasOpenTabs(read.hasOpenTabs, for: bundleIdentifier)
                     self.store(page, modified: modified, for: bundleIdentifier)
                 }
             }
@@ -135,10 +155,24 @@ final class BrowserPageReader {
 
     /// Every tab's address and title, and which tab is in front. Missing values — an
     /// empty tab, a window still loading — are skipped rather than failing the lot.
+    /// Runs the Safari script and reports exactly what came back: --safari-selftest.
+    static func diagnoseSafari() -> String {
+        guard let script = NSAppleScript(source: safariScript("com.apple.Safari")) else { return "script did not compile" }
+        var error: NSDictionary?
+        let result = script.executeAndReturnError(&error)
+        if let error { return "error: \(error)" }
+        let text = result.stringValue ?? "<no string>"
+        let lines = text.components(separatedBy: "\n")
+        return "reply: \(lines.count) line(s); first \(lines.first.map { $0.isEmpty ? "<empty>" : "<\($0.count) chars>" } ?? "-"); descriptor type \(result.descriptorType)"
+    }
+
     private static func safariScript(_ bundleIdentifier: String) -> String {
         """
         if application id "\(bundleIdentifier)" is not running then return ""
         tell application id "\(bundleIdentifier)"
+            -- Outside any try: if Safari refuses to answer, that has to surface as an
+            -- error, not pass for a Safari with nothing open.
+            if (count of windows) is 0 then return "\(noWindowsMarker)"
             set frontAddress to ""
             try
                 set frontAddress to URL of current tab of front window
@@ -158,17 +192,29 @@ final class BrowserPageReader {
 
     /// Safari keeps no record of when a tab was last looked at, so a media site wins,
     /// the one in front first; failing that, whatever is in front.
-    private static func safariPage(bundleIdentifier: String) -> BrowserPage? {
-        guard let script = NSAppleScript(source: safariScript(bundleIdentifier)) else { return nil }
+    private static let noWindowsMarker = "NOTCHHOVER-NO-WINDOWS"
+
+    private func safariPage(bundleIdentifier: String) -> BrowserPage? {
+        guard let script = NSAppleScript(source: Self.safariScript(bundleIdentifier)) else { return nil }
         var error: NSDictionary?
         let result = script.executeAndReturnError(&error)
         if let error {
-            // Automation declined, most likely: the browser's own icon will do.
+            // Automation declined, most likely: the browser's own icon will do, and with
+            // nothing known about its tabs it is not ruled out as playing.
             Log.system.notice("Safari tabs unavailable: \(error[NSAppleScript.errorNumber] as? Int ?? 0, privacy: .public)")
+            setHasOpenTabs(true, for: bundleIdentifier)
             return nil
         }
 
-        let lines = (result.stringValue ?? "").components(separatedBy: "\n")
+        let reply = result.stringValue ?? ""
+        let hasWindows = reply != Self.noWindowsMarker
+        setHasOpenTabs(hasWindows, for: bundleIdentifier)
+        guard hasWindows else {
+            Log.system.notice("Safari: no windows open")
+            return nil
+        }
+
+        let lines = reply.components(separatedBy: "\n")
         guard let frontAddress = lines.first else { return nil }
 
         let tabs: [BrowserPage] = lines.dropFirst().compactMap { line in
@@ -180,7 +226,7 @@ final class BrowserPageReader {
         }
 
         let frontHost = URL(string: frontAddress)?.host
-        let media = tabs.filter { isMediaHost($0.host) }
+        let media = tabs.filter { Self.isMediaHost($0.host) }
         let page = media.first { $0.host == frontHost } ?? media.first ?? tabs.first { $0.host == frontHost }
         // Hosts and counts only — enough to see why a page was or wasn't chosen.
         Log.system.notice("Safari: \(tabs.count, privacy: .public) tab(s), \(media.count, privacy: .public) on media sites, front \(frontHost ?? "none", privacy: .public) → \(page?.host ?? "no page", privacy: .public)")
@@ -211,24 +257,25 @@ final class BrowserPageReader {
             }
     }
 
-    private static func playingPage(in url: URL) -> BrowserPage? {
+    private static func playingPage(in url: URL) -> (page: BrowserPage?, hasOpenTabs: Bool) {
         guard let json = readSessionStore(at: url),
-              let windows = json["windows"] as? [[String: Any]] else { return nil }
+              let windows = json["windows"] as? [[String: Any]] else { return (nil, true) }
 
         let tabs = windows.flatMap { $0["tabs"] as? [[String: Any]] ?? [] }
         let candidates = tabs.compactMap(tab(from:))
+        guard tabs.isEmpty == false else { return (nil, false) }
 
         // A media site wins outright; otherwise the tab touched most recently, as long
         // as that was recent enough to plausibly be what started the sound.
         if let media = candidates
             .filter({ isMediaHost($0.page.host) })
             .max(by: { $0.lastAccessed < $1.lastAccessed }) {
-            return media.page
+            return (media.page, true)
         }
 
         guard let latest = candidates.max(by: { $0.lastAccessed < $1.lastAccessed }),
-              Date().timeIntervalSince(latest.lastAccessed) < staleAfter else { return nil }
-        return latest.page
+              Date().timeIntervalSince(latest.lastAccessed) < staleAfter else { return (nil, true) }
+        return (latest.page, true)
     }
 
     private static func tab(from tab: [String: Any]) -> (page: BrowserPage, lastAccessed: Date)? {

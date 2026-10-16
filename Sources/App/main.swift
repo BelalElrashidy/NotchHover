@@ -16,6 +16,20 @@ if CommandLine.arguments.contains("--gesture-selftest") {
     GestureSelfTest.run()
 }
 
+// What Safari's tab script really returns, under this app's own permissions.
+if CommandLine.arguments.contains("--safari-selftest") {
+    app.setActivationPolicy(.prohibited)
+    FileHandle.standardError.write(Data(("safari, main thread: " + BrowserPageReader.diagnoseSafari() + "\n").utf8))
+    // The app runs the lookup on a background queue; check that path gets the same answer.
+    let done = DispatchSemaphore(value: 0)
+    DispatchQueue(label: "safari-selftest", qos: .utility).async {
+        FileHandle.standardError.write(Data(("safari, background queue: " + BrowserPageReader.diagnoseSafari() + "\n").utf8))
+        done.signal()
+    }
+    done.wait()
+    exit(0)
+}
+
 let appDelegate = AppDelegate()
 
 app.delegate = appDelegate
