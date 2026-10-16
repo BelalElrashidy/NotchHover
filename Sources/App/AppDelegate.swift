@@ -55,6 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         batteryMonitor?.start()
         brightnessMonitor = BrightnessMonitor(activityCenter: activityCenter)
         brightnessMonitor?.start()
+        DeviceBatteryMonitor.shared.announce(to: activityCenter)
+        DeviceBatteryMonitor.shared.start()
 
         NotificationCenter.default.addObserver(
             forName: .notchHoverOpenSettings,
@@ -150,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         volumeMonitor?.stop()
         batteryMonitor?.stop()
         brightnessMonitor?.stop()
+        DeviceBatteryMonitor.shared.stop()
         notchController?.stop()
     }
 }

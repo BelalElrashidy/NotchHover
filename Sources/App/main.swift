@@ -36,6 +36,12 @@ if CommandLine.arguments.contains("--calendar-selftest") {
     CalendarSelfTest.run()
 }
 
+// Accessory battery parsing and announcements: --devices-selftest
+if CommandLine.arguments.contains("--devices-selftest") {
+    app.setActivationPolicy(.prohibited)
+    DevicesSelfTest.run()
+}
+
 let appDelegate = AppDelegate()
 
 app.delegate = appDelegate

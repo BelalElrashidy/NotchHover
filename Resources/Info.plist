@@ -30,6 +30,8 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>NotchHover controls playback in Spotify and Music, and asks Safari which page is playing so the notch can name it.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>NotchHover shows the battery of your AirPods and other Bluetooth accessories. Nothing leaves your Mac.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>NotchHover shows your next calendar events in the notch.</string>
 	<key>NSCameraUsageDescription</key>

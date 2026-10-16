@@ -15,6 +15,7 @@ enum PanelWidget: String, CaseIterable {
     case mirror
     case notes
     case clipboard
+    case devices
 
     var title: String {
         switch self {
@@ -30,6 +31,7 @@ enum PanelWidget: String, CaseIterable {
         case .mirror: return "Mirror"
         case .notes: return "Quick notes"
         case .clipboard: return "Clipboard"
+        case .devices: return "Batteries"
         }
     }
 
@@ -47,6 +49,7 @@ enum PanelWidget: String, CaseIterable {
         case .mirror: return "video"
         case .notes: return "note.text"
         case .clipboard: return "doc.on.clipboard"
+        case .devices: return "battery.75percent"
         }
     }
 
@@ -63,6 +66,7 @@ enum PanelWidget: String, CaseIterable {
         case .mirror: return 150
         case .notes: return 170
         case .clipboard: return 190
+        case .devices: return 140
         }
     }
 
@@ -82,6 +86,7 @@ enum PanelWidget: String, CaseIterable {
         case .mirror: return 200
         case .notes: return 240
         case .clipboard: return 280
+        case .devices: return 180
         }
     }
 
@@ -91,7 +96,7 @@ enum PanelWidget: String, CaseIterable {
         case .media: return 1.4
         case .calendar, .notifications, .system: return 1
         case .tray, .playlists, .shortcuts, .mirror: return 0.8
-        case .apps, .timer: return 0.4
+        case .apps, .timer, .devices: return 0.4
         case .notes, .clipboard: return 1.2
         }
     }
@@ -111,6 +116,7 @@ enum PanelWidget: String, CaseIterable {
         case .mirror: return 10
         case .clipboard: return 90
         case .notes: return 85
+        case .devices: return 35
         }
     }
 }

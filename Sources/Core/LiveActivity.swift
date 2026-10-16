@@ -10,6 +10,8 @@ enum LiveActivity: Equatable {
     case notification(app: String, title: String)
     /// A call with a link, about to start. The peek has its Join button.
     case meeting(title: String)
+    /// An accessory connected, or running low.
+    case device(DeviceBattery)
 
     /// How long the bar holds it before falling back to now playing.
     var duration: TimeInterval {
@@ -19,6 +21,7 @@ enum LiveActivity: Equatable {
         // Long enough to actually read.
         case .notification: return 4
         case .meeting: return 6
+        case .device: return 3
         case .timer: return 1.2
         }
     }

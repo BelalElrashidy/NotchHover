@@ -238,6 +238,9 @@ final class WidgetRowView: NSView {
             view.onDismiss = callbacks.onDismiss
             return view
 
+        case .devices:
+            return DevicesPaneView()
+
         case .clipboard:
             let view = ClipboardPaneView(isCompact: compact)
             view.onPaste = callbacks.onPasteClipboard

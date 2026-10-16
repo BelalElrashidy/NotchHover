@@ -159,6 +159,12 @@ final class IdleActivityView: NSView {
             levelLabel.stringValue = title
             levelLabel.isHidden = false
             levelBar.isHidden = true
+        case .device(let device):
+            // The icon says which; the slot only has room for the lowest level.
+            activityIcon.image = Style.symbolImage(device.kind.symbol, pointSize: 15)
+            levelLabel.stringValue = device.lowest.map { "\($0)%" } ?? device.caseLevel.map { "\($0)%" } ?? ""
+            levelLabel.isHidden = false
+            levelBar.isHidden = true
         case .meeting(let title):
             activityIcon.image = Style.symbolImage("video.fill", pointSize: 15)
             activityIcon.contentTintColor = Style.accent
