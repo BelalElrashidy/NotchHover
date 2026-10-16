@@ -17,13 +17,14 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/theme-graphite.png" width="720" alt="NotchHover open beneath the notch, showing the player and playlists">
+  <img src="docs/images/theme-graphite.png" width="720" alt="NotchHover open beneath the notch: tabs to the left of the notch, actions to the right, and the player, calendar and controls below">
 </p>
 
 ---
 
 NotchHover turns the dead space around the MacBook notch into a small control surface.
-Hover the notch and a panel grows out of it; move away and it sinks back. While something
+Hover the notch and a panel grows out of it — Home, Shelf and Notes to the left of the
+notch, the clipboard, mirror and settings to its right — and move away and it sinks back. While something
 plays, a slim bar hugs the notch with the artwork and a live meter — and when your volume
 changes or a notification lands, the notch pops to show it.
 
@@ -43,7 +44,8 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - The resting bar takes a breath when something starts playing
 
 **Getting things done**
-- **Shelf** — drop files on the notch to hold them, drag them out later, or AirDrop them
+- **Shelf** — drop files on the notch to hold them, beside your most recent clips; drag
+  them out later, or AirDrop them
 - **Clipboard history** — search, pin and paste back with <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
 - **Quick notes** — <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> to start one, <kbd>⌘</kbd><kbd>↩</kbd> to keep it
 - **Controls** — output volume, microphone gain and mute, display brightness, keyboard backlight
@@ -59,11 +61,11 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 
 <table>
   <tr>
-    <td><img src="docs/images/expanded-page.png" alt="A YouTube video playing in a browser, shown with its title and favicon"></td>
-    <td><img src="docs/images/expanded-clipboard.png" alt="Clipboard history with search"></td>
+    <td><img src="docs/images/expanded-shelf.png" alt="The Shelf: files parked on the notch beside recent clipboard items"></td>
+    <td><img src="docs/images/expanded-notes.png" alt="Quick notes, with saved notes listed beside the editor"></td>
   </tr>
   <tr>
-    <td><img src="docs/images/idle-page.png" alt="The resting bar beside the notch while a video plays"></td>
+    <td><img src="docs/images/expanded-clipboard.png" alt="Searchable clipboard history"></td>
     <td><img src="docs/images/idle-notification.png" alt="A notification popping out of the notch"></td>
   </tr>
 </table>
@@ -162,8 +164,6 @@ How it's put together is written up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 ## Roadmap
 
-- **Navigation beside the notch** — Home, Shelf and Notes as tabs to the left of the
-  notch, actions to the right, and no bar along the bottom
 - **Three sizes** — the resting bar, a glance on hover, and a full panel on click
 - **A command bar** — type to jump, search and run actions, Raycast-style
 - Signed and notarized builds, so the first launch just works

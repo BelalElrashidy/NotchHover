@@ -54,8 +54,9 @@ enum PanelWidget: String, CaseIterable {
     var minWidth: CGFloat {
         switch self {
         case .media: return 150
-        case .system: return 170
-        case .calendar, .notifications: return 160
+        case .system: return 150
+        case .calendar: return 140
+        case .notifications: return 160
         case .tray, .playlists, .shortcuts: return 130
         case .apps: return 110
         case .timer: return 120
@@ -69,8 +70,11 @@ enum PanelWidget: String, CaseIterable {
     var idealWidth: CGFloat {
         switch self {
         case .media: return 250
-        case .system: return 240
-        case .calendar, .notifications: return 230
+        // Home is player, calendar and controls side by side; at their old widths the
+        // panel opened to 860pt, well over half the screen. These keep it near 740.
+        case .system: return 180
+        case .calendar: return 170
+        case .notifications: return 230
         case .tray: return 200
         case .playlists, .shortcuts: return 190
         case .apps: return 180
@@ -130,13 +134,31 @@ enum WidgetSizeClass {
 enum PanelLayoutStore {
     static let defaultsKey = "PanelWidgets"
 
+    /// Bumped when the default Home changes in a way everyone should get once.
+    private static let revisionKey = "PanelWidgetsRevision"
+    private static let revision = 2
+
     static var widgets: [PanelWidget] {
+        // Revision 2: Home became player, calendar and controls when the tabs moved
+        // beside the notch and files and clips got a Shelf of their own. A layout
+        // saved before that is moved over once; anything chosen after is kept.
+        if UserDefaults.standard.integer(forKey: revisionKey) < revision {
+            UserDefaults.standard.set(revision, forKey: revisionKey)
+            UserDefaults.standard.removeObject(forKey: defaultsKey)
+            legacyZoneKeys.forEach(UserDefaults.standard.removeObject(forKey:))
+        }
+
         if let stored = UserDefaults.standard.stringArray(forKey: defaultsKey) {
             let resolved = stored.compactMap(PanelWidget.init(rawValue:))
             return resolved.isEmpty ? defaultWidgets : resolved
         }
-        // Carried over from when the panel had three fixed zones. A position that was
-        // never set keeps its old default; "empty" simply drops out.
+        // Carried over from when the panel had three fixed zones — but only for someone
+        // who actually set one. Without that check the old zones' fallbacks answered
+        // for everybody, and the default below could never be reached.
+        guard legacyZoneKeys.contains(where: { UserDefaults.standard.string(forKey: $0) != nil }) else {
+            return defaultWidgets
+        }
+        // A position that was never set keeps its old default; "empty" drops out.
         let legacy: [(key: String, fallback: PanelWidget)] = [
             ("ZoneLeft", .media), ("ZoneMiddle", .tray), ("ZoneRight", .apps)
         ]
@@ -147,7 +169,9 @@ enum PanelLayoutStore {
         return migrated.isEmpty ? defaultWidgets : migrated
     }
 
-    static let defaultWidgets: [PanelWidget] = [.media, .tray, .apps]
+    static let defaultWidgets: [PanelWidget] = [.media, .calendar, .system]
+
+    private static let legacyZoneKeys = ["ZoneLeft", "ZoneMiddle", "ZoneRight"]
 
     static func set(_ widgets: [PanelWidget]) {
         UserDefaults.standard.set(widgets.map(\.rawValue), forKey: defaultsKey)

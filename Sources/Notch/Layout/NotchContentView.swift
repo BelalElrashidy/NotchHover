@@ -1,8 +1,9 @@
 import AppKit
 
-/// The panel body. A glass slab wraps around the notch — track on the left wing,
-/// controls on the right wing, details underneath — and grows out of the notch.
-/// While something is playing it rests as a slim bar hugging the notch.
+/// The panel body. A glass slab wraps around the notch and grows out of it: the tabs
+/// sit in the wing left of the notch, the actions in the wing to its right, and the
+/// rest of the panel is the view you chose — no bar along the bottom. While something
+/// is playing it rests as a slim bar hugging the notch.
 final class NotchContentView: NSView {
     enum DetailMode {
         case media
@@ -89,11 +90,10 @@ final class NotchContentView: NSView {
     private let detailContainer = NSView()
     private let idleContent: IdleActivityView
 
-    private let miniArtwork = Style.roundedImageView(cornerRadius: 5)
-    private let miniTitle = Style.label(size: 11, weight: .medium)
-    private lazy var miniPlayPause = Style.symbolButton("play.fill", pointSize: 11, target: self, action: #selector(handlePlayPause))
-    private lazy var miniNext = Style.symbolButton("forward.fill", pointSize: 11, target: self, action: #selector(handleNext))
-    private let pendingBadge = Style.badge()
+    private let headerTabs = HeaderTabsView()
+    private let headerActions = HeaderActionsView()
+    /// The artwork for what is playing, kept for the resting bar and the artwork theme.
+    private var artwork: NSImage?
 
     private let mediaDetail = MediaDetailView()
     private lazy var playlistsPane = PlaylistsPaneView()
@@ -133,12 +133,24 @@ final class NotchContentView: NSView {
         onPasteClipboard: { [weak self] item in self?.onPasteClipboard?(item) },
         onDismiss: { [weak self] in self?.onDismiss?() }
     ))
-    private let tabStrip = TabStripView()
+    /// Files beside recent clips: two things you put down to pick up later.
+    private lazy var shelfRow = WidgetRowView(
+        callbacks: WidgetRowView.Callbacks(
+            onPlayPause: {}, onNextTrack: {}, onPreviousTrack: {}, onOpenSource: {},
+            onShuffle: {}, onVolume: { _ in }, onSeek: { _ in }, onPlayURI: { _ in },
+            onSelectShortcut: { _ in }, onStartTimer: { _ in }, onCancelTimer: {},
+            onPasteClipboard: { [weak self] item in self?.onPasteClipboard?(item) },
+            onDismiss: { [weak self] in self?.onDismiss?() }
+        ),
+        widgets: { [.tray, .clipboard] }
+    )
     private let paneContainer = NSView()
+    /// Which view the panel is showing.
+    private(set) var selectedTab: PanelTab = .home
 
     private let notchWidth: CGFloat
     private let bandHeight: CGFloat
-    private var miniArtworkKey: String?
+    private var artworkKey: String?
 
     /// Width the resting bar is holding for the activity currently on it. Nil means
     /// the bar is back to its own size.
@@ -234,54 +246,40 @@ final class NotchContentView: NSView {
         topBand.addSubview(rightWing)
     }
 
+    /// The band beside the notch is the navigation: tabs on the left, actions on the
+    /// right. It used to repeat what was playing — the same title and transport the
+    /// pane underneath already showed.
     private func configureWings() {
-        let leftStack = NSStackView(views: [miniArtwork, miniTitle])
-        leftStack.orientation = .horizontal
-        leftStack.alignment = .centerY
-        leftStack.spacing = 7
-        leftStack.translatesAutoresizingMaskIntoConstraints = false
-        leftWing.addSubview(leftStack)
+        headerTabs.translatesAutoresizingMaskIntoConstraints = false
+        headerTabs.onSelect = { [weak self] tab in self?.show(tab) }
+        leftWing.addSubview(headerTabs)
 
-        let rightStack = NSStackView(views: [pendingBadge, miniPlayPause, miniNext])
-        rightStack.orientation = .horizontal
-        rightStack.alignment = .centerY
-        rightStack.spacing = 12
-        rightStack.translatesAutoresizingMaskIntoConstraints = false
-        rightWing.addSubview(rightStack)
+        headerActions.translatesAutoresizingMaskIntoConstraints = false
+        headerActions.onClipboard = { [weak self] in self?.toggle(.clipboard) }
+        headerActions.onMirror = { [weak self] in self?.toggle(.mirror) }
+        headerActions.onSettings = { [weak self] in self?.onOpenSettings?() }
+        rightWing.addSubview(headerActions)
 
         NSLayoutConstraint.activate([
-            miniArtwork.widthAnchor.constraint(equalToConstant: 18),
-            miniArtwork.heightAnchor.constraint(equalToConstant: 18),
-            // Anchored against the notch, not the slab edges, so the band reads as
-            // part of the notch rather than as clutter spread across the menu bar.
-            leftStack.trailingAnchor.constraint(equalTo: leftWing.trailingAnchor, constant: -12),
-            leftStack.leadingAnchor.constraint(greaterThanOrEqualTo: leftWing.leadingAnchor, constant: 10),
-            leftStack.centerYAnchor.constraint(equalTo: leftWing.centerYAnchor),
-            rightStack.leadingAnchor.constraint(equalTo: rightWing.leadingAnchor, constant: 12),
-            rightStack.trailingAnchor.constraint(lessThanOrEqualTo: rightWing.trailingAnchor, constant: -10),
-            rightStack.centerYAnchor.constraint(equalTo: rightWing.centerYAnchor)
+            // Against the slab's outer edges, the way a window's toolbar sits: the
+            // notch is the gap in the middle, not something to crowd.
+            headerTabs.leadingAnchor.constraint(equalTo: leftWing.leadingAnchor, constant: 14),
+            headerTabs.trailingAnchor.constraint(lessThanOrEqualTo: leftWing.trailingAnchor, constant: -8),
+            headerTabs.centerYAnchor.constraint(equalTo: leftWing.centerYAnchor),
+            headerActions.trailingAnchor.constraint(equalTo: rightWing.trailingAnchor, constant: -14),
+            headerActions.leadingAnchor.constraint(greaterThanOrEqualTo: rightWing.leadingAnchor, constant: 8),
+            headerActions.centerYAnchor.constraint(equalTo: rightWing.centerYAnchor)
         ])
-
-        pendingBadge.isHidden = true
     }
 
+    /// True while the gear's menu is open, so the controller leaves the panel up.
+    var isShowingMenu: Bool { headerActions.isShowingMenu }
+
     private func configureDetail() {
-        // The detail area is a pane plus the strip that switches panes.
-        let tabHeight: CGFloat = 26
-        paneContainer.frame = CGRect(
-            x: 0,
-            y: tabHeight,
-            width: detailContainer.bounds.width,
-            height: detailContainer.bounds.height - tabHeight
-        )
+        // The whole detail area is the pane: navigation lives beside the notch.
+        paneContainer.frame = detailContainer.bounds
         paneContainer.autoresizingMask = [.width, .height]
         detailContainer.addSubview(paneContainer)
-
-        tabStrip.frame = CGRect(x: 10, y: 0, width: detailContainer.bounds.width - 20, height: tabHeight)
-        tabStrip.autoresizingMask = [.width, .maxYMargin]
-        tabStrip.onSelect = { [weak self] tab in self?.show(tab) }
-        tabStrip.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
-        detailContainer.addSubview(tabStrip)
 
         mediaDetail.onShuffle = { [weak self] in self?.onShuffle?() }
         mediaDetail.onVolume = { [weak self] volume in self?.onVolume?(volume) }
@@ -290,9 +288,12 @@ final class NotchContentView: NSView {
         timerPane.onStart = { [weak self] minutes in self?.onStartTimer?(minutes) }
         timerPane.onCancel = { [weak self] in self?.onCancelTimer?() }
         appsPane.onSelect = { [weak self] shortcut in self?.onSelectShortcut?(shortcut) }
-        FileTray.shared.onChange = { [weak self] in
+        // Every display's panel shows the same shelf, so it listens rather than being
+        // the tray's one callback.
+        NotificationCenter.default.addObserver(forName: .fileTrayDidChange, object: nil, queue: .main) { [weak self] _ in
             self?.trayPane.reload()
             self?.widgetRow.reloadTray()
+            self?.shelfRow.reloadTray()
         }
         registerForDraggedTypes([.fileURL])
 
@@ -307,7 +308,7 @@ final class NotchContentView: NSView {
         permissionDetail.onApprove = { [weak self] in self?.onApprove?() }
         permissionDetail.onDeny = { [weak self] in self?.onDeny?() }
 
-        install(mediaDetail)
+        show(.home)
     }
 
     private func install(_ view: NSView) {
@@ -316,17 +317,26 @@ final class NotchContentView: NSView {
         if view !== mirrorPane { mirrorPane.stopIfNeeded() }
         if view !== systemPane { systemPane.stopTracking() }
         if view !== widgetRow { widgetRow.stopTracking() }
+        if view !== shelfRow { shelfRow.stopTracking() }
         view.frame = paneContainer.bounds
         view.autoresizingMask = [.width, .height]
         paneContainer.addSubview(view)
     }
 
-    private func show(_ tab: TabStripView.Tab) {
+    private func show(_ tab: PanelTab) {
         mode = .media
+        selectedTab = tab
+        // Views that aren't tabs leave no tab highlighted; picking one goes back.
+        headerTabs.select(tab, notify: false)
+        headerActions.setOpen(tab)
         switch tab {
         case .home: widgetRow.startTracking(); widgetRow.reloadTray(); install(widgetRow)
+        case .shelf: shelfRow.startTracking(); shelfRow.reloadTray(); install(shelfRow)
         case .clipboard: install(clipboardPane)
-        case .notes: install(notesPane)
+        case .notes:
+            install(notesPane)
+            // Choosing Notes means you are about to write one.
+            DispatchQueue.main.async { [weak self] in self?.notesPane.focus() }
         case .nowPlaying: install(mediaDetail)
         case .playlists: playlistsPane.reload(); install(playlistsPane)
         case .tray: trayPane.reload(); install(trayPane)
@@ -337,6 +347,15 @@ final class NotchContentView: NSView {
         case .notifications: notificationsPane.reload(); install(notificationsPane)
         case .apps: appsPane.reload(); install(appsPane)
         case .mirror: install(mirrorPane)
+        }
+    }
+
+    /// The header's clipboard and mirror buttons: open the view, or, pressed again,
+    /// go back to Home.
+    private func toggle(_ tab: PanelTab) {
+        show(selectedTab == tab ? .home : tab)
+        if tab == .clipboard, selectedTab == .clipboard {
+            DispatchQueue.main.async { [weak self] in self?.clipboardPane.focus() }
         }
     }
 
@@ -396,8 +415,8 @@ final class NotchContentView: NSView {
     }
 
     /// Opens a pane from a keyboard shortcut and puts the cursor where typing starts.
-    func openForTyping(_ tab: TabStripView.Tab) {
-        tabStrip.select(tab)
+    func openForTyping(_ tab: PanelTab) {
+        show(tab)
         DispatchQueue.main.async { [weak self] in
             switch tab {
             case .clipboard: self?.clipboardPane.focus()
@@ -417,8 +436,8 @@ final class NotchContentView: NSView {
     }
 
     /// Preview hook: pick a pane without going through a click.
-    func selectTabForPreview(_ tab: TabStripView.Tab) {
-        tabStrip.select(tab)
+    func selectTabForPreview(_ tab: PanelTab) {
+        show(tab)
         present(.expanded, animated: false)
     }
 
@@ -433,8 +452,8 @@ final class NotchContentView: NSView {
     /// Picks up edited playlists, shortcuts and apps without rebuilding anything.
     /// New banner arrived while the pane is open.
     func refreshNotifications() {
-        if tabStrip.selected == .home { widgetRow.refreshNotifications() }
-        guard tabStrip.selected == .notifications else { return }
+        if selectedTab == .home { widgetRow.refreshNotifications() }
+        guard selectedTab == .notifications else { return }
         notificationsPane.reload()
     }
 
@@ -460,7 +479,8 @@ final class NotchContentView: NSView {
               urls.isEmpty == false else { return false }
 
         FileTray.shared.add(urls)
-        tabStrip.select(.home)
+        // Dropped files land on the Shelf, so that is where the panel opens.
+        show(.shelf)
         onFilesDropped?()
         return true
     }
@@ -550,6 +570,8 @@ final class NotchContentView: NSView {
             ? CAMediaTimingFunction(controlPoints: 0.22, 0.61, 0.36, 1)
             : CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
 
+        if presentation == .expanded { headerActions.refreshBattery() }
+
         let incoming: NSView? = presentation == .expanded ? expandedContent
             : presentation == .idle ? idleContent
             : nil
@@ -620,33 +642,21 @@ final class NotchContentView: NSView {
         switch state {
         case .track(let track):
             hasTrack = true
-            miniTitle.stringValue = track.name
-            miniArtwork.contentTintColor = nil
-            miniPlayPause.image = Style.symbolImage(track.isPlaying ? "pause.fill" : "play.fill", pointSize: 11)
-            setMiniTransportEnabled(true)
-            loadMiniArtwork(track)
-            idleContent.update(artwork: miniArtwork.image, isPlaying: track.isPlaying)
+            loadArtwork(track)
+            idleContent.update(artwork: artwork, isPlaying: track.isPlaying)
 
         case .external(let source):
-            // Whatever is making the sound, shown as itself: the browser's icon for a
-            // video, the app's icon for a call. Nothing here is controllable.
+            // Whatever is making the sound, shown as itself: the site's icon for a video
+            // in a browser, the app's icon for a call. Nothing here is controllable.
             hasTrack = false
-            miniTitle.stringValue = source.displayName
-            miniArtwork.contentTintColor = nil
-            miniArtwork.layer?.backgroundColor = NSColor.clear.cgColor
-            miniArtwork.image = source.displayIcon
-            miniArtworkKey = nil
-            setMiniTransportEnabled(false)
-            idleContent.update(artwork: source.displayIcon, isPlaying: true)
+            artworkKey = nil
+            artwork = source.displayIcon
+            idleContent.update(artwork: artwork, isPlaying: true)
 
-        case .message(let message):
+        case .message:
             hasTrack = false
-            miniTitle.stringValue = message
-            miniArtwork.layer?.backgroundColor = Style.controlFill.cgColor
-            miniArtwork.image = Style.symbolImage("music.note", pointSize: 11)
-            miniArtwork.contentTintColor = Style.tertiaryText
-            miniArtworkKey = nil
-            setMiniTransportEnabled(false)
+            artworkKey = nil
+            artwork = nil
             // Nothing named is playing, but the speakers may still be busy.
             idleContent.update(artwork: nil, isPlaying: isAudioPlaying)
         }
@@ -656,24 +666,16 @@ final class NotchContentView: NSView {
         refreshPanes()
     }
 
-    private func setMiniTransportEnabled(_ isEnabled: Bool) {
-        [miniPlayPause, miniNext].forEach {
-            $0.isEnabled = isEnabled
-            $0.alphaValue = isEnabled ? 1 : 0.3
-        }
-    }
-
-    private func loadMiniArtwork(_ track: TrackInfo) {
+    private func loadArtwork(_ track: TrackInfo) {
         let key = track.artworkURL?.absoluteString ?? "app:\(track.sourceBundleIdentifier)"
-        guard miniArtworkKey != key else { return }
-        miniArtworkKey = key
+        guard artworkKey != key else { return }
+        artworkKey = key
 
         guard let url = track.artworkURL else {
             let icon = NSWorkspace.shared
                 .urlForApplication(withBundleIdentifier: track.sourceBundleIdentifier)
                 .map { NSWorkspace.shared.icon(forFile: $0.path) }
-            miniArtwork.layer?.backgroundColor = NSColor.clear.cgColor
-            miniArtwork.image = icon
+            artwork = icon
             idleContent.update(artwork: icon, isPlaying: track.isPlaying)
             if let icon { applyArtworkTint(from: icon, key: key) }
             return
@@ -681,9 +683,8 @@ final class NotchContentView: NSView {
 
         ArtworkLoader.shared.load(url) { [weak self] image in
             // A later track may have won the race while this download was in flight.
-            guard let self, self.miniArtworkKey == key else { return }
-            self.miniArtwork.layer?.backgroundColor = NSColor.clear.cgColor
-            self.miniArtwork.image = image
+            guard let self, self.artworkKey == key else { return }
+            self.artwork = image
             self.idleContent.update(artwork: image, isPlaying: track.isPlaying)
             if let image { self.applyArtworkTint(from: image, key: key) }
         }
@@ -698,31 +699,33 @@ final class NotchContentView: NSView {
     }
 
     func setPendingCount(_ count: Int) {
-        pendingBadge.stringValue = "\(count)"
-        pendingBadge.isHidden = count == 0
+        headerActions.setPendingCount(count)
     }
 
     func showMedia() {
-        mode = .media
-        tabStrip.select(.home)
+        show(.home)
     }
 
     /// The widget list changed in settings.
     func rebuildZones() {
         widgetRow.rebuild()
-        if tabStrip.selected == .home {
+        if selectedTab == .home {
             install(widgetRow)
         }
     }
 
     func showApp(_ details: AppDetails) {
         mode = .app
+        headerTabs.select(nil, notify: false)
+        headerActions.setOpen(nil)
         appDetail.render(details)
         install(appDetail)
     }
 
     func showPermission(_ request: PermissionRequest, queued: Int) {
         mode = .permission
+        headerTabs.select(nil, notify: false)
+        headerActions.setOpen(nil)
         permissionDetail.render(request: request, queued: queued)
         install(permissionDetail)
     }
@@ -745,7 +748,4 @@ final class NotchContentView: NSView {
     override func mouseExited(with event: NSEvent) {
         onMouseExited?()
     }
-
-    @objc private func handlePlayPause() { onPlayPause?() }
-    @objc private func handleNext() { onNextTrack?() }
 }

@@ -2,7 +2,6 @@ import AppKit
 import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var menuBarController: MenuBarController?
     private var notchController: NotchController?
     private var poller: NowPlayingPoller?
     private var settingsController: SettingsWindowController?
@@ -15,15 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // editing shortcuts — including paste — never reach a text field.
         NSApp.mainMenu = Self.makeMainMenu()
 
-        // One hub keeps every AppleScript call on a single serial queue, and one
-        // poller keeps the menu bar and the notch reading the same tick.
+        // One hub keeps every AppleScript call on a single serial queue, and one poller
+        // owns the only timer that reads the player.
         let mediaController = MediaHub()
         let poller = NowPlayingPoller(mediaController: mediaController)
         self.poller = poller
 
-        menuBarController = MenuBarController(mediaController: mediaController, poller: poller)
-        menuBarController?.onOpenSettings = { [weak self] in self?.showSettings() }
-        menuBarController?.start()
 
         let activityCenter = ActivityCenter()
         notchController = NotchController(
@@ -71,6 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showSettings()
         }
 
+        // There is no Dock icon and no menu bar icon, so on the very first launch the
+        // notch opens for a moment to say where the app lives.
+        let isSelfTest = CommandLine.arguments.contains { $0.hasSuffix("-selftest") }
+        if isSelfTest == false, UserDefaults.standard.bool(forKey: "HasIntroduced") == false {
+            UserDefaults.standard.set(true, forKey: "HasIntroduced")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.notchController?.introduce()
+            }
+        }
+
         if CommandLine.arguments.contains("--animation-selftest") {
             AnimationSelfTest.run()
             return
@@ -114,6 +120,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return mainMenu
     }
 
+    /// Opening the app again — from Finder, Spotlight or Launchpad — while it is already
+    /// running shows Settings. With no icon anywhere, that is the way back in.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return true
+    }
+
     @objc private func handleSettingsMenu() {
         showSettings()
     }
@@ -133,7 +146,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         volumeMonitor?.stop()
         batteryMonitor?.stop()
         brightnessMonitor?.stop()
-        menuBarController?.stop()
         notchController?.stop()
     }
 }

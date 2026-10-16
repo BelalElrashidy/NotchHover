@@ -93,6 +93,11 @@ final class NotchController {
         return panel.firstResponder is NSTextView
     }
 
+    /// Reasons the open panel stays open whatever the pointer does.
+    private var isHeldOpen: Bool {
+        isPinned || isEditingText || contentView?.isShowingMenu == true
+    }
+
     init(
         mediaController: MediaControlling,
         poller: NowPlayingPoller,
@@ -306,7 +311,7 @@ final class NotchController {
     }
 
     private func scheduleHide() {
-        guard hideWorkItem == nil, isPinned == false, isEditingText == false else { return }
+        guard hideWorkItem == nil, isHeldOpen == false else { return }
 
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -315,9 +320,7 @@ final class NotchController {
             // Re-check: the pointer may have come back during the grace period.
             let location = NSEvent.mouseLocation
             let liveArea = (self.panel?.frame ?? .zero).union(self.geometry?.hoverRect ?? .zero)
-            guard liveArea.containsPointer(location) == false,
-                  self.isPinned == false,
-                  self.isEditingText == false else { return }
+            guard liveArea.containsPointer(location) == false, self.isHeldOpen == false else { return }
 
             self.collapse()
         }
@@ -364,8 +367,22 @@ final class NotchController {
         expand(display)
     }
 
+    /// Opens the notch for a moment on the main display, then lets it settle — the
+    /// first launch's only sign of life, since there is no Dock or menu bar icon.
+    func introduce() {
+        if displays.isEmpty { syncDisplays() }
+        guard let screen = NSScreen.main, let display = display(for: screen) else { return }
+        expand(display)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, self.active === display, self.isHeldOpen == false else { return }
+            let pointer = NSEvent.mouseLocation
+            guard display.panel.frame.union(display.geometry.hoverRect).containsPointer(pointer) == false else { return }
+            self.collapse()
+        }
+    }
+
     /// Opens straight to a pane from a keyboard shortcut, ready to type.
-    func open(_ tab: TabStripView.Tab) {
+    func open(_ tab: PanelTab) {
         Log.ui.info("Opening \(String(describing: tab), privacy: .public) from shortcut")
         ensureExpanded()
         guard let panel, let contentView else { return }

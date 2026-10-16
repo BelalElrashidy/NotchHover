@@ -1,12 +1,18 @@
 import AppKit
 
+extension Notification.Name {
+    /// The shelf's files changed. A notification rather than a callback because every
+    /// display's panel shows the same shelf, and a single callback only reached the
+    /// last one built.
+    static let fileTrayDidChange = Notification.Name("NotchHoverFileTrayDidChange")
+}
+
 /// Files parked on the notch. Nothing is copied — the tray holds references, and
 /// clearing it never touches the originals.
 final class FileTray {
     static let shared = FileTray()
 
     private(set) var items: [URL] = []
-    var onChange: (() -> Void)?
 
     private let maximumItems = 12
 
@@ -18,17 +24,17 @@ final class FileTray {
             items = Array(items.prefix(maximumItems))
         }
         Log.system.notice("Tray now holds \(self.items.count, privacy: .public) item(s)")
-        onChange?()
+        NotificationCenter.default.post(name: .fileTrayDidChange, object: self)
     }
 
     func remove(_ url: URL) {
         items.removeAll { $0 == url }
-        onChange?()
+        NotificationCenter.default.post(name: .fileTrayDidChange, object: self)
     }
 
     func clear() {
         items.removeAll()
-        onChange?()
+        NotificationCenter.default.post(name: .fileTrayDidChange, object: self)
     }
 
     func icon(for url: URL) -> NSImage {

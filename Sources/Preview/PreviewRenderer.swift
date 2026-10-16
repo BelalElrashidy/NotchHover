@@ -97,6 +97,15 @@ enum PreviewRenderer {
             view.selectTabForPreview(.notes)
         }
 
+        write(named: "expanded-shelf", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            FileTray.shared.add([
+                URL(fileURLWithPath: "/System/Applications/Notes.app"),
+                URL(fileURLWithPath: "/etc/hosts")
+            ])
+            view.selectTabForPreview(.shelf)
+        }
+
         write(named: "expanded-tray", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             FileTray.shared.add([

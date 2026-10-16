@@ -42,8 +42,13 @@ final class WidgetRowView: NSView {
     /// Widgets that did not fit, so the panel can say so.
     private(set) var droppedCount = 0
 
-    init(callbacks: Callbacks) {
+    /// Where the widget list comes from: the user's Home layout, unless a pane fixes
+    /// its own — the Shelf is always files beside clips.
+    private let widgetSource: () -> [PanelWidget]
+
+    init(callbacks: Callbacks, widgets: @escaping () -> [PanelWidget] = { PanelLayoutStore.widgets }) {
         self.callbacks = callbacks
+        self.widgetSource = widgets
         super.init(frame: .zero)
         rebuild()
     }
@@ -55,7 +60,7 @@ final class WidgetRowView: NSView {
 
     func rebuild() {
         subviews.forEach { $0.removeFromSuperview() }
-        slots = PanelLayoutStore.widgets.map { widget in
+        slots = widgetSource().map { widget in
             let sizeClass = WidgetSizeClass(width: widget.idealWidth)
             let view = makeView(for: widget, sizeClass: sizeClass)
             addSubview(view)

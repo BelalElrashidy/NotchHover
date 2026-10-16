@@ -60,7 +60,7 @@ The mark is **the Capstone**: an arch held up by a keystone at top-centre — th
 | File | Used as |
 |---|---|
 | `Resources/AppIcon.icon` | App icon, with separate light, dark and tinted appearances |
-| `Resources/MenuBarIcon.png` / `@2x` | Menu-bar status item, as a template image |
+| `Resources/MenuBarIcon.png` / `@2x` | The template mark, kept for when a status item returns; unused today |
 
 `AppIcon.icon` is an Icon Composer bundle, not a single image. Its background and both
 layers (arch, keystone) are specialised per appearance: a light tile with a dark arch,
@@ -107,7 +107,6 @@ Sources/
     Mirror/             webcam preview
     Notes/              quick notes store + editor/list view
     Clipboard/          clipboard history + searchable list view
-  MenuBar/              the status item
   Settings/             settings window, layout editor, sections, themed controls
   Preview/              offscreen renderer and the animation self-test
 ```
@@ -129,14 +128,13 @@ for a view.
 AppDelegate.applicationDidFinishLaunching
   ├── NSApp.mainMenu = …                    Edit menu, or ⌘V never reaches a text field
   ├── MediaHub ───── AppleScriptMediaProvider (Spotify, Music)
-  │     └── NowPlayingPoller ──┬── MenuBarController    (status item text)
-  │                            └── NotchController      (panel contents)
+  │     └── NowPlayingPoller ───── NotchController      (panel contents)
   ├── ActivityCenter ◄── VolumeMonitor / BrightnessMonitor / BatteryMonitor
   │                  ◄── NotificationWatcher / CountdownTimer
   │                       └── NotchController → resting bar
   ├── AudioActivityMonitor ─── NotchController  (is anything playing at all?)
   ├── PermissionBridge ──────── NotchController → approval pane
-  └── SettingsWindowController (lazy, opened from the notch gear or the menu)
+  └── SettingsWindowController (lazy: the notch's gear, ⌘, or reopening the app)
 ```
 
 Two rules worth preserving:
@@ -184,8 +182,19 @@ Two rules worth preserving:
 | `idle` | Slim bar hugging the notch: artwork one side, level meter the other, still until something happens | Anything playing — a track, or audio we can only hear — per the `RestingBar` setting |
 | `expanded` | The full panel | Pointer enters the notch, or a Claude approval arrives |
 
+**Every display has its own notch.** `NotchController` keeps a `NotchDisplay` — panel,
+content view, geometry — per screen, re-synced on `didChangeScreenParametersNotification`.
+What everyone should see (now playing, activities, the timer, the approvals badge) is
+broadcast to all of them; anything interactive goes to the *active* display, the one open
+or last opened. Only one is open at a time. Panels sit at `.mainMenu + 3` and join every
+Space, full-screen ones included — the level and flags Boring Notch and Atoll use.
+
+**There is no Dock icon and no menu bar icon.** The gear in the panel carries Settings and
+Quit; reopening the app from Finder or Spotlight opens Settings; and the very first launch
+opens the notch for three seconds, since nothing else says the app is running.
+
 Hover comes from global and local mouse-move monitors comparing `NSEvent.mouseLocation`
-against `NotchGeometry.hoverRect`. Mouse monitors need no permissions — keyboard ones
+against each display's `NotchGeometry.hoverRect`. Mouse monitors need no permissions — keyboard ones
 would. While resting, the window sets `ignoresMouseEvents` so it never blocks the menu
 bar; it takes clicks only when expanded.
 
@@ -211,11 +220,19 @@ sibling container with identical layout whichever material is chosen.
 
 `NotchContentView` holds two regions:
 
-- the **top band**, with wings either side of the notch (artwork and title left,
-  transport and the approvals badge right), anchored against the notch rather than the
-  slab edges
-- the **detail area**, showing either the widget row (the Home tab) or one widget
-  full-width, chosen from `TabStripView`, which also carries the gear for settings
+- the **header band** beside the notch, which is the navigation. Left: `HeaderTabsView`,
+  a capsule with Home, Shelf and Notes, where only the selected tab is named — three
+  names need ~180pt and the wing has ~140 at the default width. Right:
+  `HeaderActionsView`, with circles for the clipboard and the mirror, the gear, and the
+  battery, which an approvals badge replaces when Claude Code is waiting.
+- the **detail area**, the full height of the rest of the panel: Home's widget row, the
+  Shelf (the same row fixed to files beside recent clips), Notes, or a view reached from
+  the header — the full clipboard, the mirror, an approval.
+
+The band used to repeat what was playing, ~40pt above the pane that already showed it,
+and thirteen unlabelled tabs ran along the bottom edge clipping whatever sat above them.
+The layout follows Boring Notch and Atoll instead: navigation in the wings, no bottom bar,
+and few tabs — everything else is a Home card, a header button or a shortcut.
 
 ### The widget row
 

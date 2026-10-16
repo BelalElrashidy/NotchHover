@@ -146,9 +146,13 @@ final class NotesPaneView: NSView, NSTextViewDelegate {
         updatePlaceholder()
     }
 
-    /// Puts the cursor in the editor, for the keyboard shortcut.
+    /// Puts the cursor in the editor — for the keyboard shortcut, and when the Notes
+    /// tab is chosen, so a note can be typed straight away. The panel has to be the key
+    /// window first, or the keystrokes go to whatever app is in front.
     func focus() {
-        window?.makeFirstResponder(editor)
+        guard let window else { return }
+        window.makeKey()
+        window.makeFirstResponder(editor)
     }
 
     // MARK: - List

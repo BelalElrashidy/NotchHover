@@ -4,9 +4,8 @@ import AppKit
 ///
 /// Typing into a panel that never activates the app is the fragile part of this
 /// whole design — a click has to land on the text view itself for the panel to take
-/// key status, and a zero-height text view makes that silently impossible. This puts
-/// a real panel on screen, sends it real mouse and key events, and reports where
-/// they went.
+/// key status, and anything sitting over it makes that silently impossible. This puts
+/// a real panel on screen, sends it mouse and key events, and reports where they went.
 enum TypingSelfTest {
     private static var retained: [AnyObject] = []
 
@@ -56,7 +55,7 @@ enum TypingSelfTest {
             }
         }
 
-        func check(_ tab: TabStripView.Tab, label: String, then next: @escaping () -> Void) {
+        func check(_ tab: PanelTab, label: String, then next: @escaping () -> Void) {
             content.selectTabForPreview(tab)
             content.layoutSubtreeIfNeeded()
 
@@ -85,7 +84,10 @@ enum TypingSelfTest {
                 }
                 click(target)
                 let responder = panel.firstResponder
-                report("\(label): after click — panel key: \(panel.isKeyWindow), first responder: \(responder.map { String(describing: Swift.type(of: $0)) } ?? "nil")")
+                // Only the first responder is worth reporting. Whether the panel becomes key
+                // can't be tested this way: since macOS 14 a background app only gets key
+                // status from real input, and synthetic events carry none.
+                report("\(label): after click — first responder: \(responder.map { String(describing: Swift.type(of: $0)) } ?? "nil")")
                 type("hello")
                 let typed = textView?.string ?? textField?.stringValue ?? ""
                 report("\(label): after typing — text is \"\(typed)\"")
