@@ -1,0 +1,16 @@
+# Build output
+.build/
+build/
+dist/
+*.zip
+.swiftpm/
+DerivedData/
+xcuserdata/
+
+# macOS
+.DS_Store
+
+# Local tooling
+.claude/settings.local.json
+__pycache__/
+*.pyc

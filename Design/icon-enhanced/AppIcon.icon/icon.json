@@ -1,0 +1,70 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.95686,0.95686,0.96471,1.00000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.16863,0.18039,0.20784,1.00000"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "Keystone",
+      "layers": [
+        {
+          "name": "keystone",
+          "image-name-specializations": [
+            {
+              "value": "keystone.svg"
+            },
+            {
+              "appearance": "dark",
+              "value": "keystone-on-dark.svg"
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.35
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "name": "Arch",
+      "layers": [
+        {
+          "name": "arch",
+          "image-name-specializations": [
+            {
+              "value": "arch-on-light.svg"
+            },
+            {
+              "appearance": "dark",
+              "value": "arch-on-dark.svg"
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.25
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

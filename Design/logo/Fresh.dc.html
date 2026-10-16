@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; }
+    a { color: #e8a33d; } a:hover { color: #f0bb6e; }
+  </style>
+</helmet>
+<div style="padding: 48px 44px 56px; background: #0e0e10; color: #f2f0eb; width: 1040px; box-sizing: border-box">
+
+  <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 36px">
+    <div style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em">Eight different ideas</div>
+    <div style="font-size: 15px; color: #9a978f">Not the notch shape. Different metaphors, different palettes.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 30px 24px">
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #131a2b; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <g transform="translate(100,100)">
+            <path d="M0 -62 L54 -31 L54 0 L0 -31 Z" fill="#f2f0eb"/>
+            <path d="M54 -31 L54 31 L27 47 L27 -16 Z" fill="#c6c3bb"/>
+            <path d="M54 31 L0 62 L-27 47 L27 16 Z" fill="#f2f0eb"/>
+            <path d="M0 62 L-54 31 L-54 0 L0 31 Z" fill="#c6c3bb"/>
+            <path d="M-54 31 L-54 -31 L-27 -47 L-27 16 Z" fill="#f2f0eb"/>
+            <path d="M-54 -31 L0 -62 L27 -47 L-27 -16 Z" fill="#c6c3bb"/>
+          </g>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">1 · Aperture</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">The notch houses the camera. Precise, engineered.<br><span style="color:#6f6d68">Reads as a photo app.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #f4f2ee; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <path d="M0 0 H200 V96 Q100 152 0 96 Z" fill="#17171a"/>
+          <circle cx="100" cy="112" r="26" fill="#17171a"/>
+          <circle cx="109" cy="104" r="8" fill="#f4f2ee"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">2 · Peek</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">An eyelid lifting. Hover to reveal, literally.<br><span style="color:#6f6d68">Cute; may read as surveillance.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #c2602f; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <path d="M66 0 H134 V150 L100 122 L66 150 Z" fill="#f7f1e6"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">3 · Ribbon</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">A bookmark hanging from the top edge. Warm, physical.<br><span style="color:#6f6d68">Bookmarking is not what it does.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #26262b; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <rect x="0" y="0" width="200" height="70" fill="#1a1a1e"/>
+          <rect x="58" y="86" width="84" height="26" rx="13" fill="#f2f0eb"/>
+          <rect x="72" y="130" width="56" height="10" rx="5" fill="#f2f0eb" opacity="0.35"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">4 · Pull</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">A drawer handle under a lip. Invites the gesture.<br><span style="color:#6f6d68">Quiet — easy to miss in a Dock.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #000; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <circle cx="100" cy="88" r="30" fill="#f2f0eb"/>
+          <path d="M86 108 L114 108 L124 150 L76 150 Z" fill="#f2f0eb"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">5 · Keyhole</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">Everything stays on your machine. States the promise.<br><span style="color:#6f6d68">Says security app, not utility.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #10322c; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <ellipse cx="100" cy="150" rx="46" ry="11" fill="#0a221e"/>
+          <rect x="56" y="52" width="88" height="66" rx="22" fill="#f2f0eb"/>
+          <rect x="76" y="76" width="48" height="8" rx="4" fill="#10322c"/>
+          <rect x="76" y="92" width="30" height="8" rx="4" fill="#10322c" opacity="0.5"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">6 · Hover</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">A panel floating above its own shadow. Names the app.<br><span style="color:#6f6d68">Generic card shape.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #0d0d0f; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <rect x="26" y="74" width="148" height="52" rx="18" fill="#1d1d22"/>
+          <path d="M52 88 L68 100 L52 112" fill="none" stroke="#7dd3fc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="84" y="86" width="8" height="28" rx="4" fill="#f2f0eb"/>
+          <rect x="104" y="94" width="46" height="12" rx="6" fill="#f2f0eb" opacity="0.28"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">7 · Command</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">A prompt with a caret. Speaks to the Claude Code side.<br><span style="color:#6f6d68">Looks like a terminal tool.</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px">
+      <div style="width: 100%; aspect-ratio: 1; border-radius: 44px; background: #3b2a4d; overflow: hidden">
+        <svg viewBox="0 0 200 200" style="width: 100%; height: 100%">
+          <path d="M28 0 A72 72 0 0 0 172 0" fill="none" stroke="#f2f0eb" stroke-width="16" stroke-linecap="round"/>
+          <path d="M52 0 A48 48 0 0 0 148 0" fill="none" stroke="#f2f0eb" stroke-width="16" stroke-linecap="round" opacity="0.62"/>
+          <path d="M76 0 A24 24 0 0 0 124 0" fill="none" stroke="#f2f0eb" stroke-width="16" stroke-linecap="round" opacity="0.34"/>
+          <circle cx="100" cy="150" r="13" fill="#f2f0eb"/>
+        </svg>
+      </div>
+      <div style="font-size: 15px; font-weight: 500">8 · Emanate</div>
+      <div style="font-size: 12px; color: #9a978f; line-height: 1.5">Ripples spreading from the top edge. Activity, not audio.<br><span style="color:#6f6d68">Abstract — teaches nothing.</span></div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1040,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

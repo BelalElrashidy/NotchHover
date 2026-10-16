@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Capstone.dc.html", "x": 0, "y": 0, "w": 1180, "h": 820 },
+    { "file": "CapstoneSizes.dc.html", "x": 1240, "y": 0, "w": 760, "h": 900 },
+    { "file": "Fresh.dc.html", "x": 0, "y": 1000, "w": 1040, "h": 700 },
+    { "file": "Refined.dc.html", "x": 1100, "y": 1000, "w": 1000, "h": 1080 },
+    { "file": "Main.dc.html", "x": 2160, "y": 1000, "w": 1000, "h": 760 },
+    { "file": "Sizes.dc.html", "x": 2160, "y": 1820, "w": 820, "h": 560 }
+  ],
+  "annotations": [
+    { "id": "capstone-note", "x": 0, "y": -120, "w": 480, "text": "Nine takes on your Capstone, all keeping the keystone-at-top-centre idea.\nSizes board on the right shows each at 64, 32 and 16px. Earlier rounds are parked below." }
+  ],
+  "launch": { "view": "focused", "file": "Capstone.dc.html" }
+}

@@ -1,0 +1,299 @@
+import AppKit
+
+/// Renders the panel to PNGs so layout can be checked without a screen recording.
+/// Liquid Glass is a live effect and cannot be captured offscreen, so the slab is
+/// filled with a flat stand-in here — geometry and content are what this verifies.
+enum PreviewRenderer {
+    static func render(to directory: String) {
+        GlassCardView.usesLiveGlass = false
+
+        let notchWidth: CGFloat = 179
+        let notchHeight: CGFloat = 32
+
+        let track = TrackInfo(
+            name: "Everything In Its Right Place",
+            artist: "Radiohead",
+            isPlaying: true,
+            artworkURL: nil,
+            sourceName: "Spotify",
+            sourceBundleIdentifier: "com.spotify.client",
+            position: 74,
+            duration: 251,
+            volume: 65,
+            isShuffling: true
+        )
+
+        write(named: "expanded-media", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.expanded, animated: false)
+        }
+
+        write(named: "expanded-permission", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.setPendingCount(2)
+            view.showPermission(
+                PermissionRequest(
+                    toolName: "Bash",
+                    detail: "rm -rf build && swift build -c release",
+                    cwd: "/Users/you/Coding/Notch-Hover/NotchHover",
+                    responder: { _ in }
+                ),
+                queued: 1
+            )
+            view.present(.expanded, animated: false)
+        }
+
+        write(named: "expanded-app", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            let shortcut = AppShortcutStore.shortcuts().first
+            guard let shortcut else { return }
+            view.showApp(AppDetails(
+                shortcut: shortcut,
+                statusText: "2 sessions active",
+                lines: [
+                    AppDetailLine(label: "Desktop", value: "Running"),
+                    AppDetailLine(label: "Code sessions", value: "2 running"),
+                    AppDetailLine(label: "Project", value: "NotchHover"),
+                    AppDetailLine(label: "Approvals", value: "Ready")
+                ]
+            ))
+            view.present(.expanded, animated: false)
+        }
+
+        for theme in Theme.all {
+            ThemeStore.override = theme
+            write(named: "theme-\(theme.id)", directory: directory) { view in
+                view.renderNowPlaying(.track(track))
+                view.selectTabForPreview(.home)
+            }
+        }
+        ThemeStore.override = nil
+
+        let now = Date()
+        NotesStore.shared.loadSample([
+            Note(id: UUID(), text: "Ask about the Q3 hardware budget", created: now, updated: now.addingTimeInterval(-120), isPinned: true),
+            Note(id: UUID(), text: "Flight BA 117 — gate closes 18:40", created: now, updated: now.addingTimeInterval(-3600), isPinned: false),
+            Note(id: UUID(), text: "brew install --cask iina", created: now, updated: now.addingTimeInterval(-86400), isPinned: false)
+        ])
+        func sample(_ kind: ClipboardItem.Kind, _ text: String?, _ app: String, _ ago: TimeInterval, pinned: Bool = false, files: [String]? = nil) -> ClipboardItem {
+            ClipboardItem(id: UUID(), kind: kind, text: text, filePaths: files, imageFileName: nil, imageWidth: nil, imageHeight: nil,
+                          sourceBundleIdentifier: nil, sourceName: app, copied: now.addingTimeInterval(-ago), isPinned: pinned, copyCount: 1)
+        }
+        ClipboardHistory.shared.loadSample([
+            sample(.text, "git rebase -i HEAD~3", "Terminal", 30, pinned: true),
+            sample(.link, "https://developer.apple.com/documentation/appkit/nspanel", "Safari", 240),
+            sample(.text, "Thanks — that works for me, let's lock in Thursday.", "Mail", 900),
+            sample(.file, nil, "Finder", 3000, files: ["/Users/you/Desktop/Invoice-0421.pdf"]),
+            sample(.text, "#D9622F", "Figma", 7200)
+        ])
+
+        write(named: "expanded-clipboard", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.clipboard)
+        }
+
+        write(named: "expanded-notes", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.notes)
+        }
+
+        write(named: "expanded-tray", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            FileTray.shared.add([
+                URL(fileURLWithPath: "/System/Applications/Notes.app"),
+                URL(fileURLWithPath: "/etc/hosts")
+            ])
+            view.selectTabForPreview(.tray)
+        }
+
+        write(named: "expanded-timer", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.timer)
+            view.updateTimer(remaining: 305)
+        }
+
+        write(named: "expanded-system", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.system)
+        }
+
+        write(named: "idle", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.idle, animated: false)
+        }
+
+        // The resting bar holding a system event: it sizes itself to what it has to say.
+        write(named: "idle-notification", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.idle, animated: false)
+            view.showActivity(.notification(app: "Messages", title: "Are we still on for six?"))
+        }
+
+        write(named: "idle-volume", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.idle, animated: false)
+            view.showActivity(.volume(level: 0.4, isMuted: false))
+        }
+
+        // Something playing that no player we can talk to owns — a video in a browser.
+        // All we have is the app it is coming from, so that is what is shown.
+        let external = AudioSource(name: "Safari", bundleIdentifier: "com.apple.Safari", processIdentifier: 0)
+
+        write(named: "idle-audio", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(external))
+            view.present(.idle, animated: false)
+        }
+
+        // A page playing in a browser: shown as the site, with the favicon the browser
+        // already had on disk. The icon here is drawn rather than borrowed, so the
+        // preview looks the same on every machine.
+        let page = BrowserPage(title: "Ambient mix — three hours", host: "www.youtube.com", iconData: swatch())
+        let browser = AudioSource(name: "Safari", bundleIdentifier: "com.apple.Safari", processIdentifier: 0, page: page)
+
+        write(named: "idle-page", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(browser))
+            view.present(.idle, animated: false)
+        }
+
+        write(named: "expanded-page", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(browser))
+            view.selectTabForPreview(.nowPlaying)
+        }
+
+        write(named: "expanded-external", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(external))
+            view.selectTabForPreview(.nowPlaying)
+        }
+    }
+
+    /// Stand-in favicon bytes for the previews: a plain rounded square, so nothing
+    /// depends on what happens to be open on the machine rendering them.
+    private static func swatch() -> Data? {
+        let size = NSSize(width: 64, height: 64)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor(calibratedRed: 0.85, green: 0.16, blue: 0.16, alpha: 1).setFill()
+        NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: 14, yRadius: 14).fill()
+        image.unlockFocus()
+        guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
+        return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// A thumbnail of the panel in a given theme, for the settings window's live preview.
+    static func snapshot(theme: Theme, width: CGFloat) -> NSImage? {
+        let previousOverride = ThemeStore.override
+        let previousGlass = GlassCardView.usesLiveGlass
+        ThemeStore.override = theme
+        GlassCardView.usesLiveGlass = false
+        defer {
+            ThemeStore.override = previousOverride
+            GlassCardView.usesLiveGlass = previousGlass
+        }
+
+        let view = NotchContentView(notchWidth: 179, notchHeight: 32)
+        view.renderNowPlaying(.track(TrackInfo(
+            name: "Everything In Its Right Place",
+            artist: "Radiohead",
+            isPlaying: true,
+            artworkURL: nil,
+            sourceName: "Spotify",
+            sourceBundleIdentifier: "com.spotify.client",
+            position: 74,
+            duration: 251,
+            volume: 65,
+            isShuffling: true
+        )))
+        view.selectTabForPreview(.home)
+        view.layoutSubtreeIfNeeded()
+
+        let full = render(view: view, margin: 12)
+        let scale = width / full.size.width
+        let target = NSSize(width: width, height: (full.size.height * scale).rounded())
+        let scaled = NSImage(size: target)
+        scaled.lockFocus()
+        full.draw(in: NSRect(origin: .zero, size: target))
+        scaled.unlockFocus()
+        return scaled
+    }
+
+    private static func write(named name: String, directory: String, configure: (NotchContentView) -> Void) {
+        let view = NotchContentView(notchWidth: 179, notchHeight: 32)
+        configure(view)
+        view.layoutSubtreeIfNeeded()
+
+        let image = render(view: view, margin: 30)
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+
+        let url = URL(fileURLWithPath: directory).appendingPathComponent("\(name).png")
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try png.write(to: url)
+            print("wrote \(url.path)")
+        } catch {
+            // Silently claiming success sent me chasing a file that was never written.
+            print("failed \(url.path): \(error.localizedDescription)")
+        }
+    }
+
+    private static func render(view: NotchContentView, margin: CGFloat) -> NSImage {
+        let canvas = NSSize(width: view.bounds.width + margin * 2, height: view.bounds.height + margin * 2)
+        let image = NSImage(size: canvas)
+
+        image.lockFocus()
+        // Stand-in desktop so the slab's edges are visible.
+        NSGradient(colors: [
+            NSColor(calibratedRed: 0.16, green: 0.20, blue: 0.30, alpha: 1),
+            NSColor(calibratedRed: 0.36, green: 0.30, blue: 0.42, alpha: 1)
+        ])?.draw(in: NSRect(origin: .zero, size: canvas), angle: 70)
+
+        let card = view.card
+        let cardRect = CGRect(
+            x: card.frame.minX + margin,
+            y: card.frame.minY + margin,
+            width: card.frame.width,
+            height: card.frame.height
+        )
+        let shapeRect = card.shapeRect.offsetBy(dx: cardRect.minX, dy: cardRect.minY)
+        let path = NSBezierPath(cgPath: NotchShape.path(in: shapeRect, bottomRadius: card.bottomRadius))
+        // Glass cannot be captured offscreen, so it gets a flat stand-in.
+        switch ThemeStore.active.surface {
+        case .solid(let color): color.setFill()
+        case .glass: NSColor.black.withAlphaComponent(0.32).setFill()
+        }
+        path.fill()
+
+        // Draw the tree straight into the canvas: the cache rep comes back opaque,
+        // which would paint a white block over the slab.
+        let content = card.contentContainer
+        if let context = NSGraphicsContext.current {
+            NSGraphicsContext.saveGraphicsState()
+            // Clip exactly as the live mask does, so clipped content shows up here.
+            path.addClip()
+            context.cgContext.translateBy(x: cardRect.minX + NotchShape.topFlare, y: cardRect.minY)
+            content.displayIgnoringOpacity(content.bounds, in: context)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+
+        // Mark where the physical notch sits, since it is invisible in a render.
+        let notch = NSRect(
+            x: margin + (view.bounds.width - view.notchSpan) / 2,
+            y: margin + view.bounds.height - 32,
+            width: view.notchSpan,
+            height: 32
+        )
+        NSColor.black.withAlphaComponent(0.85).setFill()
+        NSBezierPath(rect: notch).fill()
+
+        image.unlockFocus()
+        return image
+    }
+}
