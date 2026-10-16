@@ -56,6 +56,12 @@ final class IdleActivityView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Purely something to look at. This view spans the whole card and sits above the
+    /// panel's content, and while the panel is open it is only faded out — which AppKit
+    /// does not count when hit-testing. Left alone it swallowed every click in the open
+    /// panel, which is why the notes editor could never be clicked into.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
     override func layout() {
         super.layout()
 

@@ -76,6 +76,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        if CommandLine.arguments.contains("--typing-selftest") {
+            TypingSelfTest.run()
+            return
+        }
+
         if CommandLine.arguments.contains("--settings-selftest") {
             showSettings()
             settingsController?.runSelfTest()

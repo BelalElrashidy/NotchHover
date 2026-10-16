@@ -53,17 +53,14 @@ enum MediaError: LocalizedError {
         }
     }
 
-    /// Short, actionable text for the menu bar and the notch panel.
+    /// What the notch says. A player that isn't open is not something to fix — it just
+    /// means nothing is playing — so only a real failure gets its own wording.
     var shortDisplayText: String {
         switch self {
-        case .noPlayerInstalled:
-            return "No media app"
-        case .noPlayerRunning(let name):
-            return "Open \(name)"
+        case .noPlayerInstalled, .noPlayerRunning, .invalidResponse:
+            return "Nothing playing"
         case .scriptExecutionFailed:
             return "Playback error"
-        case .invalidResponse:
-            return "No track"
         }
     }
 }
