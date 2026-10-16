@@ -20,16 +20,19 @@ struct BrowserPage: Equatable {
     }
 }
 
-/// Reads which page a Firefox-family browser is playing, from the session file it
-/// already keeps on disk.
+/// Works out which page a browser is playing.
 ///
-/// Chrome and Safari need an entirely different route — AppleScript for the tab's URL,
-/// then their own favicon databases — so they are not handled here and fall back to
-/// the app's own icon.
+/// Firefox-family browsers are read from the session file they already keep on disk.
+/// Nothing there needs a permission — the file lives in Application Support, which is
+/// not TCC-protected — and the favicon arrives inside it as a `data:` URI. It is written
+/// every few seconds, which is close enough for something playing.
 ///
-/// Nothing here needs a permission: the session file lives in Application Support,
-/// which is not TCC-protected, and the favicon arrives inside it as a `data:` URI. It
-/// is written every few seconds, which is close enough for something playing.
+/// Safari is asked over AppleScript, which means a one-time Automation prompt. It
+/// gives back titles and addresses but no icons: Safari's favicon cache sits behind
+/// Full Disk Access, so a Safari page shows Safari's own icon.
+///
+/// Chrome would need AppleScript for the tab plus its own favicon database, and is not
+/// handled yet.
 final class BrowserPageReader {
     static let shared = BrowserPageReader()
 
@@ -57,8 +60,16 @@ final class BrowserPageReader {
     /// A tab nobody has touched in half an hour is not what just started playing.
     private static let staleAfter: TimeInterval = 30 * 60
 
+    private static let safariIdentifiers: Set<String> = [
+        "com.apple.Safari",
+        "com.apple.SafariTechnologyPreview"
+    ]
+
+    /// Safari is asked rather than read, so it is asked no more often than this.
+    private static let safariInterval: TimeInterval = 4
+
     static func handles(_ bundleIdentifier: String) -> Bool {
-        profileFolders[bundleIdentifier] != nil
+        profileFolders[bundleIdentifier] != nil || safariIdentifiers.contains(bundleIdentifier)
     }
 
     private let queue = DispatchQueue(label: "com.notchhover.browserpage", qos: .utility)
@@ -81,28 +92,96 @@ final class BrowserPageReader {
         guard Self.handles(bundleIdentifier) else { return }
 
         queue.async { [weak self] in
-            guard let self, let url = Self.sessionFile(for: bundleIdentifier) else { return }
-            let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            guard let self else { return }
 
             self.lock.lock()
             let cached = self.cache[bundleIdentifier]
             self.lock.unlock()
 
             let page: BrowserPage?
-            if let cached, cached.modified == modified {
-                // The browser has not written since the last read, so neither has the
-                // answer changed. This is the usual case: it saves every few seconds.
-                page = cached.page
+            if Self.safariIdentifiers.contains(bundleIdentifier) {
+                // No file to watch, so the cache is kept by age instead.
+                if let cached, Date().timeIntervalSince(cached.modified) < Self.safariInterval {
+                    page = cached.page
+                } else {
+                    page = Self.safariPage(bundleIdentifier: bundleIdentifier)
+                    self.store(page, modified: Date(), for: bundleIdentifier)
+                }
             } else {
-                page = Self.playingPage(in: url)
-                self.lock.lock()
-                self.cache[bundleIdentifier] = (modified, page)
-                self.lock.unlock()
+                guard let url = Self.sessionFile(for: bundleIdentifier) else { return }
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                if let cached, cached.modified == modified {
+                    // The browser has not written since the last read, so neither has the
+                    // answer changed. This is the usual case: it saves every few seconds.
+                    page = cached.page
+                } else {
+                    page = Self.playingPage(in: url)
+                    self.store(page, modified: modified, for: bundleIdentifier)
+                }
             }
 
             guard page != current else { return }
             DispatchQueue.main.async { completion(page) }
         }
+    }
+
+    private func store(_ page: BrowserPage?, modified: Date, for bundleIdentifier: String) {
+        lock.lock()
+        cache[bundleIdentifier] = (modified, page)
+        lock.unlock()
+    }
+
+    // MARK: - Safari
+
+    /// Every tab's address and title, and which tab is in front. Missing values — an
+    /// empty tab, a window still loading — are skipped rather than failing the lot.
+    private static func safariScript(_ bundleIdentifier: String) -> String {
+        """
+        if application id "\(bundleIdentifier)" is not running then return ""
+        tell application id "\(bundleIdentifier)"
+            set frontAddress to ""
+            try
+                set frontAddress to URL of current tab of front window
+            end try
+            set output to frontAddress & linefeed
+            repeat with aWindow in windows
+                repeat with aTab in tabs of aWindow
+                    try
+                        set output to output & (URL of aTab) & tab & (name of aTab) & linefeed
+                    end try
+                end repeat
+            end repeat
+            return output
+        end tell
+        """
+    }
+
+    /// Safari keeps no record of when a tab was last looked at, so a media site wins,
+    /// the one in front first; failing that, whatever is in front.
+    private static func safariPage(bundleIdentifier: String) -> BrowserPage? {
+        guard let script = NSAppleScript(source: safariScript(bundleIdentifier)) else { return nil }
+        var error: NSDictionary?
+        let result = script.executeAndReturnError(&error)
+        if let error {
+            // Automation declined, most likely: the browser's own icon will do.
+            Log.system.notice("Safari tabs unavailable: \(error[NSAppleScript.errorNumber] as? Int ?? 0, privacy: .public)")
+            return nil
+        }
+
+        let lines = (result.stringValue ?? "").components(separatedBy: "\n")
+        guard let frontAddress = lines.first else { return nil }
+
+        let tabs: [BrowserPage] = lines.dropFirst().compactMap { line in
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 2,
+                  let host = URL(string: parts[0])?.host, host.isEmpty == false else { return nil }
+            let title = parts.dropFirst().joined(separator: "\t")
+            return BrowserPage(title: title.isEmpty ? host : title, host: host, iconData: nil)
+        }
+
+        let frontHost = URL(string: frontAddress)?.host
+        let media = tabs.filter { isMediaHost($0.host) }
+        return media.first { $0.host == frontHost } ?? media.first ?? tabs.first { $0.host == frontHost }
     }
 
     /// The newest session file among that browser's profiles — people have more than

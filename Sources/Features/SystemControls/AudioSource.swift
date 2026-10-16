@@ -105,10 +105,27 @@ enum AudioSourceProbe {
         return value
     }
 
-    /// The app a process belongs to: itself if it is one, otherwise whichever ancestor
-    /// is. Four levels is more than any helper chain in practice and keeps a broken
-    /// parent link from looping.
+    private typealias ResponsibleFunction = @convention(c) (pid_t) -> pid_t
+
+    /// The app macOS holds responsible for a process. XPC helpers are started by
+    /// launchd, so their parent says nothing — Safari's audio comes out of
+    /// `com.apple.WebKit.GPU`, whose parent is launchd — but the system still records
+    /// which app they work for. Private, long-stable, and resolved at runtime so a
+    /// future macOS without it only loses the shortcut, not the feature.
+    private static let responsiblePID: ResponsibleFunction? = {
+        guard let symbol = dlsym(dlopen(nil, RTLD_NOW), "responsibility_get_pid_responsible_for_pid") else { return nil }
+        return unsafeBitCast(symbol, to: ResponsibleFunction.self)
+    }()
+
+    /// The app a process belongs to: the app responsible for it, then itself, then
+    /// whichever ancestor is one. Four levels is more than any helper chain in practice
+    /// and keeps a broken parent link from looping.
     private static func owningApplication(of pid: pid_t) -> NSRunningApplication? {
+        if let owner = responsiblePID?(pid), owner > 0, owner != pid,
+           let app = NSRunningApplication(processIdentifier: owner), app.activationPolicy != .prohibited {
+            return app
+        }
+
         var current: pid_t? = pid
         for _ in 0..<4 {
             guard let candidate = current else { return nil }

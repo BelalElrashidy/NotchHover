@@ -99,11 +99,15 @@ asks the first time that feature is used.
 | Permission | What it's for |
 |---|---|
 | Automation → Spotify, Music | Reading what's playing and controlling playback |
+| Automation → Safari | Naming the page Safari is playing |
 | Accessibility | Mirroring notification banners into the notch |
 | Calendars | Showing your next events |
 | Camera | The mirror |
 
-Seeing which app or site is playing needs no permission at all.
+Seeing which app is playing needs no permission, and neither does naming the page in
+Firefox, Zen and other Firefox-based browsers — they keep their open tabs, favicons
+included, in a file NotchHover can read. Safari's favicons are locked away, so a Safari
+page shows Safari's icon.
 
 ## Claude Code approvals
 

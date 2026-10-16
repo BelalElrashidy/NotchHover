@@ -2,39 +2,39 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleExecutable</key>
-    <string>NotchHover</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.notchhover.NotchHover</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundleIconName</key>
-    <string>AppIcon</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>NotchHover</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.utilities</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>NotchHover shows your next calendar events in the notch.</string>
-    <key>NSCameraUsageDescription</key>
-    <string>The Mirror widget shows a preview of your camera in the notch.</string>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>This app controls Spotify playback and reads the currently playing track.</string>
-    <key>NSSupportsAutomaticGraphicsSwitching</key>
-    <true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>NotchHover</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.notchhover.NotchHover</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>NotchHover</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>NotchHover controls playback in Spotify and Music, and asks Safari which page is playing so the notch can name it.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>NotchHover shows your next calendar events in the notch.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The Mirror widget shows a preview of your camera in the notch.</string>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
 </dict>
 </plist>
