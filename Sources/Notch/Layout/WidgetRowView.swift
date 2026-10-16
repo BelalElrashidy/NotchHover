@@ -241,6 +241,9 @@ final class WidgetRowView: NSView {
         case .devices:
             return DevicesPaneView()
 
+        case .claude:
+            return ClaudePaneView()
+
         case .clipboard:
             let view = ClipboardPaneView(isCompact: compact)
             view.onPaste = callbacks.onPasteClipboard

@@ -123,6 +123,11 @@ enum PreviewRenderer {
             view.showPeekForPreview(.glance(title: "Friday 17 October", subtitle: "14:30 · Design review"))
         }
 
+        // Single cards, drawn on the panel colour the way they sit on Home.
+        ClaudeSessionMonitor.shared.publishForPreview()
+        writeCard(DevicesPaneView(), named: "card-batteries", directory: directory)
+        writeCard(ClaudePaneView(), named: "card-claude", directory: directory)
+
         write(named: "expanded-shortcuts", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             view.selectTabForPreview(.home)
@@ -213,6 +218,22 @@ enum PreviewRenderer {
         image.unlockFocus()
         guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    private static func writeCard(_ card: NSView, named name: String, directory: String) {
+        let size = NSSize(width: 260, height: 120)
+        card.frame = NSRect(origin: .zero, size: size)
+        card.layoutSubtreeIfNeeded()
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor(calibratedWhite: 0.11, alpha: 1).setFill()
+        NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: 14, yRadius: 14).fill()
+        if let context = NSGraphicsContext.current { card.displayIgnoringOpacity(card.bounds, in: context) }
+        image.unlockFocus()
+        guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("\(name).png"))
+        print("wrote \(name)")
     }
 
     /// A thumbnail of the panel in a given theme, for the settings window's live preview.

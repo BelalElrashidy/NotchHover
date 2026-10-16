@@ -165,6 +165,17 @@ final class IdleActivityView: NSView {
             levelLabel.stringValue = device.lowest.map { "\($0)%" } ?? device.caseLevel.map { "\($0)%" } ?? ""
             levelLabel.isHidden = false
             levelBar.isHidden = true
+        case .claudeDone(let project):
+            // Claude's own icon when the app is installed; the project is the label.
+            activityIcon.image = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop")
+                .map { url -> NSImage in
+                    let icon = NSWorkspace.shared.icon(forFile: url.path)
+                    icon.size = NSSize(width: Layout.artworkSize, height: Layout.artworkSize)
+                    return icon
+                } ?? Style.symbolImage("checkmark.circle.fill", pointSize: 15)
+            levelLabel.stringValue = project
+            levelLabel.isHidden = false
+            levelBar.isHidden = true
         case .meeting(let title):
             activityIcon.image = Style.symbolImage("video.fill", pointSize: 15)
             activityIcon.contentTintColor = Style.accent

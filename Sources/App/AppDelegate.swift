@@ -58,6 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DeviceBatteryMonitor.shared.announce(to: activityCenter)
         DeviceBatteryMonitor.shared.start()
 
+        // "Claude is done": a session that was working has handed the turn back to you.
+        ClaudeSessionMonitor.shared.onFinished = { session in
+            activityCenter.post(.claudeDone(project: session.project))
+        }
+        ClaudeSessionMonitor.shared.start()
+
         NotificationCenter.default.addObserver(
             forName: .notchHoverOpenSettings,
             object: nil,
@@ -153,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         batteryMonitor?.stop()
         brightnessMonitor?.stop()
         DeviceBatteryMonitor.shared.stop()
+        ClaudeSessionMonitor.shared.stop()
         notchController?.stop()
     }
 }

@@ -43,15 +43,27 @@ final class DevicesPaneView: NSView {
         }
     }
 
+    /// Name and level as one run of text: a name label beside a level label in a stack
+    /// clipped the level at draw time, as the shortcut sheet once did.
     private func row(symbol: String, name: String, detail: String) -> NSView {
         let icon = NSImageView()
         icon.image = Style.symbolImage(symbol, pointSize: 12)
         icon.contentTintColor = Style.secondaryText
         icon.widthAnchor.constraint(equalToConstant: 18).isActive = true
-        let title = Style.label(name, size: 11, weight: .medium)
-        let value = Style.label(detail, size: 11, color: Style.secondaryText)
-        value.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let row = NSStackView(views: [icon, title, value])
+
+        let size = Style.scaled(11)
+        let text = NSMutableAttributedString(string: name, attributes: [
+            .font: NSFont.systemFont(ofSize: size, weight: .medium),
+            .foregroundColor: Style.primaryText
+        ])
+        text.append(NSAttributedString(string: "  " + detail, attributes: [
+            .font: NSFont.systemFont(ofSize: size),
+            .foregroundColor: Style.secondaryText
+        ]))
+        let label = NSTextField(labelWithAttributedString: text)
+        label.lineBreakMode = .byTruncatingMiddle
+
+        let row = NSStackView(views: [icon, label])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 6

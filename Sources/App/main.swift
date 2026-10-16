@@ -42,6 +42,23 @@ if CommandLine.arguments.contains("--devices-selftest") {
     DevicesSelfTest.run()
 }
 
+// Claude Code sessions and usage from this Mac's transcripts — metadata only.
+if CommandLine.arguments.contains("--claude-selftest") {
+    app.setActivationPolicy(.prohibited)
+    let monitor = ClaudeSessionMonitor()
+    var started = Date()
+    var (sessions, usage) = monitor.scanNow()
+    let first = Date().timeIntervalSince(started)
+    started = Date()
+    (sessions, usage) = monitor.scanNow()
+    let second = Date().timeIntervalSince(started)
+    var lines = ["first read \(Int(first * 1000))ms, next \(Int(second * 1000))ms"]
+    lines += sessions.map { "session \($0.project) · \($0.branch ?? "-") — \($0.state.label)" }
+    lines.append("today \(ClaudePaneView.tokens(usage.today)) (output \(ClaudePaneView.tokens(usage.todayOutput))), last 5h \(ClaudePaneView.tokens(usage.lastFiveHours))")
+    FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    exit(0)
+}
+
 let appDelegate = AppDelegate()
 
 app.delegate = appDelegate
