@@ -117,6 +117,7 @@ final class HeaderTabsView: NSView {
 
     @objc private func handleTab(_ sender: NSButton) {
         guard let tab = PanelTab(rawValue: sender.tag) else { return }
+        Haptics.tick()
         select(tab)
     }
 }

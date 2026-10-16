@@ -429,10 +429,7 @@ final class NotchContentView: NSView {
             return true
 
         case [.control] where code == .tab, [.control, .shift] where code == .tab:
-            let tabs = PanelTab.headerTabs
-            let current = tabs.firstIndex(of: selectedTab) ?? -1
-            let step = modifiers.contains(.shift) ? -1 : 1
-            show(tabs[(current + step + tabs.count) % tabs.count])
+            selectAdjacentTab(by: modifiers.contains(.shift) ? -1 : 1)
             return true
 
         case []:
@@ -461,6 +458,17 @@ final class NotchContentView: NSView {
 
     /// For the self-test.
     var clipboardSelectionIndex: Int { clipboardPane.selectionIndex }
+
+    /// The next or previous of Home, Shelf and Notes, wrapping round — ⌃⇥ and a sideways
+    /// swipe. From a view that isn't a tab, it starts again at Home.
+    func selectAdjacentTab(by step: Int) {
+        let tabs = PanelTab.headerTabs
+        guard let current = tabs.firstIndex(of: selectedTab) else {
+            show(.home)
+            return
+        }
+        show(tabs[(current + step + tabs.count) % tabs.count])
+    }
 
     /// ⌘↑ and ⌘↓ step the output volume by a sixteenth, the size of a volume-key press.
     private func nudgeVolume(by direction: Int) {

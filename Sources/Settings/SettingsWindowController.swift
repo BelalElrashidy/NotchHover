@@ -344,8 +344,21 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         )
         let clearClipboard = SettingsStyle.capsule("Clear clipboard history", target: self, action: #selector(handleClearClipboard))
 
+        let gesturesToggle = ToggleRow(title: "Trackpad gestures")
+        gesturesToggle.set(isOn: SwipeRecognizer.isEnabled, notify: false)
+        gesturesToggle.onChange = { isOn in UserDefaults.standard.set(isOn, forKey: "TrackpadGestures") }
+        let gesturesNote = SettingsStyle.label(
+            "Two fingers down on the notch to open it, up to close, sideways to change tab — or, on the resting bar, the track.",
+            size: 11,
+            secondary: true
+        )
+        let hapticsToggle = ToggleRow(title: "Haptic feedback")
+        hapticsToggle.set(isOn: Haptics.isEnabled, notify: false)
+        hapticsToggle.onChange = { isOn in UserDefaults.standard.set(isOn, forKey: "Haptics") }
+
         var rows: [NSView] = [
             SettingsStyle.heading("Advanced"),
+            gesturesToggle, gesturesNote, hapticsToggle,
             clipboardToggle, clipboardNote, clearClipboard,
             toggle, status
         ]

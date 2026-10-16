@@ -10,6 +10,12 @@ if let index = CommandLine.arguments.firstIndex(of: "--render-preview"),
     exit(0)
 }
 
+// Swipe recognition against synthetic trackpad events: --gesture-selftest
+if CommandLine.arguments.contains("--gesture-selftest") {
+    app.setActivationPolicy(.prohibited)
+    GestureSelfTest.run()
+}
+
 let appDelegate = AppDelegate()
 
 app.delegate = appDelegate

@@ -181,7 +181,10 @@ final class BrowserPageReader {
 
         let frontHost = URL(string: frontAddress)?.host
         let media = tabs.filter { isMediaHost($0.host) }
-        return media.first { $0.host == frontHost } ?? media.first ?? tabs.first { $0.host == frontHost }
+        let page = media.first { $0.host == frontHost } ?? media.first ?? tabs.first { $0.host == frontHost }
+        // Hosts and counts only — enough to see why a page was or wasn't chosen.
+        Log.system.notice("Safari: \(tabs.count, privacy: .public) tab(s), \(media.count, privacy: .public) on media sites, front \(frontHost ?? "none", privacy: .public) → \(page?.host ?? "no page", privacy: .public)")
+        return page
     }
 
     /// The newest session file among that browser's profiles — people have more than

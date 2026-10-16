@@ -111,7 +111,8 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Tabs beside the notch | Home, Shelf, Notes left; clipboard, mirror, gear right; no bottom bar | — | M | ✅ |
 | Three states | Rest → hover peek → click for the full panel | One more rect in the existing morph | M | ⬜ |
 | Hover dwell | Wait ~0.3s before opening, so passing the notch doesn't open it | Boring Notch's default | S | ⬜ |
-| Trackpad gestures | Two-finger swipe down to open, up to close; swipe to skip tracks | Scroll-wheel events over the panel | M | ⬜ |
+| Trackpad gestures | Two-finger swipe down to open, up to close, sideways for tabs or tracks | `SwipeRecognizer` over scroll events | M | ✅ |
+| Everything by keyboard | Global ⌃⌥ keys, ⌘1–5, media, clipboard arrows, approvals; ⌘/ lists them | Panel key handler | M | ✅ |
 | Command bar | Raycast-style: search clips, notes, files, apps; run actions | Builds on the full panel | L | ⬜ |
 | Global shortcuts | ⌃⌥V clipboard, ⌃⌥N notes | Carbon hot keys | S | ✅ |
 | Shortcut editor | Change those combinations | Key recorder view | M | ⬜ |
@@ -121,7 +122,7 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Drag-reorder widgets in settings | | | M | ⬜ |
 | Export / import settings | A file you keep | JSON | S | ⬜ |
 | Custom themes | Pick your own colours | | M | ⬜ |
-| Sounds / haptics | | `NSHapticFeedbackManager` | S | ⬜ |
+| Haptics | Taps on open, tab change, swipe, approval | `NSHapticFeedbackManager` | S | ✅ |
 | Multiple displays | A notch on every display, one open at a time | `NotchDisplay` per screen | M | ✅ |
 | Notchless Macs | Fallback strip | | M | 🟡 |
 

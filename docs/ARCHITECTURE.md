@@ -234,6 +234,26 @@ and thirteen unlabelled tabs ran along the bottom edge clipping whatever sat abo
 The layout follows Boring Notch and Atoll instead: navigation in the wings, no bottom bar,
 and few tabs — everything else is a Home card, a header button or a shortcut.
 
+### Keyboard and gestures
+
+Everything in the panel has a key. `NotchPanel` passes keys to
+`NotchContentView.handleKey`: ⌘ combinations first, before the main menu or a text view
+sees them, and plain keys last, only when nothing focused wanted them. Shortcuts a text
+field also uses — ⌘← moves the cursor, ⌘⌫ deletes a line — are left alone while one is
+focused. Global ⌃⌥H/S/N/V open a view or, pressed again, close the panel; a panel opened
+from the keyboard stays open until the keyboard closes it. `KeyboardShortcutList` is the
+one list of them all, and ⌘/ shows it over the panel.
+
+Two-finger swipes go through `SwipeRecognizer`, which reads the direction the *fingers*
+moved — macOS reports scroll deltas in content terms, so natural scrolling flips them —
+fires at most once per gesture, and ignores mouse wheels and momentum. Over a notch that
+isn't open the panel ignores the mouse, so swipes there come from a global monitor (it
+can watch, not swallow); over the open panel a local monitor keeps a swipe from also
+scrolling something, except vertical movement over a list, which is the list's. A
+deliberate close — a swipe, Esc, a shortcut — suppresses hover until the pointer leaves
+the notch, or the pointer resting there would open it again at once. `Haptics` taps on
+open, tab changes, swipes and approvals.
+
 ### The widget row
 
 There are no fixed zones. The panel holds an **ordered list of widgets**

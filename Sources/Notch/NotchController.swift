@@ -38,6 +38,14 @@ final class NotchController {
     /// rebuilt for a new theme — so they start current instead of on "Loading…".
     private var lastState: NowPlayingState = .message("Nothing playing")
     private var mouseMonitors: [Any] = []
+    /// Swipes over a notch that isn't open, and over the open panel. Two recognisers,
+    /// because a gesture can start in one place and should never carry into the other.
+    private let notchSwipes = SwipeRecognizer()
+    private let panelSwipes = SwipeRecognizer()
+    /// Set by a deliberate close — a swipe, Esc, a shortcut — so the pointer still
+    /// resting on the notch doesn't open it again straight away. Cleared once the
+    /// pointer leaves the notch.
+    private var hoverSuppressedUntilExit = false
     private var hideWorkItem: DispatchWorkItem?
     private var isExpanded = false
     private var isPlaying = false
@@ -129,6 +137,22 @@ final class NotchController {
         if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved], handler: { event in
             handler(event)
             return event
+        }) {
+            mouseMonitors.append(local)
+        }
+
+        // Two-finger swipes. Over a notch that isn't open, the panel ignores the mouse —
+        // the resting bar must never block the menu bar — so those arrive through a
+        // global monitor, which can watch but not swallow. Over the open panel they
+        // arrive locally, and a swipe that was ours is kept from scrolling anything.
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel, handler: { [weak self] event in
+            self?.handleNotchScroll(event)
+        }) {
+            mouseMonitors.append(global)
+        }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel, handler: { [weak self] event in
+            guard let self, self.handlePanelScroll(event) else { return event }
+            return nil
         }) {
             mouseMonitors.append(local)
         }
@@ -312,9 +336,79 @@ final class NotchController {
         // Every display has its own notch to hover. Displays are built lazily, so the
         // first hover on a new one builds it.
         if displays.isEmpty { syncDisplays() }
-        if let display = displays.values.first(where: { $0.geometry.isPointerInHoverArea(location) }) {
-            expand(display)
+        let hovered = displays.values.first { $0.geometry.isPointerInHoverArea(location) }
+
+        if hoverSuppressedUntilExit {
+            if hovered == nil { hoverSuppressedUntilExit = false }
+            return
         }
+        if let hovered {
+            expand(hovered)
+            Haptics.tick()
+        }
+    }
+
+    // MARK: - Gestures
+
+    /// Swipes over a notch that isn't open: down opens it, and sideways over the resting
+    /// bar skips the track that is playing.
+    private func handleNotchScroll(_ event: NSEvent) {
+        let location = NSEvent.mouseLocation
+        // The notch, plus the resting bar's sides either side of it.
+        guard let display = displays.values.first(where: {
+            $0.geometry.hoverRect.insetBy(dx: -90, dy: 0).containsPointer(location)
+        }), (isExpanded && display === active) == false else { return }
+
+        switch notchSwipes.feed(event) {
+        case .down?:
+            hoverSuppressedUntilExit = false
+            expand(display)
+            Haptics.step()
+        case .left? where isPlaying:
+            perform(.nextTrack)
+            Haptics.step()
+        case .right? where isPlaying:
+            perform(.previousTrack)
+            Haptics.step()
+        default:
+            break
+        }
+    }
+
+    /// Swipes over the open panel: up closes it, sideways moves between tabs. Returns
+    /// whether the event was the gesture's, so it doesn't also scroll something.
+    private func handlePanelScroll(_ event: NSEvent) -> Bool {
+        guard isExpanded, let panel, event.window === panel else { return false }
+
+        // Over a list that can scroll, an up-and-down movement is scrolling the list.
+        let overList = isOverScrollableList(event, in: panel)
+        let direction = panelSwipes.feed(event)
+
+        switch direction {
+        case .up? where overList == false:
+            hoverSuppressedUntilExit = true
+            dismiss()
+            Haptics.step()
+        case .left?:
+            contentView?.selectAdjacentTab(by: 1)
+            Haptics.tick()
+        case .right?:
+            contentView?.selectAdjacentTab(by: -1)
+            Haptics.tick()
+        default:
+            break
+        }
+
+        // Nothing here scrolls sideways, and away from a list nothing scrolls at all, so
+        // those events can be kept; over a list, vertical ones belong to the list.
+        return overList == false || panelSwipes.hasFired
+    }
+
+    private func isOverScrollableList(_ event: NSEvent, in panel: NSPanel) -> Bool {
+        guard let root = panel.contentView else { return false }
+        let point = root.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow
+        guard let scroll = root.hitTest(point)?.enclosingScrollView, let document = scroll.documentView else { return false }
+        return document.frame.height > scroll.contentView.bounds.height + 1
     }
 
     private func scheduleHide() {
@@ -413,6 +507,10 @@ final class NotchController {
         // An unanswered approval keeps the panel up: closing would hide the question
         // while Claude Code waits on it. ⌘↩ and ⌘⌫ answer it.
         guard isPinned == false else { return }
+        // Closed on purpose: don't let a pointer resting on the notch reopen it.
+        if let geometry, geometry.isPointerInHoverArea(NSEvent.mouseLocation) {
+            hoverSuppressedUntilExit = true
+        }
         cancelScheduledHide()
         panel?.makeFirstResponder(nil)
         collapse()
@@ -638,6 +736,7 @@ final class NotchController {
 
     private func resolveFrontRequest(_ decision: PermissionDecision) {
         guard let request = pendingRequests.first else { return }
+        Haptics.step()
         resolve(request.id, with: decision)
     }
 

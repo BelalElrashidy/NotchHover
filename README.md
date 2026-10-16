@@ -70,6 +70,24 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
   </tr>
 </table>
 
+## Keyboard and trackpad
+
+NotchHover never needs the pointer. Press <kbd>⌘</kbd><kbd>/</kbd> in the panel to see
+every shortcut.
+
+| Where | Keys |
+|---|---|
+| Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again |
+| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
+| Playing | <kbd>Space</kbd> play or pause · <kbd>⌘</kbd><kbd>←</kbd> <kbd>⌘</kbd><kbd>→</kbd> previous, next · <kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd> volume · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> mute the microphone |
+| Clipboard | <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>↩</kbd> copy · <kbd>⌘</kbd><kbd>↩</kbd> paste into the front app · <kbd>⌘</kbd><kbd>P</kbd> pin · <kbd>⌘</kbd><kbd>⌫</kbd> delete |
+| Notes, Shelf | <kbd>⌘</kbd><kbd>↩</kbd> save · <kbd>⌘</kbd><kbd>N</kbd> new · <kbd>⌘</kbd><kbd>[</kbd> <kbd>⌘</kbd><kbd>]</kbd> other notes · <kbd>⌘</kbd><kbd>S</kbd> send the shelf · <kbd>⌘</kbd><kbd>R</kbd> show in Finder |
+| Claude Code | <kbd>⌘</kbd><kbd>↩</kbd> allow · <kbd>⌘</kbd><kbd>⌫</kbd> deny |
+
+On a trackpad, swipe two fingers **down** on the notch to open it and **up** to close it,
+and **sideways** to move between tabs — or, on the resting bar, between tracks. A Force
+Touch trackpad taps back when something happens. Both can be switched off in Settings.
+
 ## Install
 
 1. Download **NotchHover-x.y.z.zip** from the [latest release](https://github.com/BelalElrashidy/NotchHover/releases/latest).
