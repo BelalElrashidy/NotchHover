@@ -46,6 +46,30 @@ final class NotchController {
     /// resting on the notch doesn't open it again straight away. Cleared once the
     /// pointer leaves the notch.
     private var hoverSuppressedUntilExit = false
+
+    /// The display showing a peek, if any. Like the open panel there is only ever one.
+    private var peeking: NotchDisplay?
+    /// Hovering has to rest on the notch for a moment before anything happens, so that
+    /// passing it on the way to the menu bar doesn't open it.
+    private var dwellWorkItem: DispatchWorkItem?
+    private var unpeekWorkItem: DispatchWorkItem?
+
+    /// What resting on the notch does.
+    /// defaults write com.notchhover.NotchHover HoverAction -string peek|open
+    private enum HoverAction: String {
+        case peek
+        case open
+
+        static var current: HoverAction {
+            UserDefaults.standard.string(forKey: "HoverAction").flatMap(HoverAction.init(rawValue:)) ?? .peek
+        }
+    }
+
+    /// defaults write com.notchhover.NotchHover HoverDelay -float 0.3
+    private var hoverDelay: TimeInterval {
+        let stored = UserDefaults.standard.object(forKey: "HoverDelay") as? Double ?? 0.3
+        return min(1.5, max(0, stored))
+    }
     private var hideWorkItem: DispatchWorkItem?
     private var isExpanded = false
     private var isPlaying = false
@@ -342,10 +366,78 @@ final class NotchController {
             if hovered == nil { hoverSuppressedUntilExit = false }
             return
         }
-        if let hovered {
-            expand(hovered)
+
+        // A peek stays while the pointer is on it or on the notch, and goes the moment it
+        // leaves — after a breath of grace, so clipping its edge doesn't close it.
+        if let peeking {
+            if peekArea(of: peeking).containsPointer(location) {
+                unpeekWorkItem?.cancel()
+                unpeekWorkItem = nil
+            } else {
+                scheduleUnpeek()
+            }
+            return
+        }
+
+        guard let hovered else {
+            dwellWorkItem?.cancel()
+            dwellWorkItem = nil
+            return
+        }
+        guard dwellWorkItem == nil else { return }
+
+        let work = DispatchWorkItem { [weak self, weak hovered] in
+            guard let self, let hovered else { return }
+            self.dwellWorkItem = nil
+            // Still there once the dwell is up? Passing through doesn't count.
+            guard hovered.geometry.isPointerInHoverArea(NSEvent.mouseLocation), self.isExpanded == false else { return }
+            switch HoverAction.current {
+            case .peek: self.peek(hovered)
+            case .open: self.expand(hovered)
+            }
             Haptics.tick()
         }
+        dwellWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + hoverDelay, execute: work)
+    }
+
+    // MARK: - Peek
+
+    /// The small card that comes up while the pointer rests on the notch. It takes
+    /// clicks — a click on it opens the full panel — so the window stops ignoring the
+    /// mouse; outside the card the window is transparent and clicks pass through.
+    private func peek(_ display: NotchDisplay) {
+        if let current = peeking, current !== display { unpeek() }
+        peeking = display
+        display.panel.ignoresMouseEvents = false
+        display.panel.orderFrontRegardless()
+        display.content.present(.peek)
+    }
+
+    private func unpeek() {
+        unpeekWorkItem?.cancel()
+        unpeekWorkItem = nil
+        guard peeking != nil else { return }
+        peeking = nil
+        settleToRestingState()
+    }
+
+    private func scheduleUnpeek() {
+        guard unpeekWorkItem == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let peeking = self.peeking else { return }
+            self.unpeekWorkItem = nil
+            guard self.peekArea(of: peeking).containsPointer(NSEvent.mouseLocation) == false else { return }
+            self.unpeek()
+        }
+        unpeekWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
+    /// The peek card on screen, plus the notch it came out of.
+    private func peekArea(of display: NotchDisplay) -> CGRect {
+        let card = display.content.peekFrame.offsetBy(dx: display.panel.frame.minX, dy: display.panel.frame.minY)
+        return card.union(display.geometry.hoverRect)
     }
 
     // MARK: - Gestures
@@ -378,6 +470,29 @@ final class NotchController {
     /// Swipes over the open panel: up closes it, sideways moves between tabs. Returns
     /// whether the event was the gesture's, so it doesn't also scroll something.
     private func handlePanelScroll(_ event: NSEvent) -> Bool {
+        // The peek takes the mouse, so swipes on it arrive here: down opens the panel,
+        // up puts it away, sideways skips the track.
+        if let peeking, event.window === peeking.panel {
+            switch notchSwipes.feed(event) {
+            case .down?:
+                expand(peeking)
+                Haptics.step()
+            case .up?:
+                hoverSuppressedUntilExit = true
+                unpeek()
+                Haptics.step()
+            case .left? where isPlaying:
+                perform(.nextTrack)
+                Haptics.step()
+            case .right? where isPlaying:
+                perform(.previousTrack)
+                Haptics.step()
+            default:
+                break
+            }
+            return true
+        }
+
         guard isExpanded, let panel, event.window === panel else { return false }
 
         // Over a list that can scroll, an up-and-down movement is scrolling the list.
@@ -446,6 +561,13 @@ final class NotchController {
         active = display
         isExpanded = true
         cancelScheduledHide()
+        dwellWorkItem?.cancel()
+        dwellWorkItem = nil
+        if peeking != nil {
+            unpeekWorkItem?.cancel()
+            unpeekWorkItem = nil
+            peeking = nil
+        }
 
         let panel = display.panel
         panel.setFrame(display.geometry.expandedFrame(size: display.panelSize), display: true)
@@ -573,7 +695,7 @@ final class NotchController {
         // An activity is mid-flight; it will settle the bars when it finishes.
         guard activityWorkItem == nil else { return }
 
-        for display in displays.values where (isExpanded && display === active) == false {
+        for display in displays.values where (isExpanded && display === active) == false && display !== peeking {
             let panel = display.panel
             panel.ignoresMouseEvents = true
 
@@ -661,6 +783,11 @@ final class NotchController {
         contentView.onCancelTimer = { [weak self] in
             self?.countdown.cancel()
             self?.broadcast { $0.updateTimer(remaining: 0) }
+        }
+        contentView.onPeekOpen = { [weak self, weak display] in
+            guard let self, let display else { return }
+            self.expand(display)
+            Haptics.tick()
         }
         // Files dropped on a notch open that notch, not whichever was open last.
         contentView.onFilesDropped = { [weak self, weak display] in
@@ -795,7 +922,7 @@ final class NotchController {
     private func present(_ activity: LiveActivity) {
         if displays.isEmpty { syncDisplays() }
         // The open panel already shows everything; the event goes to the resting ones.
-        let resting = displays.values.filter { (isExpanded && $0 === active) == false }
+        let resting = displays.values.filter { (isExpanded && $0 === active) == false && $0 !== peeking }
         guard resting.isEmpty == false else { return }
 
         Log.system.notice("Activity: \(String(describing: activity), privacy: .public)")

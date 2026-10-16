@@ -106,6 +106,23 @@ enum PreviewRenderer {
             view.selectTabForPreview(.shelf)
         }
 
+        // The peek: what resting on the notch brings up before a click opens the panel.
+        write(named: "peek-playing", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.present(.idle, animated: false)
+            view.showPeekForPreview()
+        }
+
+        write(named: "peek-meeting", directory: directory) { view in
+            view.renderNowPlaying(.message("Nothing playing"))
+            view.showPeekForPreview(.meeting(title: "Design review", when: "in 4 min", service: "Zoom"))
+        }
+
+        write(named: "peek-glance", directory: directory) { view in
+            view.renderNowPlaying(.message("Nothing playing"))
+            view.showPeekForPreview(.glance(title: "Friday 17 October", subtitle: "14:30 · Design review"))
+        }
+
         write(named: "expanded-shortcuts", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             view.selectTabForPreview(.home)

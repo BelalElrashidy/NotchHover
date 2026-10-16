@@ -11,9 +11,12 @@ final class NotchContentView: NSView {
         case permission
     }
 
+    /// Rest, glance, use: the slab hidden or resting against the notch, a small peek
+    /// while the pointer rests on it, and the full panel once you commit to it.
     enum Presentation {
         case hidden
         case idle
+        case peek
         case expanded
     }
 
@@ -89,6 +92,11 @@ final class NotchContentView: NSView {
     private let rightWing = NSView()
     private let detailContainer = NSView()
     private let idleContent: IdleActivityView
+    private let peekContent: PeekView
+    /// What is playing, kept so the peek can be built from it when it opens.
+    private var lastNowPlaying: NowPlayingState = .message("Nothing playing")
+    /// The peek was clicked: open the full panel.
+    var onPeekOpen: (() -> Void)?
 
     private let headerTabs = HeaderTabsView()
     private let headerActions = HeaderActionsView()
@@ -174,6 +182,7 @@ final class NotchContentView: NSView {
         self.notchWidth = max(notchWidth, Metrics.fallbackNotchWidth)
         self.bandHeight = Metrics.bandHeight(notchHeight: notchHeight)
         self.idleContent = IdleActivityView(notchWidth: self.notchWidth, bandHeight: self.bandHeight)
+        self.peekContent = PeekView(notchWidth: self.notchWidth, bandHeight: self.bandHeight)
 
         let panelSize = Metrics.panelSize(notchWidth: notchWidth, notchHeight: notchHeight)
         card = GlassCardView(frame: CGRect(origin: .zero, size: panelSize))
@@ -201,6 +210,8 @@ final class NotchContentView: NSView {
         card.alphaValue = 0
         expandedContent.alphaValue = 0
         idleContent.alphaValue = 0
+        peekContent.alphaValue = 0
+        configurePeek()
     }
 
     @available(*, unavailable)
@@ -220,6 +231,10 @@ final class NotchContentView: NSView {
         idleContent.frame = content.bounds
         idleContent.autoresizingMask = [.width, .height]
         content.addSubview(idleContent)
+
+        peekContent.frame = content.bounds
+        peekContent.autoresizingMask = [.width, .height]
+        content.addSubview(peekContent)
 
         let width = expandedContent.bounds.width
         topBand.frame = CGRect(x: 0, y: expandedContent.bounds.height - bandHeight, width: width, height: bandHeight)
@@ -353,6 +368,75 @@ final class NotchContentView: NSView {
         }
     }
 
+    // MARK: - Peek
+
+    private func configurePeek() {
+        peekContent.onOpen = { [weak self] in self?.onPeekOpen?() }
+        peekContent.onPlayPause = { [weak self] in self?.onPlayPause?() }
+        peekContent.onNext = { [weak self] in self?.onNextTrack?() }
+        peekContent.onPrevious = { [weak self] in self?.onPreviousTrack?() }
+        peekContent.onJoin = { [weak self] in self?.joinMeeting() }
+    }
+
+    /// The peek's one line, in order of what matters: what is playing, then a call about
+    /// to start, then the date and what's next today.
+    private func refreshPeek() {
+        switch lastNowPlaying {
+        case .track(let track):
+            peekContent.show(.playing(
+                title: track.name,
+                subtitle: [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
+                icon: artwork,
+                isPlaying: track.isPlaying,
+                isControllable: true
+            ))
+            return
+        case .external(let source):
+            peekContent.show(.playing(
+                title: source.displayName,
+                subtitle: source.detail,
+                icon: source.displayIcon,
+                isPlaying: true,
+                isControllable: false
+            ))
+            return
+        case .message:
+            break
+        }
+
+        if let (event, link) = CalendarService.shared.joinableMeeting() {
+            peekContent.show(.meeting(title: event.title ?? "Meeting", when: Self.relative(event.startDate), service: link.service))
+            return
+        }
+
+        let date = Date().formatted(.dateTime.weekday(.wide).day().month(.wide))
+        let next: String
+        if let event = CalendarService.shared.nextEvent() {
+            next = "\(event.startDate.formatted(date: .omitted, time: .shortened)) · \(event.title ?? "Untitled")"
+        } else {
+            next = CalendarService.shared.isAuthorized ? "Nothing else today" : "Nothing playing"
+        }
+        peekContent.show(.glance(title: date, subtitle: next))
+    }
+
+    /// "in 4 min", "now", "started 2 min ago".
+    static func relative(_ date: Date) -> String {
+        let minutes = Int((date.timeIntervalSinceNow / 60).rounded())
+        switch minutes {
+        case 1...: return "in \(minutes) min"
+        case 0: return "now"
+        default: return "started \(-minutes) min ago"
+        }
+    }
+
+    /// ⌘J, the peek's Join button and the calendar card's: the call on now or next.
+    func joinMeeting() {
+        guard let (_, link) = CalendarService.shared.joinableMeeting() else { return }
+        Log.ui.notice("Joining a \(link.service, privacy: .public) call")
+        link.open()
+        onDismiss?()
+    }
+
     // MARK: - Keyboard
 
     /// Everything in the panel can be reached without the pointer. Shortcuts that a
@@ -389,6 +473,9 @@ final class NotchContentView: NSView {
                 return true
             case "w":
                 onDismiss?()
+                return true
+            case "j":
+                joinMeeting()
                 return true
             default: break
             }
@@ -449,6 +536,13 @@ final class NotchContentView: NSView {
     }
 
     var isShowingShortcuts: Bool { shortcutSheet.superview != nil }
+
+    /// Preview hook: the peek, optionally with content the preview can't get from the
+    /// calendar or a player.
+    func showPeekForPreview(_ content: PeekContent? = nil) {
+        present(.peek, animated: false)
+        if let content { peekContent.show(content) }
+    }
 
     /// Preview hook.
     func showShortcutsForPreview() {
@@ -673,6 +767,22 @@ final class NotchContentView: NSView {
     /// Where the notch sits inside the preview canvas and the idle bar.
     var notchSpan: CGFloat { notchWidth }
 
+    /// The peek: wider than the resting bar, one row deeper, far smaller than the panel.
+    private var peekCardFrame: CGRect {
+        let height = bandHeight + PeekView.rowHeight
+        let flare = min(NotchShape.topFlare, height * 0.55)
+        let width = min(bounds.width, notchWidth + (flare + 130) * 2)
+        return CGRect(x: (bounds.width - width) / 2, y: bounds.height - height, width: width, height: height)
+    }
+
+    /// Where the peek sits, for the controller to tell whether the pointer is still on it.
+    var peekFrame: CGRect { peekCardFrame }
+
+    private var peekBodyWidth: CGFloat {
+        let frame = peekCardFrame
+        return frame.width - min(NotchShape.topFlare, frame.height * 0.55) * 2
+    }
+
     private var expandedCardFrame: CGRect {
         CGRect(origin: .zero, size: bounds.size)
     }
@@ -695,10 +805,16 @@ final class NotchContentView: NSView {
             // Content lays itself out inside the bar's straight body, not inside the
             // whole panel — anything wider is cut off by the slab's mask.
             idleContent.barWidth = idleBodyWidth
+        case .peek:
+            targetFrame = peekCardFrame
+            cardAlpha = 1
+            peekContent.bodyWidth = peekBodyWidth
+            refreshPeek()
         case .expanded:
             targetFrame = expandedCardFrame
             cardAlpha = 1
         }
+        peekContent.isActive = presentation == .peek
 
         // Every transition is a morph between two rects centred on the notch — hidden,
         // resting bar and full panel all behave identically. Direction is decided by
@@ -715,10 +831,14 @@ final class NotchContentView: NSView {
 
         if presentation == .expanded { headerActions.refreshBattery() }
 
-        let incoming: NSView? = presentation == .expanded ? expandedContent
-            : presentation == .idle ? idleContent
-            : nil
-        let outgoing: [NSView] = [expandedContent, idleContent].filter { $0 !== incoming }
+        let incoming: NSView?
+        switch presentation {
+        case .expanded: incoming = expandedContent
+        case .idle: incoming = idleContent
+        case .peek: incoming = peekContent
+        case .hidden: incoming = nil
+        }
+        let outgoing: [NSView] = [expandedContent, idleContent, peekContent].filter { $0 !== incoming }
 
         // The surface is fully visible for the whole morph; it starts and ends behind
         // the notch, so there is nothing to fade in.
@@ -731,7 +851,12 @@ final class NotchContentView: NSView {
         // that is on its way somewhere else.
         if presentation != .idle { card.cancelBreathing() }
 
-        let radius = presentation == .expanded ? NotchShape.bottomRadius : NotchShape.idleBottomRadius
+        let radius: CGFloat
+        switch presentation {
+        case .expanded: radius = NotchShape.bottomRadius
+        case .peek: radius = min(22, NotchShape.bottomRadius)
+        default: radius = NotchShape.idleBottomRadius
+        }
         if presentation == .idle, activityBarWidth != nil, growing, animated {
             // An activity arriving from behind the notch pops out rather than easing out.
             card.popShape(to: targetFrame, bottomRadius: radius, overshoot: 12, duration: 0.5)
@@ -803,6 +928,9 @@ final class NotchContentView: NSView {
             // Nothing named is playing, but the speakers may still be busy.
             idleContent.update(artwork: nil, isPlaying: isAudioPlaying)
         }
+
+        lastNowPlaying = state
+        if presentation == .peek { refreshPeek() }
 
         mediaDetail.render(state)
         widgetRow.render(state)

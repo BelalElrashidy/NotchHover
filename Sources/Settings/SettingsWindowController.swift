@@ -298,10 +298,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         restingBarRow = restingRow
 
+        let hoverRow = SegmentedRow(labels: ["Peek first", "Open the panel"])
+        hoverRow.select(UserDefaults.standard.string(forKey: "HoverAction") == "open" ? 1 : 0, notify: false)
+        hoverRow.onSelect = { [weak self] index in
+            UserDefaults.standard.set(index == 1 ? "open" : "peek", forKey: "HoverAction")
+            self?.save()
+        }
+
         let stack = NSStackView(views: [
             SettingsStyle.heading("Appearance"),
             grid,
-            labeledRow("Resting bar", control: restingRow)
+            labeledRow("Resting bar", control: restingRow),
+            labeledRow("On hover", control: hoverRow)
         ])
         stack.orientation = .vertical
         stack.alignment = .leading

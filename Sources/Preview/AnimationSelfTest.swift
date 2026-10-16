@@ -112,8 +112,15 @@ enum AnimationSelfTest {
             // and ask for a breath in the same turn. The morph must run first.
             content.breathe()
             sample("hidden → resting bar, then breath", ticksWanted: 60) {
+                // Resting on the notch: the peek, back, the peek again, then a click.
+                content.present(.peek)
+                sample("resting bar → peek") {
+                content.present(.idle)
+                sample("peek → resting bar") {
+                content.present(.peek)
+                sample("resting bar → peek, again") {
                 content.present(.expanded)
-                sample("resting bar → panel") {
+                sample("peek → panel") {
                     content.present(.idle)
                     sample("panel → resting bar") {
                         // A notification landing on a bar that is already out: it should
@@ -132,6 +139,7 @@ enum AnimationSelfTest {
                                         panel.orderOut(nil)
                                         exit(0)
                                     }
+                }}}
                                 }
                             }
                         }

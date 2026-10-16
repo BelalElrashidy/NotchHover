@@ -101,8 +101,12 @@ enum TypingSelfTest {
         /// Every button the user can see must be the thing a click at its centre lands
         /// on. A container with no height still draws its buttons, but hit-testing stops
         /// at the container — which is how the whole right side of the header went dead.
-        func checkButtons(on tab: PanelTab) {
-            content.selectTabForPreview(tab)
+        func checkButtons(on tab: PanelTab?) {
+            if let tab {
+                content.selectTabForPreview(tab)
+            } else {
+                content.showPeekForPreview(.playing(title: "Test", subtitle: "Test", icon: nil, isPlaying: true, isControllable: true))
+            }
             content.layoutSubtreeIfNeeded()
             guard let root = panel.contentView else { return }
             var dead: [String] = []
@@ -118,7 +122,7 @@ enum TypingSelfTest {
                 let name = button.toolTip ?? button.title
                 dead.append("\(name.isEmpty ? "untitled" : name) → \(hit.map { String(describing: Swift.type(of: $0)) } ?? "nothing")")
             }
-            report("buttons on \(tab.title): \(total - dead.count)/\(total) clickable" + (dead.isEmpty ? "" : " — dead: " + dead.joined(separator: "; ")))
+            report("buttons on \(tab?.title ?? "the peek"): \(total - dead.count)/\(total) clickable" + (dead.isEmpty ? "" : " — dead: " + dead.joined(separator: "; ")))
         }
 
         /// Sends a key the way AppKit does: as a key equivalent first, then as a key-down
@@ -179,6 +183,7 @@ enum TypingSelfTest {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            checkButtons(on: nil)
             for tab in PanelTab.headerTabs + [.clipboard] { checkButtons(on: tab) }
             checkKeyboard()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { check(.notes, label: "notes") {
