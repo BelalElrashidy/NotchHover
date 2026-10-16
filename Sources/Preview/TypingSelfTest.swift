@@ -98,8 +98,90 @@ enum TypingSelfTest {
         // The editor autosaves its draft into the real defaults; put it back afterwards.
         let savedDraft = UserDefaults.standard.string(forKey: "NoteDraft")
 
+        /// Every button the user can see must be the thing a click at its centre lands
+        /// on. A container with no height still draws its buttons, but hit-testing stops
+        /// at the container — which is how the whole right side of the header went dead.
+        func checkButtons(on tab: PanelTab) {
+            content.selectTabForPreview(tab)
+            content.layoutSubtreeIfNeeded()
+            guard let root = panel.contentView else { return }
+            var dead: [String] = []
+            var total = 0
+            for button in content.visibleButtons() {
+                // Rows scrolled out of a list are not something anyone can click.
+                let middle = NSPoint(x: button.bounds.midX, y: button.bounds.midY)
+                guard button.visibleRect.contains(middle) else { continue }
+                total += 1
+                let center = button.convert(middle, to: nil)
+                let hit = root.hitTest(root.convert(center, from: nil))
+                guard hit !== button, hit?.isDescendant(of: button) != true else { continue }
+                let name = button.toolTip ?? button.title
+                dead.append("\(name.isEmpty ? "untitled" : name) → \(hit.map { String(describing: Swift.type(of: $0)) } ?? "nothing")")
+            }
+            report("buttons on \(tab.title): \(total - dead.count)/\(total) clickable" + (dead.isEmpty ? "" : " — dead: " + dead.joined(separator: "; ")))
+        }
+
+        /// Sends a key the way AppKit does: as a key equivalent first, then as a key-down
+        /// if nothing claimed it. Only shortcuts with no side effects outside the panel
+        /// are pressed — nothing that changes the volume, the mic, or real clips.
+        func press(_ characters: String, code: UInt16, _ modifiers: NSEvent.ModifierFlags = []) {
+            guard let event = NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: panel.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code
+            ) else { return }
+            if panel.performKeyEquivalent(with: event) == false { panel.sendEvent(event) }
+        }
+
+        func checkKeyboard() {
+            var calls: [String] = []
+            content.onPlayPause = { calls.append("play/pause") }
+            content.onPreviousTrack = { calls.append("previous") }
+            content.onNextTrack = { calls.append("next") }
+            content.onDismiss = { calls.append("close") }
+            content.selectTabForPreview(.home)
+            panel.makeFirstResponder(nil)
+
+            var results: [String] = []
+            func expect(_ label: String, _ condition: Bool) { results.append((condition ? "✓ " : "✗ ") + label) }
+
+            press("2", code: 19, .command); expect("⌘2 opens Shelf", content.selectedTab == .shelf)
+            press("4", code: 21, .command); expect("⌘4 opens Clipboard", content.selectedTab == .clipboard)
+            press("1", code: 18, .command); expect("⌘1 opens Home", content.selectedTab == .home)
+            press("\t", code: 48, .control); expect("⌃⇥ moves to the next tab", content.selectedTab == .shelf)
+            press("\t", code: 48, [.control, .shift]); expect("⌃⇧⇥ moves back", content.selectedTab == .home)
+
+            panel.makeFirstResponder(nil)
+            press(" ", code: 49); expect("Space plays or pauses", calls.last == "play/pause")
+            press("", code: 123, .command); expect("⌘← goes to the previous track", calls.last == "previous")
+            press("", code: 124, .command); expect("⌘→ goes to the next track", calls.last == "next")
+
+            press("/", code: 44, .command); expect("⌘/ shows the shortcuts", content.isShowingShortcuts)
+            press("\u{1b}", code: 53); expect("Esc closes the shortcuts first", content.isShowingShortcuts == false && calls.last != "close")
+            press("\u{1b}", code: 53); expect("Esc then closes the panel", calls.last == "close")
+
+            press("3", code: 20, .command)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                expect("⌘3 opens Notes with the cursor in the editor", content.selectedTab == .notes && panel.firstResponder is NoteTextView)
+                let before = calls.count
+                press("", code: 123, .command)
+                expect("⌘← while typing moves the cursor, not the track", calls.count == before)
+
+                content.selectTabForPreview(.clipboard)
+                panel.makeFirstResponder(nil)
+                let first = content.clipboardSelectionIndex
+                press("", code: 125)
+                press("", code: 125)
+                expect("↓ walks the clipboard list", content.clipboardSelectionIndex == first + 2 || ClipboardHistory.shared.items.count < 3)
+
+                report("keyboard: " + results.joined(separator: "  "))
+            }
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            check(.notes, label: "notes") {
+            for tab in PanelTab.headerTabs + [.clipboard] { checkButtons(on: tab) }
+            checkKeyboard()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { check(.notes, label: "notes") {
                 check(.clipboard, label: "clipboard search") {
                     if let savedDraft {
                         UserDefaults.standard.set(savedDraft, forKey: "NoteDraft")
@@ -109,7 +191,7 @@ enum TypingSelfTest {
                     panel.orderOut(nil)
                     exit(0)
                 }
-            }
+            } }
         }
     }
 }
@@ -123,6 +205,13 @@ extension NSView {
             if let found = subview.firstTextInput() { return found }
         }
         return nil
+    }
+
+    /// Every button in this subtree that is actually on screen.
+    func visibleButtons() -> [NSButton] {
+        guard isHiddenOrHasHiddenAncestor == false, alphaValue > 0.01 else { return [] }
+        let own = (self as? NSButton).map { [$0] } ?? []
+        return own + subviews.flatMap { $0.visibleButtons() }
     }
 
     /// The first editable text field in this subtree — a search box.

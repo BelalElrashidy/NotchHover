@@ -44,6 +44,18 @@ enum PanelTab: Int, CaseIterable {
         }
     }
 
+    /// Its key in the open panel, shown in tooltips so shortcuts can be found by hovering.
+    var shortcut: String? {
+        switch self {
+        case .home: return "⌘1"
+        case .shelf: return "⌘2"
+        case .notes: return "⌘3"
+        case .clipboard: return "⌘4"
+        case .mirror: return "⌘5"
+        default: return nil
+        }
+    }
+
     var title: String {
         switch self {
         case .home: return "Home"

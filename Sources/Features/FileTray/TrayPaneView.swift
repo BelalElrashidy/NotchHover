@@ -71,6 +71,9 @@ final class TrayPaneView: NSView {
         FileTray.shared.share(from: shareButton)
     }
 
+    /// The share sheet — where AirDrop lives — for ⌘S.
+    func share() { handleShare() }
+
     @objc private func handleReveal() {
         FileTray.shared.revealInFinder()
     }

@@ -106,6 +106,12 @@ enum PreviewRenderer {
             view.selectTabForPreview(.shelf)
         }
 
+        write(named: "expanded-shortcuts", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.home)
+            view.showShortcutsForPreview()
+        }
+
         write(named: "expanded-tray", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             FileTray.shared.add([

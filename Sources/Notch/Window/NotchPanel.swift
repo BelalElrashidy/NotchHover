@@ -12,6 +12,11 @@ final class NotchPanel: NSPanel {
         )
 
         self.contentView = contentView
+        // Whoever builds a panel gets its shortcuts with it — the controller, a test, a
+        // preview — rather than each having to remember to wire them up.
+        keyHandler = { [weak contentView] event in
+            (contentView as? NotchContentView)?.handleKey(event) ?? false
+        }
         isFloatingPanel = true
         becomesKeyOnlyIfNeeded = true
         hidesOnDeactivate = false
@@ -32,4 +37,19 @@ final class NotchPanel: NSPanel {
 
     // Borderless panels refuse key status by default, which would break button clicks.
     override var canBecomeKey: Bool { true }
+
+    /// The panel's keyboard shortcuts. Asked first for ⌘ combinations — before the main
+    /// menu and before a text view sees them — and last for plain keys that nothing
+    /// focused wanted, like Space with no text field active. Returns whether it acted.
+    var keyHandler: ((NSEvent) -> Bool)?
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if keyHandler?(event) == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if keyHandler?(event) == true { return }
+        super.keyDown(with: event)
+    }
 }

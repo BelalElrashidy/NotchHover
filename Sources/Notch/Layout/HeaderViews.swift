@@ -36,7 +36,7 @@ final class HeaderTabsView: NSView {
             let button = ClickThroughButton(title: "", target: self, action: #selector(handleTab(_:)))
             button.isBordered = false
             button.tag = tab.rawValue
-            button.toolTip = tab.title
+            button.toolTip = [tab.title, tab.shortcut].compactMap { $0 }.joined(separator: " — ")
             button.image = Style.symbolImage(tab.symbol, pointSize: 11, description: tab.title)
             button.imageHugsTitle = true
             button.font = .systemFont(ofSize: Style.scaled(11), weight: .medium)
@@ -152,6 +152,11 @@ final class HeaderActionsView: NSView {
         // Labels truncate by default so long titles give way; a battery reading is
         // short and has to be read whole.
         batteryLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // As wide as "100%" from the start, so the reading never truncates and the
+        // buttons beside it don't shift as the charge changes.
+        batteryLabel.alignment = .right
+        let widest = ("100%" as NSString).size(withAttributes: [.font: batteryLabel.font as Any]).width
+        batteryLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(widest) + 4).isActive = true
         let battery = NSStackView(views: [batteryLabel, batteryIcon])
         battery.orientation = .horizontal
         battery.spacing = 2
@@ -159,9 +164,9 @@ final class HeaderActionsView: NSView {
         badge.isHidden = true
 
         let circles = [
-            circle(around: clipboardButton, tip: "Clipboard history — ⌃⌥V"),
-            circle(around: mirrorButton, tip: "Mirror"),
-            circle(around: gearButton, tip: "Settings and quit")
+            circle(around: clipboardButton, tip: "Clipboard history — ⌘4, or ⌃⌥V anywhere"),
+            circle(around: mirrorButton, tip: "Mirror — ⌘5"),
+            circle(around: gearButton, tip: "Settings ⌘, — every shortcut ⌘/")
         ]
         self.circles = [.clipboard: circles[0], .mirror: circles[1]]
         ([badge] + circles + [battery]).forEach(stack.addArrangedSubview)
@@ -172,10 +177,14 @@ final class HeaderActionsView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
+        // Top and bottom too, not just the centre: without them this view had no height,
+        // and although the buttons still drew, hit-testing stops at a parent's frame —
+        // so every click on the right of the header landed on nothing.
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor)
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
         refreshBattery()

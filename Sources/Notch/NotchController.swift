@@ -93,9 +93,14 @@ final class NotchController {
         return panel.firstResponder is NSTextView
     }
 
+    /// Opened from the keyboard: it stays open until the keyboard closes it, or the
+    /// pointer comes to it and the usual hover rules take over. Otherwise the slightest
+    /// nudge of the mouse, wherever it was, closed a panel you were typing at.
+    private var openedByKeyboard = false
+
     /// Reasons the open panel stays open whatever the pointer does.
     private var isHeldOpen: Bool {
-        isPinned || isEditingText || contentView?.isShowingMenu == true
+        isPinned || isEditingText || openedByKeyboard || contentView?.isShowingMenu == true
     }
 
     init(
@@ -171,6 +176,7 @@ final class NotchController {
             queue: .main
         ) { [weak self] notification in
             guard let self, (notification.object as? NSWindow) === self.panel, self.isExpanded else { return }
+            self.openedByKeyboard = false
             self.scheduleHide()
         }
 
@@ -295,6 +301,7 @@ final class NotchController {
             guard let panel else { return }
             let liveArea = panel.frame.union(geometry?.hoverRect ?? .zero)
             if liveArea.containsPointer(location) {
+                openedByKeyboard = false
                 cancelScheduledHide()
             } else {
                 scheduleHide()
@@ -387,11 +394,25 @@ final class NotchController {
         ensureExpanded()
         guard let panel, let contentView else { return }
         cancelScheduledHide()
+        openedByKeyboard = true
         panel.makeKeyAndOrderFront(nil)
         contentView.openForTyping(tab)
     }
 
+    /// A global shortcut: opens its view, or closes the panel if that view is already
+    /// what you are looking at — so the same keys open and close it.
+    func toggle(_ tab: PanelTab) {
+        if isExpanded, contentView?.selectedTab == tab, contentView?.mode == .media {
+            dismiss()
+        } else {
+            open(tab)
+        }
+    }
+
     private func dismiss() {
+        // An unanswered approval keeps the panel up: closing would hide the question
+        // while Claude Code waits on it. ⌘↩ and ⌘⌫ answer it.
+        guard isPinned == false else { return }
         cancelScheduledHide()
         panel?.makeFirstResponder(nil)
         collapse()
@@ -438,6 +459,7 @@ final class NotchController {
         guard isExpanded else { return }
 
         isExpanded = false
+        openedByKeyboard = false
         selectedShortcut = nil
         releaseKeyFocus(after: 0.36)
         contentView?.stopCamera()

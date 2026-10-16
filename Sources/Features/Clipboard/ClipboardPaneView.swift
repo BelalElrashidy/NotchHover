@@ -48,6 +48,9 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     private let emptyLabel = Style.label("", size: 11, color: nil)
     private var observer: UUID?
     private var copiedID: UUID?
+    /// The row the arrow keys are on. Kept as an id, not an index, so it stays on the
+    /// same clip when the list reorders under it.
+    private var selectedID: UUID?
 
     init(isCompact: Bool = false) {
         self.isCompact = isCompact
@@ -160,6 +163,10 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         }
 
         let items = results.prefix(isCompact ? 4 : 60)
+        // A selection that fell out of the results goes back to the top.
+        if isCompact == false, items.contains(where: { $0.id == selectedID }) == false {
+            selectedID = items.first?.id
+        }
         guard items.isEmpty == false else {
             emptyLabel.stringValue = history.isPaused
                 ? "Recording is paused"
@@ -169,7 +176,12 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         }
 
         for item in items {
-            let row = ClipboardRowView(item: item, isCompact: isCompact, justCopied: item.id == copiedID)
+            let row = ClipboardRowView(
+                item: item,
+                isCompact: isCompact,
+                justCopied: item.id == copiedID,
+                isSelected: isCompact == false && item.id == selectedID
+            )
             row.onCopy = { [weak self] in self?.copy(item) }
             row.onPaste = { [weak self] in self?.onPaste?(item) }
             row.onPin = { ClipboardHistory.shared.togglePin(item.id) }
@@ -191,13 +203,72 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     }
 
     func controlTextDidChange(_ notification: Notification) {
+        // A new search starts at its best match.
+        selectedID = nil
         reload()
+    }
+
+    // MARK: - Keyboard
+
+    var searchText: String { searchField.stringValue }
+
+    var selectionIndex: Int {
+        Array(results.prefix(60)).firstIndex { $0.id == selectedID } ?? 0
+    }
+
+    private var selectedItem: ClipboardItem? {
+        results.first { $0.id == selectedID } ?? results.first
+    }
+
+    /// ↑ and ↓ move through the results, wherever the focus is.
+    func moveSelection(by offset: Int) {
+        let items = Array(results.prefix(60))
+        guard items.isEmpty == false else { return }
+        let current = items.firstIndex { $0.id == selectedID } ?? 0
+        let next = min(max(current + offset, 0), items.count - 1)
+        selectedID = items[next].id
+        reload()
+        // Keep the chosen row on screen as the selection walks past the bottom.
+        listStack.arrangedSubviews.first { ($0 as? ClipboardRowView)?.isSelected == true }
+            .map { $0.scrollToVisible($0.bounds) }
+    }
+
+    func copySelected() {
+        guard let item = selectedItem else { return }
+        copy(item)
+    }
+
+    func pasteSelected() {
+        guard let item = selectedItem else { return }
+        onPaste?(item)
+    }
+
+    func togglePinSelected() {
+        guard let item = selectedItem else { return }
+        ClipboardHistory.shared.togglePin(item.id)
+    }
+
+    func deleteSelected() {
+        guard let item = selectedItem else { return }
+        // Land on the neighbour rather than jumping back to the top.
+        let items = Array(results.prefix(60))
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            let neighbour = index + 1 < items.count ? items[index + 1] : (index > 0 ? items[index - 1] : nil)
+            selectedID = neighbour?.id
+        }
+        ClipboardHistory.shared.delete(item.id)
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         switch selector {
+        case #selector(NSResponder.moveUp(_:)):
+            moveSelection(by: -1)
+            return true
+        case #selector(NSResponder.moveDown(_:)):
+            moveSelection(by: 1)
+            return true
         case #selector(NSResponder.insertNewline(_:)):
-            if let first = results.first { copy(first) }
+            copySelected()
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             if searchField.stringValue.isEmpty {
@@ -228,11 +299,16 @@ final class ClipboardRowView: NSView {
     var onPin: (() -> Void)?
     var onDelete: (() -> Void)?
 
-    init(item: ClipboardItem, isCompact: Bool, justCopied: Bool) {
+    let isSelected: Bool
+
+    init(item: ClipboardItem, isCompact: Bool, justCopied: Bool, isSelected: Bool = false) {
+        self.isSelected = isSelected
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 6
-        layer?.backgroundColor = justCopied ? Style.accent.withAlphaComponent(0.25).cgColor : NSColor.clear.cgColor
+        layer?.backgroundColor = justCopied
+            ? Style.accent.withAlphaComponent(0.25).cgColor
+            : (isSelected ? Style.primaryText.withAlphaComponent(0.1).cgColor : NSColor.clear.cgColor)
 
         let icon = NSImageView()
         icon.imageScaling = .scaleProportionallyUpOrDown

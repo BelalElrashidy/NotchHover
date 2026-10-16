@@ -246,6 +246,9 @@ final class WidgetRowView: NSView {
         }
     }
 
+    /// The file tray in this row, if it has one — for the Shelf's keyboard shortcuts.
+    var trayPane: TrayPaneView? { views(of: TrayPaneView.self).first }
+
     private func views<T: NSView>(of type: T.Type) -> [T] {
         slots.compactMap { $0.view as? T }
     }

@@ -33,13 +33,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         ClipboardHistory.shared.start()
 
-        // ⌃⌥V opens clipboard history, ⌃⌥N a quick note. Chosen to avoid ⌥⌘V, which
-        // Finder uses to move files.
-        HotKeys.shared.register(keyCode: kVK_ANSI_V, modifiers: controlKey | optionKey) { [weak self] in
-            self?.notchController?.open(.clipboard)
-        }
-        HotKeys.shared.register(keyCode: kVK_ANSI_N, modifiers: controlKey | optionKey) { [weak self] in
-            self?.notchController?.open(.notes)
+        // ⌃⌥ is NotchHover's prefix everywhere: H for Home, S the Shelf, N a note,
+        // V the clipboard. Each opens its view or, pressed again, closes the panel.
+        // ⌃⌥V rather than ⌥⌘V, which Finder uses to move files; nothing on ⌃⌥Space,
+        // which macOS gives to switching input sources.
+        let hotKeys: [(Int, PanelTab)] = [
+            (kVK_ANSI_H, .home), (kVK_ANSI_S, .shelf), (kVK_ANSI_N, .notes), (kVK_ANSI_V, .clipboard)
+        ]
+        for (keyCode, tab) in hotKeys {
+            HotKeys.shared.register(keyCode: keyCode, modifiers: controlKey | optionKey) { [weak self] in
+                self?.notchController?.toggle(tab)
+            }
         }
 
         NotificationWatcher.shared.configure(activityCenter: activityCenter)

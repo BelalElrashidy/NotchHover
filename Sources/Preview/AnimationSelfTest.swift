@@ -56,7 +56,55 @@ enum AnimationSelfTest {
             }
         }
 
+        /// Samples the meter for a second: a running meter's bars change height, a stopped
+        /// one's don't. Runs as a separate phase before the shape test.
+        func sampleMeter(_ label: String, then next: @escaping () -> Void) {
+            var levels: [[CGFloat]] = []
+            Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+                levels.append(content.idleMeter.drawnLevels)
+                guard levels.count >= 20 else { return }
+                timer.invalidate()
+                let spread = (0..<3).map { bar in
+                    let column = levels.map { $0[bar] }
+                    return (column.max() ?? 0) - (column.min() ?? 0)
+                }
+                let moving = spread.allSatisfy { $0 > 0.1 }
+                report("meter, \(label): \(moving ? "moving" : "STILL") — bars ranged \(spread.map { String(format: "%.2f", $0) }.joined(separator: " / ")), animation attached: \(content.idleMeter.hasBounceAnimation)")
+                next()
+            }
+        }
+
+        let playing = TrackInfo(
+            name: "Test", artist: "Test", isPlaying: true, artworkURL: nil, sourceName: "Spotify",
+            sourceBundleIdentifier: "com.spotify.client", position: 10, duration: 200, volume: 50, isShuffling: false
+        )
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            content.renderNowPlaying(.track(playing))
+            content.present(.idle, animated: false)
+            sampleMeter("playing, resting") {
+                content.present(.expanded)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    content.present(.idle)
+                    sampleMeter("playing, after opening and closing") {
+                        panel.orderOut(nil)
+                        panel.orderFrontRegardless()
+                        sampleMeter("playing, after the window was hidden and shown") {
+                            let paused = TrackInfo(
+                                name: "Test", artist: "Test", isPlaying: false, artworkURL: nil, sourceName: "Spotify",
+                                sourceBundleIdentifier: "com.spotify.client", position: 10, duration: 200, volume: 50, isShuffling: false
+                            )
+                            content.renderNowPlaying(.track(paused))
+                            sampleMeter("paused") {
+                                startShapeTest()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        func startShapeTest() {
             content.present(.hidden, animated: false)
             report("notch width \(Int(notchWidth))pt")
             content.present(.idle)

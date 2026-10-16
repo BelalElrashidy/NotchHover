@@ -145,6 +145,8 @@ final class NotchContentView: NSView {
         widgets: { [.tray, .clipboard] }
     )
     private let paneContainer = NSView()
+    /// ⌘/ — every shortcut, over the pane.
+    private lazy var shortcutSheet = ShortcutSheetView()
     /// Which view the panel is showing.
     private(set) var selectedTab: PanelTab = .home
 
@@ -326,6 +328,7 @@ final class NotchContentView: NSView {
     private func show(_ tab: PanelTab) {
         mode = .media
         selectedTab = tab
+        setShortcutSheetVisible(false)
         // Views that aren't tabs leave no tab highlighted; picking one goes back.
         headerTabs.select(tab, notify: false)
         headerActions.setOpen(tab)
@@ -347,6 +350,135 @@ final class NotchContentView: NSView {
         case .notifications: notificationsPane.reload(); install(notificationsPane)
         case .apps: appsPane.reload(); install(appsPane)
         case .mirror: install(mirrorPane)
+        }
+    }
+
+    // MARK: - Keyboard
+
+    /// Everything in the panel can be reached without the pointer. Shortcuts that a
+    /// text field also uses — ⌘← moves the cursor, ⌘⌫ deletes a line — are left alone
+    /// while one is focused, so typing always behaves like typing.
+    func handleKey(_ event: NSEvent) -> Bool {
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let isTyping = window?.firstResponder is NSTextView
+
+        enum Key: UInt16 {
+            case tab = 48, space = 49, delete = 51, escape = 53, enter = 36
+            case left = 123, right = 124, down = 125, up = 126
+        }
+        let code = Key(rawValue: event.keyCode)
+
+        // The sheet is the one thing Esc closes before the panel.
+        if code == .escape, shortcutSheet.superview != nil {
+            setShortcutSheetVisible(false)
+            return true
+        }
+
+        switch modifiers {
+        case [.command]:
+            switch key {
+            case "1", "2", "3", "4", "5":
+                let tabs: [PanelTab] = [.home, .shelf, .notes, .clipboard, .mirror]
+                let tab = tabs[Int(key)! - 1]
+                show(tab)
+                if tab == .clipboard { DispatchQueue.main.async { [weak self] in self?.clipboardPane.focus() } }
+                return true
+            case "/":
+                setShortcutSheetVisible(shortcutSheet.superview == nil)
+                return true
+            case "w":
+                onDismiss?()
+                return true
+            default: break
+            }
+
+            if mode == .permission {
+                if code == .enter { onApprove?(); return true }
+                if code == .delete { onDeny?(); return true }
+                return false
+            }
+
+            switch (selectedTab, key, code) {
+            case (.clipboard, _, .enter): clipboardPane.pasteSelected(); return true
+            case (.clipboard, "p", _): clipboardPane.togglePinSelected(); return true
+            // Only with the search box empty: with text in it, ⌘⌫ edits the search.
+            case (.clipboard, _, .delete) where clipboardPane.searchText.isEmpty:
+                clipboardPane.deleteSelected(); return true
+            case (.notes, "n", _): notesPane.newNote(); return true
+            case (.notes, "[", _): notesPane.openAdjacent(by: -1); return true
+            case (.notes, "]", _): notesPane.openAdjacent(by: 1); return true
+            case (.shelf, "s", _): shelfRow.trayPane?.share(); return true
+            case (.shelf, "r", _): FileTray.shared.revealInFinder(); return true
+            default: break
+            }
+
+            // Playback and volume, unless the arrows are moving a text cursor.
+            guard isTyping == false else { return false }
+            switch code {
+            case .left: onPreviousTrack?(); return true
+            case .right: onNextTrack?(); return true
+            case .up: nudgeVolume(by: 1); return true
+            case .down: nudgeVolume(by: -1); return true
+            default: return false
+            }
+
+        case [.command, .shift] where key == "m":
+            SystemControls.setInputMuted(SystemControls.isInputMuted() == false)
+            refreshPanes()
+            return true
+
+        case [.control] where code == .tab, [.control, .shift] where code == .tab:
+            let tabs = PanelTab.headerTabs
+            let current = tabs.firstIndex(of: selectedTab) ?? -1
+            let step = modifiers.contains(.shift) ? -1 : 1
+            show(tabs[(current + step + tabs.count) % tabs.count])
+            return true
+
+        case []:
+            // Plain keys only arrive here when nothing focused wanted them.
+            switch code {
+            case .escape: onDismiss?(); return true
+            case .space where isTyping == false && mode == .media: onPlayPause?(); return true
+            case .up where selectedTab == .clipboard: clipboardPane.moveSelection(by: -1); return true
+            case .down where selectedTab == .clipboard: clipboardPane.moveSelection(by: 1); return true
+            case .enter where selectedTab == .clipboard: clipboardPane.copySelected(); return true
+            default: return false
+            }
+
+        default:
+            return false
+        }
+    }
+
+    var isShowingShortcuts: Bool { shortcutSheet.superview != nil }
+
+    /// Preview hook.
+    func showShortcutsForPreview() {
+        present(.expanded, animated: false)
+        setShortcutSheetVisible(true)
+    }
+
+    /// For the self-test.
+    var clipboardSelectionIndex: Int { clipboardPane.selectionIndex }
+
+    /// ⌘↑ and ⌘↓ step the output volume by a sixteenth, the size of a volume-key press.
+    private func nudgeVolume(by direction: Int) {
+        let current = SystemControls.isMuted() ? 0 : (SystemControls.volume() ?? 0)
+        SystemControls.setVolume(min(1, max(0, current + Double(direction) / 16)))
+        if direction > 0, SystemControls.isMuted() { SystemControls.setMuted(false) }
+    }
+
+    private func setShortcutSheetVisible(_ visible: Bool) {
+        guard visible != (shortcutSheet.superview != nil) else { return }
+        // The pane underneath is hidden rather than covered: nothing reads through.
+        paneContainer.isHidden = visible
+        if visible {
+            shortcutSheet.frame = detailContainer.frame
+            shortcutSheet.autoresizingMask = [.width, .height]
+            expandedContent.addSubview(shortcutSheet)
+        } else {
+            shortcutSheet.removeFromSuperview()
         }
     }
 
@@ -440,6 +572,9 @@ final class NotchContentView: NSView {
         show(tab)
         present(.expanded, animated: false)
     }
+
+    /// The resting bar's meter, for the self-test.
+    var idleMeter: LevelMeterView { idleContent.levelMeter }
 
     /// The material the surface was built with, so the controller can tell whether a
     /// settings change actually needs a rebuild.

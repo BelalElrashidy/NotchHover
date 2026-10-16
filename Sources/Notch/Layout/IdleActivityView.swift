@@ -205,6 +205,9 @@ final class IdleActivityView: NSView {
         setActivityHidden(true)
     }
 
+    /// The meter, for the self-test.
+    var levelMeter: LevelMeterView { meter }
+
     /// The content's half of the breath, started by the card so the two share a phase:
     /// artwork and meter swell and settle while the slab around them does the same.
     /// Zero cycles stops it.
@@ -305,4 +308,15 @@ final class LevelMeterView: NSView {
     private func stopAnimating() {
         bars.forEach { $0.removeAnimation(forKey: "bounce") }
     }
+
+    /// Each bar's drawn height right now, as a fraction of its full height — for the
+    /// self-test, which has to see the bars move rather than trust that they do.
+    var drawnLevels: [CGFloat] {
+        bars.map { bar in
+            let transform = bar.presentation()?.transform ?? bar.transform
+            return CGFloat(transform.m22)
+        }
+    }
+
+    var hasBounceAnimation: Bool { bars.allSatisfy { $0.animation(forKey: "bounce") != nil } }
 }

@@ -232,6 +232,22 @@ final class NotesPaneView: NSView, NSTextViewDelegate {
         flash("Copied")
     }
 
+    /// ⌘N: a fresh note, keeping the draft.
+    func newNote() {
+        handleNew()
+        focus()
+    }
+
+    /// ⌘[ and ⌘]: step through saved notes from the one being edited.
+    func openAdjacent(by offset: Int) {
+        let notes = NotesStore.shared.notes
+        guard notes.isEmpty == false else { return }
+        let current = notes.firstIndex { $0.id == editingID }
+        let next = current.map { $0 + offset } ?? (offset > 0 ? 0 : notes.count - 1)
+        guard notes.indices.contains(next) else { return }
+        open(notes[next])
+    }
+
     @objc private func handleNew() {
         editingID = nil
         editor.string = UserDefaults.standard.string(forKey: Self.draftKey) ?? ""
