@@ -19,6 +19,8 @@ final class NotchController {
 
     private let mediaController: MediaControlling
     private let poller: NowPlayingPoller
+    /// Music on the lock screen, for anyone who switches it on.
+    private let lockScreen = LockScreenMusic()
     private let permissionBridge: PermissionBridge
     private let activityCenter: ActivityCenter
     private let countdown: CountdownTimer
@@ -187,6 +189,11 @@ final class NotchController {
         poller.addObserver { [weak self] result in
             self?.apply(result)
         }
+
+        lockScreen.onPlayPause = { [weak self] in self?.perform(.playPause) }
+        lockScreen.onNext = { [weak self] in self?.perform(.nextTrack) }
+        lockScreen.onPrevious = { [weak self] in self?.perform(.previousTrack) }
+        lockScreen.start()
 
         activityCenter.addObserver { [weak self] activity in
             self?.present(activity)
@@ -972,6 +979,7 @@ final class NotchController {
 
     private func apply(_ result: Result<TrackInfo?, MediaError>) {
         LyricsService.shared.update(try? result.get())
+        lockScreen.update(try? result.get())
         if displays.isEmpty {
             // Nothing built yet: only something playing is worth building panels for,
             // whether that is a track we can name or audio we can only hear.

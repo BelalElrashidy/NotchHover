@@ -43,7 +43,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Any app playing, not just Spotify/Music | ✅ | | ✅ | | | ✅ | ✅ | | | |
 | Names the browser page playing | ✅ | | | | | | | ✅ | | |
 | Visualiser | 🟡 | ✅ | | | ✅ | | ✅ | | | ✅ |
-| Synced lyrics | | ✅ | | | | | ✅ | | ✅ | ✅ |
+| Synced lyrics | ✅ opt-in | ✅ | | | | | ✅ | | ✅ | ✅ |
 | Up Next queue | | | | | | | | | ✅ | |
 | **Files and text** | | | | | | | | | | |
 | File shelf + AirDrop | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | |
@@ -63,7 +63,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Battery, AirPods and devices | ✅ | | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | Notifications mirrored | ✅ | | | | ✅ | | | ✅ | ✅ | |
 | Reply to messages from the notch | | | | | | | | ✅ | ✅ | |
-| Lock screen widgets | | | ✅ | | ✅ | | | ✅ | ✅ | ✅ |
+| Lock screen widgets | 🟡 music, opt-in | | ✅ | | ✅ | | | ✅ | ✅ | ✅ |
 | CPU, memory, network stats | | | ✅ | | | | ✅ | ✅ | ✅ | |
 | Colour picker | | | ✅ | | | ✅ | | | | |
 | Weather | | | ✅ | | | ✅ | ✅ | | | |
@@ -121,15 +121,15 @@ What is still rare:
 
 ### Table stakes we don't have yet
 
-In rough order of how many competitors have them:
+In rough order of how many competitors have them, now done:
 
-1. Hover peek, and a dwell before opening
-2. One-click meeting join from the calendar
-3. Battery for AirPods and other devices
-4. Synced lyrics
-5. Trackpad gestures and haptics
-6. Coding-agent session state and usage
-7. Lock screen widgets
+1. ~~Hover peek, and a dwell before opening~~ ✅
+2. ~~One-click meeting join from the calendar~~ ✅
+3. ~~Battery for AirPods and other devices~~ ✅
+4. ~~Synced lyrics~~ ✅ opt-in, the one feature that goes online
+5. ~~Trackpad gestures and haptics~~ ✅
+6. ~~Coding-agent session state and usage~~ ✅ tokens; plan limits aren't in the transcripts
+7. Lock screen widgets — 🟡 music only, opt-in; nothing more personal belongs on a locked screen
 
 ---
 

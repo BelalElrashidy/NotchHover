@@ -46,7 +46,8 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Same for Safari | Page title and site; Safari's own icon | AppleScript (Automation prompt); favicons need Full Disk Access | S | ✅ |
 | Same for Chrome, Arc, Brave, Edge | | AppleScript for the URL, then Chrome's `Favicons` database | M | ⬜ |
 | Any-app now playing (browser, Podcasts) | The *track* and transport, not just which app | MediaRemote is restricted on recent macOS | L | ⬜ |
-| Lyrics | | Needs the internet — skipped | — | — |
+| Synced lyrics | The line being sung, in the peek, Now Playing and the Home card | Opt-in: lrclib.net, once per song, cached on disk | M | ✅ |
+| Music on the lock screen | Artwork, title, artist, play/pause and skip while locked — nothing else | Opt-in: a SkyLight space at the lock screen's level | M | ✅ |
 
 ## System at a glance
 

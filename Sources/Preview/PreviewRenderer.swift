@@ -212,6 +212,8 @@ enum PreviewRenderer {
         }
         LyricsService.shared.showLineForPreview(nil)
 
+        writeLockScreen(track: track, directory: directory)
+
         write(named: "expanded-page", directory: directory) { view in
             view.isAudioPlaying = true
             view.renderNowPlaying(.external(browser))
@@ -236,6 +238,40 @@ enum PreviewRenderer {
         image.unlockFocus()
         guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// The lock screen's music card over a stand-in lock screen.
+    private static func writeLockScreen(track: TrackInfo, directory: String) {
+        let size = LockScreenMusic.cardSize(notchWidth: 179, bandHeight: 32)
+        let (card, peek) = LockScreenMusic.makeCard(size: size, notchWidth: 179, bandHeight: 32)
+        peek.show(.playing(title: track.name, subtitle: "\(track.artist) · \(track.sourceName)",
+                           icon: NSWorkspace.shared.icon(forFile: "/Applications/Spotify.app"), isPlaying: true, isControllable: true))
+        card.layoutSubtreeIfNeeded()
+        peek.layoutSubtreeIfNeeded()
+
+        let margin: CGFloat = 40
+        let canvas = NSSize(width: size.width + margin * 2, height: size.height + margin * 3)
+        let image = NSImage(size: canvas)
+        image.lockFocus()
+        NSGradient(colors: [NSColor(calibratedRed: 0.10, green: 0.12, blue: 0.20, alpha: 1),
+                            NSColor(calibratedRed: 0.30, green: 0.22, blue: 0.36, alpha: 1)])?
+            .draw(in: NSRect(origin: .zero, size: canvas), angle: 70)
+        let origin = CGPoint(x: margin, y: canvas.height - size.height)
+        if let fill = (card as? LockScreenCardView)?.shape.fillColor { NSColor(cgColor: fill)?.setFill() }
+        NSBezierPath(cgPath: NotchShape.path(in: CGRect(origin: origin, size: size), bottomRadius: min(22, NotchShape.bottomRadius))).fill()
+        if let context = NSGraphicsContext.current {
+            NSGraphicsContext.saveGraphicsState()
+            context.cgContext.translateBy(x: origin.x, y: origin.y)
+            peek.displayIgnoringOpacity(peek.bounds, in: context)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        NSColor.black.setFill()
+        NSBezierPath(rect: NSRect(x: origin.x + (size.width - 179) / 2, y: canvas.height - 32, width: 179, height: 32)).fill()
+        image.unlockFocus()
+        guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("lockscreen-music.png"))
+        print("wrote lockscreen-music")
     }
 
     private static func writeCard(_ card: NSView, named name: String, directory: String) {

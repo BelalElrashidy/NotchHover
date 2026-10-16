@@ -199,9 +199,9 @@ The full, local-only catalogue of feature ideas is in [FEATURES.md](FEATURES.md)
 | Themes you can edit and save yourself | M |
 | Import/export settings as a file | S |
 | Sound effects on expand/collapse | S |
-| Haptic feedback on trackpad | S |
+| ~~Haptic feedback on trackpad~~ — done | S |
 | Animated album art background | M |
-| Lyrics (needs network — probably skip) | L |
+| ~~Lyrics~~ — done, opt-in (lrclib.net) | L |
 | Menu-bar hiding, like Bartender | L |
 | Multiple resting-bar styles | M |
 | Widget marketplace / plugin API | XL |

@@ -263,6 +263,24 @@ full panel; leaving it puts it back at once. It is one more rect in the same mor
   state, token use today and over the last five hours, and "Claude is done" when a
   session hands the turn back.
 
+### Lyrics and the lock screen
+
+Both are off until switched on in Settings → Advanced.
+
+- `LyricsService` takes every poller reading. For a Spotify or Music track with a length
+  it looks for the song in its disk cache (Application Support/NotchHover/Lyrics, one
+  file per song, empty for "none") and otherwise asks lrclib.net once — `/api/get` with
+  title, artist, album and length, or `/api/search` when there is no album. 404 and
+  instrumental answers are cached as "none"; a busy server or no network is not, and is
+  tried again next launch. The current line is worked out every quarter second from
+  where the track was at the last tick, shown a third of a second early. The peek, the
+  Now Playing tab and the Home card (instead of the artist) listen for it.
+- `LockScreenMusic` listens for `com.apple.screenIsLocked` / `screenIsUnlocked`. While
+  locked, with a track, it opens a window of its own — a `PeekView` on a notch-shaped
+  card — and `LockScreenSpace` moves it into a SkyLight space raised to level 400, where
+  the lock screen's notifications live. On unlock the window is removed and thrown away.
+  The notch's own panels never go to the lock screen.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to
@@ -570,6 +588,11 @@ All under `com.notchhover.NotchHover`.
 | `ClipboardPaused` | bool | Stop recording clipboard history |
 | `ClipboardExcludedApps` | `["com.agilebits.onepassword7", …]` | Apps never recorded |
 | `NoteDraft` | string | Unsaved text in the notes editor |
+| `HoverAction` | `peek` `open` | What resting on the notch does |
+| `HoverDelay` | 0–1.5 s | How long the pointer rests before the peek |
+| `TrackpadGestures` / `Haptics` | bool | Swipes on the notch; haptic taps |
+| `SyncedLyrics` | bool | Look up lyrics on lrclib.net (off by default) |
+| `LockScreenMusic` | bool | Music card on the lock screen (off by default) |
 | `Material` | legacy | Migrated to `Theme` on read |
 | `ZoneLeft` / `ZoneMiddle` / `ZoneRight` | legacy | Migrated to `PanelWidgets`; an unset position keeps its old default |
 
@@ -577,7 +600,7 @@ All under `com.notchhover.NotchHover`.
 
 ## Private API, deliberately
 
-Three things have no public API. Each resolves at runtime and degrades to a no-op — a
+Four things have no public API. Each resolves at runtime and degrades to a no-op — a
 greyed-out row, or a feature that never fires — rather than crashing:
 
 | What | How |
@@ -585,6 +608,7 @@ greyed-out row, or a feature that never fires — rather than crashing:
 | Display brightness | `DisplayServicesGetBrightness` / `SetBrightness` via `dlopen` |
 | Keyboard backlight | `KeyboardBrightnessClient` via the Objective-C runtime |
 | Notification banners | Accessibility API against `com.apple.notificationcenterui` |
+| Music on the lock screen | `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`, `SLSRemoveWindowsFromSpaces` from SkyLight via `dlopen` — the technique Boring Notch uses through the MIT-licensed SkyLightWindow package |
 
 The Notification Center database (`group.com.apple.usernoted`) was the alternative for
 notifications; it needs Full Disk Access, which is far broader than this feature
@@ -617,6 +641,13 @@ The app cannot screenshot itself, so it renders itself instead:
 ./build/NotchHover.app/Contents/MacOS/NotchHover --settings-selftest      # drives settings, snapshots it
 ./build/NotchHover.app/Contents/MacOS/NotchHover --settings               # open straight to settings
 ./build/NotchHover.app/Contents/MacOS/NotchHover --animation-selftest     # measures every transition
+./build/NotchHover.app/Contents/MacOS/NotchHover --typing-selftest        # clickable buttons, keyboard, typing
+./build/NotchHover.app/Contents/MacOS/NotchHover --gesture-selftest       # synthetic trackpad swipes
+./build/NotchHover.app/Contents/MacOS/NotchHover --calendar-selftest      # meeting links in invitations
+./build/NotchHover.app/Contents/MacOS/NotchHover --devices-selftest       # accessory batteries
+./build/NotchHover.app/Contents/MacOS/NotchHover --claude-selftest        # this Mac's Claude Code sessions
+./build/NotchHover.app/Contents/MacOS/NotchHover --lyrics-selftest [live] # LRC timing; `live` asks lrclib.net once
+./build/NotchHover.app/Contents/MacOS/NotchHover --lockscreen-selftest    # an invisible window onto the lock screen space
 ```
 
 `--animation-selftest` puts a real panel on screen, runs hidden → resting bar → panel →

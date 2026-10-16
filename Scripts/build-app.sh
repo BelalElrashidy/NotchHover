@@ -65,5 +65,5 @@ if [ "$SHOULD_RUN" = "yes" ]; then
     else
         open "$APP_BUNDLE"
     fi
-    echo "Launched NotchHover — look for the Capstone in the menu bar."
+    echo "Launched NotchHover — rest the pointer on the notch."
 fi

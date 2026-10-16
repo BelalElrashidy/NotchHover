@@ -368,6 +368,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let lyricsToggle = ToggleRow(title: "Synced lyrics")
         lyricsToggle.set(isOn: LyricsService.isEnabled, notify: false)
         lyricsToggle.onChange = { isOn in LyricsService.isEnabled = isOn }
+        let lockToggle = ToggleRow(title: "Music on the lock screen")
+        lockToggle.set(isOn: LockScreenMusic.isEnabled, notify: false)
+        lockToggle.onChange = { isOn in LockScreenMusic.isEnabled = isOn }
+        let lockNote = SettingsStyle.label(
+            LockScreenSpace.shared.isAvailable
+                ? "While the Mac is locked, shows what Spotify or Music is playing, with play, pause and skip — nothing else. Anyone at your Mac can see the song and skip it."
+                : "Not available on this version of macOS.",
+            size: 11,
+            secondary: true
+        )
         let lyricsNote = SettingsStyle.label(
             "Uses the internet. For each Spotify or Music song, its title, artist, album and length are sent once to lrclib.net, an open lyrics database, and the answer is kept on this Mac. Nothing else is sent, and nothing at all while this is off.",
             size: 11,
@@ -378,6 +388,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             SettingsStyle.heading("Advanced"),
             gesturesToggle, gesturesNote, hapticsToggle,
             lyricsToggle, lyricsNote,
+            lockToggle, lockNote,
             clipboardToggle, clipboardNote, clearClipboard,
             toggle, status
         ]

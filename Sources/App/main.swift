@@ -48,6 +48,14 @@ if let index = CommandLine.arguments.firstIndex(of: "--lyrics-selftest") {
     LyricsSelfTest.run(live: CommandLine.arguments.dropFirst(index + 1).first == "live")
 }
 
+// The lock screen's space, tried with an invisible window — nothing is locked.
+if CommandLine.arguments.contains("--lockscreen-selftest") {
+    app.setActivationPolicy(.prohibited)
+    let (available, added) = LockScreenMusic.probe()
+    FileHandle.standardError.write(Data("lock screen: SkyLight functions \(available ? "found" : "missing"), window moved to the lock screen space: \(added)\n".utf8))
+    exit(available && added ? 0 : 1)
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

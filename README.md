@@ -37,6 +37,11 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - Anything else that plays sound is shown too — a video in your browser appears as the
   site it's on, with that site's own icon
 - Pinned playlists you can start from the notch
+- **Synced lyrics**, if you switch them on — the line being sung, in the peek and the
+  Now Playing card. Off by default, because it is the one feature that goes online
+  (see [Privacy](#privacy))
+- **Music on the lock screen**, if you switch it on — what's playing, with play, pause
+  and skip, hanging from the notch while the Mac is locked. Nothing else ever shows there
 
 **Rest, peek, open**
 - Rest on the notch for a moment and a small **peek** comes up: what's playing with its
@@ -166,9 +171,18 @@ kept in `~/.claude/settings.json.notchhover-backup`.
 
 ## Privacy
 
-NotchHover makes no network requests of its own, with one exception: Spotify only hands
-out artwork as a link, so album art for Spotify tracks is fetched from Spotify's image
-server. No account information is sent with that request.
+NotchHover makes no network requests of its own, with two exceptions:
+
+- Spotify only hands out artwork as a link, so album art for Spotify tracks is fetched
+  from Spotify's image server. No account information is sent with that request.
+- **Synced lyrics, only if you turn them on** (Settings → Advanced, off by default). For
+  each Spotify or Music song, its title, artist, album and length are sent once to
+  [lrclib.net](https://lrclib.net), a free, open lyrics database — no account, cookie or
+  identifier goes with them. The answer, lyrics or "none", is kept in Application
+  Support, so a song is never asked about twice.
+
+Music on the lock screen is off by default too. When it's on, anyone at your locked Mac
+can see the song playing and skip it; nothing else is shown there.
 
 Clipboard history, notes and the shelf are stored in your user's Application Support
 folder, readable only by you. Password managers mark what they copy as concealed, and
