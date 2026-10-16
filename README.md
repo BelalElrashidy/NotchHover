@@ -52,8 +52,8 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - Calendar, countdown timer, macOS Shortcuts and app launchers
 
 **Claude Code**
-- Approve or deny Claude Code's tool calls from the notch, without switching windows.
-  Nothing else in this space does it.
+- Approve or deny Claude Code's tool calls from the notch, without switching windows —
+  free, open source, and without an account.
 
 **Yours to shape**
 - Six themes, from solid graphite to Liquid Glass
@@ -168,7 +168,8 @@ How it's put together is written up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 - **A command bar** — type to jump, search and run actions, Raycast-style
 - Signed and notarized builds, so the first launch just works
 
-The longer list, with what's built and what isn't, is in [docs/FEATURES.md](docs/FEATURES.md).
+The longer list, with what's built and what isn't, is in [docs/FEATURES.md](docs/FEATURES.md),
+and how NotchHover compares with the other notch apps is in [docs/COMPETITORS.md](docs/COMPETITORS.md).
 
 ## Contributing
 

@@ -43,7 +43,8 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Per-app volume | | Needs an audio driver — probably skip | L | ⬜ |
 | Any-app playing shows its app | A video in a browser shows the browser's icon and name | CoreAudio process objects, parent-walked to the app | S | ✅ |
 | Playing page's own icon | A YouTube video shows YouTube's favicon and the video title | Firefox-family session file; favicon is inline, nothing fetched | M | ✅ |
-| Same for Chrome and Safari | | AppleScript for the URL, then their favicon databases | M | ⬜ |
+| Same for Safari | Page title and site; Safari's own icon | AppleScript (Automation prompt); favicons need Full Disk Access | S | ✅ |
+| Same for Chrome, Arc, Brave, Edge | | AppleScript for the URL, then Chrome's `Favicons` database | M | ⬜ |
 | Any-app now playing (browser, Podcasts) | The *track* and transport, not just which app | MediaRemote is restricted on recent macOS | L | ⬜ |
 | Lyrics | | Needs the internet — skipped | — | — |
 
@@ -73,6 +74,7 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Stopwatch | | Extends the timer | S | ⬜ |
 | Reminders | Today's reminders, tick them off | EventKit | M | ⬜ |
 | Meeting countdown | "Standup in 4 min" in the resting bar | EventKit | S | ⬜ |
+| Meeting join | Join button for Zoom, Meet, Teams, FaceTime links | The event's URL and notes | S | ⬜ |
 | World clocks | | `TimeZone` | S | ⬜ |
 | Weather | | Needs the internet — skipped, or read a local cache | — | — |
 
@@ -99,13 +101,18 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | "Claude is done" activity | Resting bar pulse when a task finishes | `Stop` hook to the same bridge | S | ⬜ |
 | Approval history | What you allowed today | Local log | M | ⬜ |
 | Always-allow rules | Per project, per tool | Write the project's settings file | M | ⬜ |
-| Token / cost counter | | Transcript usage fields | M | ⬜ |
+| Token / cost counter | Session use and plan limits — most competitors now show this | Transcript usage fields | M | ⬜ |
 
 ## The panel itself
 
 | Feature | What it does | How, locally | Effort | Status |
 |---|---|---|---|---|
 | Flexible widget row, sizes, themes | | — | — | ✅ |
+| Tabs beside the notch | Home, Shelf, Notes left; clipboard, mirror, gear right; no bottom bar | — | M | ✅ |
+| Three states | Rest → hover peek → click for the full panel | One more rect in the existing morph | M | ⬜ |
+| Hover dwell | Wait ~0.3s before opening, so passing the notch doesn't open it | Boring Notch's default | S | ⬜ |
+| Trackpad gestures | Two-finger swipe down to open, up to close; swipe to skip tracks | Scroll-wheel events over the panel | M | ⬜ |
+| Command bar | Raycast-style: search clips, notes, files, apps; run actions | Builds on the full panel | L | ⬜ |
 | Global shortcuts | ⌃⌥V clipboard, ⌃⌥N notes | Carbon hot keys | S | ✅ |
 | Shortcut editor | Change those combinations | Key recorder view | M | ⬜ |
 | Pin open | Click to keep the panel open | | S | ⬜ |
@@ -115,7 +122,7 @@ Status: ✅ built · 🟡 partly built · ⬜ not started
 | Export / import settings | A file you keep | JSON | S | ⬜ |
 | Custom themes | Pick your own colours | | M | ⬜ |
 | Sounds / haptics | | `NSHapticFeedbackManager` | S | ⬜ |
-| Multiple displays | Per-display layout | | M | ⬜ |
+| Multiple displays | A notch on every display, one open at a time | `NotchDisplay` per screen | M | ✅ |
 | Notchless Macs | Fallback strip | | M | 🟡 |
 
 ---
