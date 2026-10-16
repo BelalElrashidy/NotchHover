@@ -131,6 +131,7 @@ final class IdleActivityView: NSView {
     @discardableResult
     func showActivity(_ activity: LiveActivity) -> CGFloat {
         setActivityHidden(false)
+        activityIcon.contentTintColor = Style.primaryText
 
         switch activity {
         case .volume(let level, let muted):
@@ -155,6 +156,12 @@ final class IdleActivityView: NSView {
             levelBar.isHidden = true
         case .notification(let app, let title):
             activityIcon.image = icon(forAppNamed: app)
+            levelLabel.stringValue = title
+            levelLabel.isHidden = false
+            levelBar.isHidden = true
+        case .meeting(let title):
+            activityIcon.image = Style.symbolImage("video.fill", pointSize: 15)
+            activityIcon.contentTintColor = Style.accent
             levelLabel.stringValue = title
             levelLabel.isHidden = false
             levelBar.isHidden = true

@@ -52,6 +52,9 @@ final class NotchController {
     /// Hovering has to rest on the notch for a moment before anything happens, so that
     /// passing it on the way to the menu bar doesn't open it.
     private var dwellWorkItem: DispatchWorkItem?
+    private var meetingTimer: Timer?
+    /// Calls already announced, so each one pops the notch once.
+    private var announcedMeetings: Set<String> = []
     private var unpeekWorkItem: DispatchWorkItem?
 
     /// What resting on the notch does.
@@ -237,6 +240,23 @@ final class NotchController {
             self?.applyAudioActivity(active)
         }
         audioActivity.start()
+
+        // Calls with a link, two minutes out: the notch pops once to say so, and resting
+        // on it then brings up the peek with its Join button. Only when the calendar has
+        // already been allowed — this never asks.
+        meetingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.announceUpcomingMeeting()
+        }
+    }
+
+    private func announceUpcomingMeeting() {
+        guard CalendarService.shared.isAuthorized,
+              let (event, _) = CalendarService.shared.joinableMeeting(lead: 2 * 60),
+              event.startDate.timeIntervalSinceNow > -60 else { return }
+        let key = (event.calendarItemIdentifier) + "\(event.startDate.timeIntervalSince1970)"
+        guard announcedMeetings.insert(key).inserted else { return }
+        let title = "\(event.title ?? "Meeting") · \(NotchContentView.relative(event.startDate))"
+        activityCenter.post(.meeting(title: title))
     }
 
     /// Anything playing through the speakers wakes the bar, whether or not a player
@@ -337,6 +357,7 @@ final class NotchController {
         pendingRequests.removeAll()
         permissionBridge.stop()
         audioActivity.stop()
+        meetingTimer?.invalidate()
         displays.values.forEach { $0.panel.orderOut(nil) }
     }
 

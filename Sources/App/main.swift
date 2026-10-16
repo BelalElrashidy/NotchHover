@@ -30,6 +30,12 @@ if CommandLine.arguments.contains("--safari-selftest") {
     exit(0)
 }
 
+// Meeting links found in invitation text: --calendar-selftest
+if CommandLine.arguments.contains("--calendar-selftest") {
+    app.setActivationPolicy(.prohibited)
+    CalendarSelfTest.run()
+}
+
 let appDelegate = AppDelegate()
 
 app.delegate = appDelegate

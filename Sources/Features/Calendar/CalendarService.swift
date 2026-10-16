@@ -103,7 +103,10 @@ struct MeetingLink: Equatable {
         NSWorkspace.shared.open(appURL ?? url)
     }
 
-    private var appURL: URL? {
+    private var appURL: URL? { appURL(isInstalled: isInstalled) }
+
+    /// Separate from `appURL` so the self-test can ask with the apps "installed".
+    func appURL(isInstalled: (String) -> Bool) -> URL? {
         switch service {
         case "Zoom" where isInstalled("us.zoom.xos"):
             // https://zoom.us/j/123?pwd=abc → zoommtg://zoom.us/join?confno=123&pwd=abc
