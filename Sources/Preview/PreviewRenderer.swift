@@ -1,4 +1,5 @@
 import AppKit
+import EventKit
 
 /// Renders the panel to PNGs so layout can be checked without a screen recording.
 /// Liquid Glass is a live effect and cannot be captured offscreen, so the slab is
@@ -128,6 +129,32 @@ enum PreviewRenderer {
         ClaudeSessionMonitor.shared.publishForPreview()
         writeCard(DevicesPaneView(), named: "card-batteries", directory: directory)
         writeCard(ClaudePaneView(), named: "card-claude", directory: directory)
+
+        // The schedule, with a made-up day: a call starting soon, an afternoon 1:1, a
+        // birthday, and something tomorrow for the strip's dot.
+        let store = EKEventStore()
+        func event(_ title: String, _ start: TimeInterval, _ minutes: Double, allDay: Bool = false, notes: String? = nil) -> EKEvent {
+            let event = EKEvent(eventStore: store)
+            event.title = title
+            event.startDate = Date().addingTimeInterval(start)
+            event.endDate = event.startDate.addingTimeInterval(minutes * 60)
+            event.isAllDay = allDay
+            event.notes = notes
+            return event
+        }
+        CalendarPaneView.previewEvents = [
+            event("Design review", 4 * 60, 45, notes: "Join: https://us02web.zoom.us/j/81234567890"),
+            event("1:1 with Sam", 2 * 3600, 30),
+            event("Mum's birthday", -3600, 60 * 23, allDay: true),
+            event("Dentist", 26 * 3600, 60)
+        ]
+        let calendarCard = CalendarPaneView()
+        calendarCard.reload()
+        writeCard(calendarCard, named: "card-calendar", directory: directory, size: NSSize(width: 250, height: 150))
+        write(named: "expanded-calendar", directory: directory) { view in
+            view.selectTabForPreview(.calendar)
+        }
+        CalendarPaneView.previewEvents = nil
 
         write(named: "expanded-shortcuts", directory: directory) { view in
             view.renderNowPlaying(.track(track))
@@ -275,8 +302,7 @@ enum PreviewRenderer {
         print("wrote lockscreen-music")
     }
 
-    private static func writeCard(_ card: NSView, named name: String, directory: String) {
-        let size = NSSize(width: 260, height: 120)
+    private static func writeCard(_ card: NSView, named name: String, directory: String, size: NSSize = NSSize(width: 260, height: 120)) {
         card.frame = NSRect(origin: .zero, size: size)
         card.layoutSubtreeIfNeeded()
         let image = NSImage(size: size)

@@ -10,6 +10,24 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-19
+
+A new schedule.
+
+### Changed
+- **The calendar card is now a schedule**: a week strip on top, today in red and a dot
+  under every day with something on, over a timeline of the chosen day. Events are blocks
+  in their calendar's colour, side by side when they overlap, faded once they're over; a
+  red line marks now, and the timeline opens just before it. Click another day in the
+  strip to see it.
+- **All-day events** sit as small capsules between the strip and the timeline.
+- **Join** buttons sit on the call's own block, in the service's colour — Zoom blue,
+  Meet green, Teams violet.
+- Without calendar access the card explains what it's for and offers **Allow calendar
+  access**, instead of asking the moment it appears.
+- The schedule keeps itself current: it updates when your calendar changes and every
+  minute while it's on screen.
+
 ## [0.4.0] — 2026-10-19
 
 A new peek.
@@ -87,7 +105,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.1.0...v0.2.0

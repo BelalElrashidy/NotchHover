@@ -256,6 +256,11 @@ to `open` skips it.
 
 ### Calendar, accessories, Claude Code
 
+- `CalendarPaneView` is the schedule: `DayStripView` (seven days, today red, a dot on
+  busy days, click to pick), all-day capsules, and `TimelineView` — a whole day at 36pt
+  an hour in a scroll view, opened just before now, events side by side when they
+  overlap, Join chips in each service's colour, a red now line. It reloads itself on
+  `EKEventStoreChanged` and every minute while on screen.
 - `CalendarService` is the one EventKit store; `MeetingLink` finds Zoom, Meet, Teams,
   FaceTime and Webex links in an event's URL, location or notes and opens Zoom and
   Teams in their apps. Two minutes before a call with a link, the notch pops.
