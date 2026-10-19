@@ -88,6 +88,12 @@ if CommandLine.arguments.contains("--levels-selftest") {
     LevelsSelfTest.run()
 }
 
+// Hotkeys, clashes and your own shortcuts: --actions-selftest
+if CommandLine.arguments.contains("--actions-selftest") {
+    app.setActivationPolicy(.prohibited)
+    ActionsSelfTest.run()
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

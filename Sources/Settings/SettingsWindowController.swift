@@ -8,45 +8,109 @@ final class FlippedView: NSView {
 extension Notification.Name {
     /// Posted when settings change so the panel can pick them up without a relaunch.
     static let notchHoverSettingsChanged = Notification.Name("NotchHoverSettingsChanged")
-    /// Posted by the notch's gear button.
+    /// Posted by the notch's gear button; an action id as the object opens Shortcuts on it.
     static let notchHoverOpenSettings = Notification.Name("NotchHoverOpenSettings")
 }
 
-/// Settings: a category sidebar, the pane for that category, and a live preview of
-/// the notch below it. Everything saves as you change it, and every control is drawn
-/// from the active theme rather than left as a stock grey AppKit control.
-final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-    private enum Category: Int, CaseIterable {
-        case appearance
-        case layout
-        case playlists
-        case shortcuts
-        case apps
-        case advanced
+/// Settings, laid out like System Settings: a sidebar of coloured icons in groups, with
+/// search, and the chosen pane beside it. Appearance and Layout keep a live picture of
+/// the notch pinned on top — Bartender's menu bar preview — and every row says what it
+/// does, the way Linear's settings do. Everything saves as it changes.
+final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSearchFieldDelegate {
+    enum Category: Int, CaseIterable {
+        case appearance, layout
+        case music, calendar, clipboard, files, launchers
+        case shortcuts, gestures, notifications
+        case privacy, about
 
         var title: String {
             switch self {
             case .appearance: return "Appearance"
             case .layout: return "Layout"
-            case .playlists: return "Playlists"
+            case .music: return "Music"
+            case .calendar: return "Calendar and calls"
+            case .clipboard: return "Clipboard"
+            case .files: return "Shelf and screenshots"
+            case .launchers: return "Launchers"
             case .shortcuts: return "Shortcuts"
-            case .apps: return "Apps"
-            case .advanced: return "Advanced"
+            case .gestures: return "Gestures and haptics"
+            case .notifications: return "Notifications"
+            case .privacy: return "Privacy and permissions"
+            case .about: return "About"
             }
         }
 
         var symbol: String {
             switch self {
-            case .appearance: return "paintpalette"
-            case .layout: return "rectangle.split.3x1"
-            case .playlists: return "music.note.list"
-            case .shortcuts: return "bolt"
-            case .apps: return "square.grid.2x2"
-            case .advanced: return "gearshape"
+            case .appearance: return "paintpalette.fill"
+            case .layout: return "rectangle.split.3x1.fill"
+            case .music: return "music.note"
+            case .calendar: return "calendar"
+            case .clipboard: return "doc.on.clipboard.fill"
+            case .files: return "tray.full.fill"
+            case .launchers: return "square.grid.2x2.fill"
+            case .shortcuts: return "command"
+            case .gestures: return "hand.tap.fill"
+            case .notifications: return "bell.badge.fill"
+            case .privacy: return "hand.raised.fill"
+            case .about: return "info"
             }
         }
+
+        var color: NSColor {
+            switch self {
+            case .appearance: return .systemPurple
+            case .layout: return .systemBlue
+            case .music: return .systemRed
+            case .calendar: return .systemOrange
+            case .clipboard: return .systemGray
+            case .files: return .systemTeal
+            case .launchers: return .systemIndigo
+            case .shortcuts: return NSColor(white: 0.35, alpha: 1)
+            case .gestures: return .systemPink
+            case .notifications: return .systemRed
+            case .privacy: return .systemBlue
+            case .about: return NSColor(white: 0.45, alpha: 1)
+            }
+        }
+
+        /// Groups are separated by a gap, as in System Settings.
+        var startsGroup: Bool { [.music, .shortcuts, .privacy].contains(self) }
+
+        /// Words a search should find this pane by.
+        var keywords: String {
+            switch self {
+            case .appearance: return "theme colour color resting bar hover peek visualizer dark light glass"
+            case .layout: return "widgets home panel size width height corner flare text"
+            case .music: return "spotify playlists lyrics lock screen visualizer"
+            case .calendar: return "meetings zoom meet teams join mute camera"
+            case .clipboard: return "history paste pin boards"
+            case .files: return "shelf drop files screenshots capture folder"
+            case .launchers: return "apps shortcuts launcher"
+            case .shortcuts: return "hotkeys keyboard keys quicklinks scripts commands"
+            case .gestures: return "trackpad swipe haptic feedback hover delay"
+            case .notifications: return "banners speak aloud accessibility"
+            case .privacy: return "permissions internet online lyrics accessibility bluetooth calendar screen recording"
+            case .about: return "version update github license"
+            }
+        }
+
+        var hasStage: Bool { self == .appearance || self == .layout }
     }
 
+    private let sidebarStack = NSStackView()
+    private let search = NSSearchField()
+    private let stage = NotchStageView()
+    private let paneScroll = NSScrollView()
+    private let paneDocument = FlippedView()
+    private var stageHeight: NSLayoutConstraint?
+    private var sidebarRows: [Category: NSView] = [:]
+    private var selected: Category = .appearance
+    private var theme: Theme = ThemeStore.selected
+    private var shortcutsView: ShortcutsSettingsView?
+    private var editor: CustomActionEditor?
+
+    // The sections that edit lists keep their own state between visits.
     private let playlistsSection = KeyValueSection(
         title: "Spotify playlists",
         hint: "Paste a Spotify link or URI — either works",
@@ -54,544 +118,727 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         valuePlaceholder: "https://open.spotify.com/playlist/…"
     )
     private let shortcutsSection = SingleFieldSection(
-        title: "Shortcuts",
+        title: "macOS Shortcuts",
         hint: "Names must match the Shortcuts app exactly",
         placeholder: "Shortcut name"
     )
     private let appsSection = AppListSection()
 
-    private var restingBarRow: SegmentedRow?
-    private var speakToggle: ToggleRow?
-    private let layoutEditor = LayoutEditorView()
-    private var themeCards: [String: NSButton] = [:]
-
-    private let sidebarStack = NSStackView()
-    private let sidebarContainer = NSView()
-    private let detailContainer = FlippedView()
-    private let previewImageView = NSImageView()
-    private let previewCaption = NSTextField(labelWithString: "Live preview")
-    private let savedNote = NSTextField(labelWithString: "Changes save as you make them")
-    private var doneButton: NSButton?
-    private let root = NSView()
-    private var sidebarButtons: [Category: NSButton] = [:]
-    private var selectedCategory: Category = .appearance
-    private var theme: Theme = ThemeStore.selected
-
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 560),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 880, height: 620),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "NotchHover Settings"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         self.init(window: window)
-
         window.delegate = self
-        window.contentView = makeContentView()
+        window.contentView = makeContent()
         window.center()
         load()
     }
 
     func show() {
         NSApp.activate(ignoringOtherApps: true)
-        theme = ThemeStore.selected
         load()
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
+        // Opening Settings shouldn't put the cursor in search.
+        window?.makeFirstResponder(nil)
     }
 
-    // MARK: - Layout
+    /// From ⌘E in the ⌘K list: the Shortcuts table, recording that action's hotkey.
+    func show(focusingAction id: String) {
+        show()
+        select(.shortcuts)
+        shortcutsView?.focus(on: id)
+    }
 
-    private func makeContentView() -> NSView {
+    // MARK: - Window
+
+    private func makeContent() -> NSView {
+        let root = NSView()
         root.wantsLayer = true
-        sidebarContainer.wantsLayer = true
 
-        let sidebar = makeSidebar()
-        let detail = makeDetailColumn()
+        let sidebar = NSView()
+        sidebar.wantsLayer = true
+        sidebar.identifier = NSUserInterfaceItemIdentifier("sidebar")
+        search.placeholderString = "Search"
+        search.delegate = self
+        search.sendsSearchStringImmediately = true
+        sidebarStack.orientation = .vertical
+        sidebarStack.alignment = .leading
+        sidebarStack.spacing = 1
+        [search, sidebarStack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            sidebar.addSubview($0)
+        }
+
+        let detail = NSView()
+        paneScroll.documentView = paneDocument
+        paneScroll.drawsBackground = false
+        paneScroll.hasVerticalScroller = true
+        paneScroll.automaticallyAdjustsContentInsets = false
+        paneDocument.translatesAutoresizingMaskIntoConstraints = false
+        [stage, paneScroll].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            detail.addSubview($0)
+        }
 
         [sidebar, detail].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview($0)
         }
 
+        stageHeight = stage.heightAnchor.constraint(equalToConstant: NotchStageView.height)
         NSLayoutConstraint.activate([
             sidebar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             sidebar.topAnchor.constraint(equalTo: root.topAnchor),
             sidebar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            sidebar.widthAnchor.constraint(equalToConstant: 184),
+            sidebar.widthAnchor.constraint(equalToConstant: 224),
+            // Room for the traffic lights above the search field.
+            search.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: 44),
+            search.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 12),
+            search.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -12),
+            sidebarStack.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 12),
+            sidebarStack.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 10),
+            sidebarStack.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -10),
+
             detail.leadingAnchor.constraint(equalTo: sidebar.trailingAnchor),
             detail.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             detail.topAnchor.constraint(equalTo: root.topAnchor),
-            detail.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+            detail.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            stage.topAnchor.constraint(equalTo: detail.topAnchor),
+            stage.leadingAnchor.constraint(equalTo: detail.leadingAnchor),
+            stage.trailingAnchor.constraint(equalTo: detail.trailingAnchor),
+            stageHeight!,
+            paneScroll.topAnchor.constraint(equalTo: stage.bottomAnchor),
+            paneScroll.leadingAnchor.constraint(equalTo: detail.leadingAnchor),
+            paneScroll.trailingAnchor.constraint(equalTo: detail.trailingAnchor),
+            paneScroll.bottomAnchor.constraint(equalTo: detail.bottomAnchor),
+            paneDocument.leadingAnchor.constraint(equalTo: paneScroll.contentView.leadingAnchor),
+            paneDocument.trailingAnchor.constraint(equalTo: paneScroll.contentView.trailingAnchor),
+            paneDocument.topAnchor.constraint(equalTo: paneScroll.contentView.topAnchor)
         ])
-
         return root
     }
 
-    private func makeSidebar() -> NSView {
-        sidebarStack.orientation = .vertical
-        sidebarStack.alignment = .leading
-        sidebarStack.spacing = 3
-        sidebarStack.translatesAutoresizingMaskIntoConstraints = false
-        sidebarContainer.addSubview(sidebarStack)
-
-        for category in Category.allCases {
-            let button = NSButton(title: "  " + category.title, target: self, action: #selector(handleCategory(_:)))
-            button.image = NSImage(systemSymbolName: category.symbol, accessibilityDescription: nil)
-            button.imagePosition = .imageLeading
-            button.alignment = .left
-            button.isBordered = false
-            button.wantsLayer = true
-            button.layer?.cornerRadius = 7
-            button.tag = category.rawValue
-            button.font = .systemFont(ofSize: 13)
-            sidebarButtons[category] = button
-            sidebarStack.addArrangedSubview(button)
-            button.widthAnchor.constraint(equalToConstant: 160).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        }
-
-        NSLayoutConstraint.activate([
-            sidebarStack.leadingAnchor.constraint(equalTo: sidebarContainer.leadingAnchor, constant: 12),
-            sidebarStack.topAnchor.constraint(equalTo: sidebarContainer.topAnchor, constant: 18)
-        ])
-
-        return sidebarContainer
+    private func applyTheme() {
+        theme = ThemeStore.selected
+        SettingsStyle.themeOverride = theme
+        guard let root = window?.contentView else { return }
+        window?.appearance = theme.appearance
+        window?.backgroundColor = theme.windowBackground
+        root.layer?.backgroundColor = theme.windowBackground.cgColor
+        root.subviews.first { $0.identifier?.rawValue == "sidebar" }?.layer?.backgroundColor = theme.elevatedBackground.cgColor
+        stage.theme = theme
+        rebuildSidebar()
+        select(selected)
     }
 
-    private func makeDetailColumn() -> NSView {
-        let column = NSView()
-        detailContainer.translatesAutoresizingMaskIntoConstraints = false
+    // MARK: - Sidebar
 
-        previewImageView.imageScaling = .scaleProportionallyUpOrDown
-        previewCaption.font = .systemFont(ofSize: 11)
-        savedNote.font = .systemFont(ofSize: 11)
-
-        let previewBox = NSStackView(views: [previewCaption, previewImageView])
-        previewBox.orientation = .vertical
-        previewBox.alignment = .leading
-        previewBox.spacing = 6
-        previewBox.translatesAutoresizingMaskIntoConstraints = false
-
-        let done = SettingsStyle.capsule("Done", prominent: true, target: self, action: #selector(handleDone))
-        doneButton = done
-        let footer = NSStackView(views: [savedNote, NSView(), done])
-        footer.orientation = .horizontal
-        footer.alignment = .centerY
-        footer.translatesAutoresizingMaskIntoConstraints = false
-
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
-        scroll.documentView = detailContainer
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-
-        [scroll, previewBox, footer].forEach(column.addSubview)
-
-        let clip = scroll.contentView
-        NSLayoutConstraint.activate([
-            // Pinned on three sides so the pane's height is free to exceed the scroller.
-            detailContainer.leadingAnchor.constraint(equalTo: clip.leadingAnchor, constant: 24),
-            detailContainer.trailingAnchor.constraint(equalTo: clip.trailingAnchor, constant: -24),
-            detailContainer.topAnchor.constraint(equalTo: clip.topAnchor, constant: 20),
-            scroll.leadingAnchor.constraint(equalTo: column.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: column.trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: column.topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: previewBox.topAnchor, constant: -12),
-            previewBox.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: 24),
-            previewBox.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -14),
-            previewImageView.widthAnchor.constraint(equalToConstant: 400),
-            previewImageView.heightAnchor.constraint(equalToConstant: 112),
-            footer.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: 24),
-            footer.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -24),
-            footer.bottomAnchor.constraint(equalTo: column.bottomAnchor, constant: -18)
-        ])
-
-        return column
+    private func rebuildSidebar() {
+        sidebarStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        sidebarRows = [:]
+        let query = search.stringValue.lowercased().trimmingCharacters(in: .whitespaces)
+        let matches = Category.allCases.filter {
+            query.isEmpty || "\($0.title) \($0.keywords)".lowercased().contains(query)
+        }
+        for category in matches {
+            if category.startsGroup, query.isEmpty {
+                let gap = NSView()
+                gap.heightAnchor.constraint(equalToConstant: 10).isActive = true
+                sidebarStack.addArrangedSubview(gap)
+            }
+            let row = SidebarRow(category: category, isSelected: category == selected, theme: theme)
+            row.onSelect = { [weak self] in self?.select(category) }
+            sidebarStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: sidebarStack.widthAnchor).isActive = true
+            sidebarRows[category] = row
+        }
+        if matches.isEmpty {
+            let none = NSTextField(labelWithString: "No settings match")
+            none.textColor = theme.tertiaryText
+            sidebarStack.addArrangedSubview(none)
+        }
     }
 
-    // MARK: - Categories
+    func controlTextDidChange(_ obj: Notification) {
+        rebuildSidebar()
+    }
 
-    private func select(_ category: Category) {
-        selectedCategory = category
-
-        for (candidate, button) in sidebarButtons {
-            let active = candidate == category
-            button.layer?.backgroundColor = active ? theme.accent.cgColor : NSColor.clear.cgColor
-            button.contentTintColor = active ? theme.onAccentText : theme.secondaryText
-            button.attributedTitle = NSAttributedString(
-                string: "  " + candidate.title,
-                attributes: [
-                    .foregroundColor: active ? theme.onAccentText : theme.primaryText,
-                    .font: NSFont.systemFont(ofSize: 13)
-                ]
-            )
+    /// ↩ in search opens the first match.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
+        let query = search.stringValue.lowercased()
+        if let first = Category.allCases.first(where: { "\($0.title) \($0.keywords)".lowercased().contains(query) }) {
+            select(first)
         }
+        return true
+    }
 
-        detailContainer.subviews.forEach { $0.removeFromSuperview() }
-        let pane = makePane(for: category)
+    // MARK: - Panes
+
+    func select(_ category: Category) {
+        selected = category
+        for (candidate, row) in sidebarRows {
+            (row as? SidebarRow)?.isSelected = candidate == category
+        }
+        // Collapsed rather than hidden: a hidden layer-backed stage left the whole window
+        // drawing blank in snapshots.
+        stageHeight?.constant = category.hasStage ? NotchStageView.height : 1
+        if category.hasStage { stage.refresh() }
+
+        paneDocument.subviews.forEach { $0.removeFromSuperview() }
+        let pane = makePane(category)
         pane.translatesAutoresizingMaskIntoConstraints = false
-        detailContainer.addSubview(pane)
+        paneDocument.addSubview(pane)
         NSLayoutConstraint.activate([
-            pane.leadingAnchor.constraint(equalTo: detailContainer.leadingAnchor),
-            pane.trailingAnchor.constraint(lessThanOrEqualTo: detailContainer.trailingAnchor),
-            pane.topAnchor.constraint(equalTo: detailContainer.topAnchor),
-            // Drives the scroll document's height; without it the container collapses.
-            pane.bottomAnchor.constraint(equalTo: detailContainer.bottomAnchor, constant: -20)
+            pane.leadingAnchor.constraint(equalTo: paneDocument.leadingAnchor, constant: 28),
+            pane.trailingAnchor.constraint(equalTo: paneDocument.trailingAnchor, constant: -28),
+            pane.topAnchor.constraint(equalTo: paneDocument.topAnchor, constant: category.hasStage ? 18 : 44),
+            pane.bottomAnchor.constraint(equalTo: paneDocument.bottomAnchor, constant: -28)
         ])
+        paneScroll.contentView.scroll(to: .zero)
     }
 
-    private func makePane(for category: Category) -> NSView {
+    private func page(_ views: [NSView]) -> NSView {
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 18
+        views.forEach { $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
+        return stack
+    }
+
+    private func makePane(_ category: Category) -> NSView {
         switch category {
         case .appearance: return appearancePane()
         case .layout: return layoutPane()
-        case .playlists: return playlistsSection
-        case .shortcuts: return shortcutsSection
-        case .apps: return appsSection
-        case .advanced: return advancedPane()
+        case .music: return musicPane()
+        case .calendar: return calendarPane()
+        case .clipboard: return clipboardPane()
+        case .files: return filesPane()
+        case .launchers: return launchersPane()
+        case .shortcuts: return shortcutsPane()
+        case .gestures: return gesturesPane()
+        case .notifications: return notificationsPane()
+        case .privacy: return privacyPane()
+        case .about: return aboutPane()
         }
     }
+
+    // MARK: Appearance
 
     private func appearancePane() -> NSView {
-        let grid = NSStackView()
-        grid.orientation = .vertical
-        grid.alignment = .leading
-        grid.spacing = 10
-        themeCards.removeAll()
-
-        for row in stride(from: 0, to: Theme.all.count, by: 3) {
-            let rowStack = NSStackView()
-            rowStack.orientation = .horizontal
-            rowStack.spacing = 10
-
-            for candidate in Theme.all[row..<min(row + 3, Theme.all.count)] {
-                let card = NSButton(title: candidate.name, target: self, action: #selector(handleThemeCard(_:)))
-                card.image = PreviewRenderer.snapshot(theme: candidate, width: 150)
-                card.imagePosition = .imageAbove
-                card.imageScaling = .scaleProportionallyDown
-                card.isBordered = false
-                card.wantsLayer = true
-                card.layer?.cornerRadius = 8
-                card.layer?.borderWidth = 2
-                card.identifier = NSUserInterfaceItemIdentifier(candidate.id)
-                card.attributedTitle = NSAttributedString(
-                    string: candidate.name,
-                    attributes: [.foregroundColor: theme.primaryText, .font: NSFont.systemFont(ofSize: 11)]
-                )
-                card.widthAnchor.constraint(equalToConstant: 158).isActive = true
-                card.heightAnchor.constraint(equalToConstant: 78).isActive = true
-                themeCards[candidate.id] = card
-                rowStack.addArrangedSubview(card)
+        let cards = NSStackView()
+        cards.spacing = 10
+        for candidate in Theme.all {
+            let card = ThemeCard(theme: candidate, isSelected: candidate.id == theme.id)
+            card.onPick = { [weak self] in
+                UserDefaults.standard.set(candidate.id, forKey: ThemeStore.defaultsKey)
+                self?.saved()
+                self?.applyTheme()
             }
-            grid.addArrangedSubview(rowStack)
+            cards.addArrangedSubview(card)
         }
+        let themes = NSScrollView()
+        themes.documentView = cards
+        themes.drawsBackground = false
+        themes.hasHorizontalScroller = false
+        cards.translatesAutoresizingMaskIntoConstraints = false
+        cards.topAnchor.constraint(equalTo: themes.contentView.topAnchor).isActive = true
+        cards.leadingAnchor.constraint(equalTo: themes.contentView.leadingAnchor).isActive = true
+        themes.heightAnchor.constraint(equalToConstant: 92).isActive = true
 
-        highlightSelectedThemeCard()
+        let resting = ["always", "playing", "never"]
+        let restingIndex = resting.firstIndex(of: UserDefaults.standard.string(forKey: "RestingBar") ?? "playing") ?? 1
+        let delays: [Double] = [0, 0.15, 0.3, 0.5, 0.8]
+        let delay = UserDefaults.standard.object(forKey: "HoverDelay") as? Double ?? 0.3
 
-        let restingRow = SegmentedRow(labels: ["Always", "While playing", "Never"])
-        restingRow.select(storedRestingBarIndex(), notify: false)
-        restingRow.onSelect = { [weak self] index in
-            UserDefaults.standard.set(["always", "playing", "never"][index], forKey: "RestingBar")
-            self?.save()
-        }
-        restingBarRow = restingRow
-
-        let hoverRow = SegmentedRow(labels: ["Peek first", "Open the panel"])
-        hoverRow.select(UserDefaults.standard.string(forKey: "HoverAction") == "open" ? 1 : 0, notify: false)
-        hoverRow.onSelect = { [weak self] index in
-            UserDefaults.standard.set(index == 1 ? "open" : "peek", forKey: "HoverAction")
-            self?.save()
-        }
-
-        let stack = NSStackView(views: [
-            SettingsStyle.heading("Appearance"),
-            grid,
-            labeledRow("Resting bar", control: restingRow),
-            labeledRow("On hover", control: hoverRow)
+        return page([
+            SettingsKit.header("Appearance", "How the notch looks, and how it answers when you come near it."),
+            labelled("Theme", themes),
+            SettingsKit.section("Behaviour", rows: [
+                SettingsKit.popup("Resting bar", detail: "The strip beside the notch between uses", options: ["Always", "While playing", "Never"],
+                                  selected: restingIndex) { [weak self] index in
+                    UserDefaults.standard.set(resting[index], forKey: "RestingBar")
+                    self?.saved()
+                },
+                SettingsKit.popup("On hover", detail: "What resting the pointer on the notch does", options: ["Peek first", "Open the panel"],
+                                  selected: UserDefaults.standard.string(forKey: "HoverAction") == "open" ? 1 : 0) { [weak self] index in
+                    UserDefaults.standard.set(index == 1 ? "open" : "peek", forKey: "HoverAction")
+                    self?.saved()
+                },
+                SettingsKit.popup("Hover delay", detail: "How long the pointer rests before anything opens", options: ["None", "0.15 s", "0.3 s", "0.5 s", "0.8 s"],
+                                  selected: delays.firstIndex { abs($0 - delay) < 0.01 } ?? 2) { [weak self] index in
+                    UserDefaults.standard.set(delays[index], forKey: "HoverDelay")
+                    self?.saved()
+                },
+                SettingsKit.toggle("Live visualizer", detail: "The bars move with the music itself, in the artwork's colour. Nothing is recorded.",
+                                   badge: .asks("System Audio Recording"), isOn: AudioLevels.isEnabled) { AudioLevels.isEnabled = $0 }
+            ])
         ])
+    }
+
+    private func labelled(_ title: String, _ view: NSView) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 12, weight: .semibold)
+        label.textColor = theme.secondaryText
+        let stack = NSStackView(views: [label, view])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 14
+        stack.spacing = 6
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         return stack
     }
+
+    // MARK: Layout
 
     private func layoutPane() -> NSView {
-        layoutEditor.reload()
-        return layoutEditor
+        let canvas = PanelCanvasView()
+        canvas.heightAnchor.constraint(equalToConstant: 128).isActive = true
+        canvas.onChange = { [weak self] in
+            self?.saved()
+            self?.stage.refresh()
+            self?.select(.layout)
+        }
+
+        let gallery = NSStackView()
+        gallery.spacing = 8
+        let unused = PanelWidget.allCases.filter { PanelLayoutStore.widgets.contains($0) == false }
+        for widget in unused {
+            let tile = WidgetGalleryTile(widget: widget)
+            tile.onAdd = { canvas.append(widget) }
+            gallery.addArrangedSubview(tile)
+        }
+        let galleryScroll = NSScrollView()
+        galleryScroll.documentView = gallery
+        galleryScroll.drawsBackground = false
+        galleryScroll.hasHorizontalScroller = false
+        gallery.translatesAutoresizingMaskIntoConstraints = false
+        gallery.topAnchor.constraint(equalTo: galleryScroll.contentView.topAnchor).isActive = true
+        gallery.leadingAnchor.constraint(equalTo: galleryScroll.contentView.leadingAnchor).isActive = true
+        galleryScroll.heightAnchor.constraint(equalToConstant: 60).isActive = true
+
+        func size(_ title: String, _ detail: String?, key: String, value: CGFloat, range: ClosedRange<Double>, unit: String, scale: Double = 1) -> NSView {
+            SettingsKit.row(title, detail: detail, control: SettingsKit.slider(value: Double(value) * scale, range: range, format: { "\(Int($0.rounded()))\(unit)" }) { [weak self] newValue in
+                UserDefaults.standard.set(newValue / scale, forKey: key)
+                self?.saved()
+                self?.stage.refresh()
+            })
+        }
+
+        return page([
+            SettingsKit.header("Layout", "Home's widgets, as they sit in the panel. Drag one sideways to move it, hover for × to take it out, drag one in from below."),
+            canvas,
+            labelled(unused.isEmpty ? "Every widget is in the panel" : "More widgets", galleryScroll),
+            SettingsKit.section("Size", footer: "The panel fits its widgets unless the width is fixed.", rows: [
+                SettingsKit.popup("Panel width", options: ["Fits the widgets", "Fixed"], selected: PanelSizes.usesAutomaticWidth ? 0 : 1) { [weak self] index in
+                    UserDefaults.standard.set(index == 0 ? "auto" : "fixed", forKey: PanelSizes.Key.widthMode)
+                    self?.saved()
+                    self?.stage.refresh()
+                },
+                size("Fixed width", nil, key: PanelSizes.Key.width, value: PanelSizes.width, range: 420...1400, unit: "pt"),
+                size("Height", nil, key: PanelSizes.Key.height, value: PanelSizes.height, range: 110...320, unit: "pt"),
+                size("Corner radius", nil, key: PanelSizes.Key.cornerRadius, value: PanelSizes.cornerRadius, range: 12...48, unit: "pt"),
+                size("Flare", "The curve where the panel meets the menu bar", key: PanelSizes.Key.flare, value: PanelSizes.flare, range: 0...60, unit: "pt"),
+                size("Resting bar sides", nil, key: PanelSizes.Key.restingWing, value: PanelSizes.restingWing, range: 0...200, unit: "pt"),
+                size("Resting bar drop", nil, key: PanelSizes.Key.restingExtraHeight, value: PanelSizes.restingExtraHeight, range: 0...40, unit: "pt"),
+                size("Text size", nil, key: PanelSizes.Key.typeScale, value: PanelSizes.typeScale, range: 85...130, unit: "%", scale: 100)
+            ])
+        ])
     }
 
-    private func advancedPane() -> NSView {
-        let toggle = ToggleRow(title: "Speak notifications aloud")
-        toggle.set(isOn: UserDefaults.standard.bool(forKey: "SpeakNotifications"), notify: false)
-        toggle.onChange = { [weak self] value in
-            UserDefaults.standard.set(value, forKey: "SpeakNotifications")
-            self?.save()
-        }
-        speakToggle = toggle
+    // MARK: Music
 
+    private func musicPane() -> NSView {
+        page([
+            SettingsKit.header("Music", "Spotify and Apple Music, read and controlled on your Mac."),
+            SettingsKit.section("Extras", rows: [
+                SettingsKit.toggle("Synced lyrics", detail: "The line being sung, in the peek and Now Playing. Each song's title, artist, album and length go to lrclib.net once; nothing else.",
+                                   badge: .internet, isOn: LyricsService.isEnabled) { LyricsService.isEnabled = $0 },
+                SettingsKit.toggle("Live visualizer", detail: "The bars follow the music itself. Not used on Bluetooth headphones.",
+                                   badge: .asks("System Audio Recording"), isOn: AudioLevels.isEnabled) { AudioLevels.isEnabled = $0 },
+                SettingsKit.toggle("Music on the lock screen", detail: LockScreenSpace.shared.isAvailable
+                                   ? "Artwork, play, pause and skip while the Mac is locked. Anyone at your Mac can see the song."
+                                   : "Not available on this version of macOS.",
+                                   isOn: LockScreenMusic.isEnabled) { LockScreenMusic.isEnabled = $0 }
+            ]),
+            SettingsKit.section("Playlists", footer: "Pinned playlists play from the notch's Playlists card.", rows: [inset(playlistsSection)])
+        ])
+    }
+
+    private func inset(_ view: NSView) -> NSView {
+        let box = NSStackView(views: [view])
+        box.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        return box
+    }
+
+    // MARK: Calendar and calls
+
+    private func calendarPane() -> NSView {
+        let calendar = CalendarService.shared
+        let access: NSView = calendar.isAuthorized
+            ? SettingsKit.status("Allowed", good: true)
+            : SettingsKit.button(calendar.isDenied ? "Open System Settings" : "Allow access", prominent: true) { [weak self] in
+                Permission.calendars.request()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.select(.calendar) }
+            }
+        return page([
+            SettingsKit.header("Calendar and calls", "Your schedule in the panel, a Join button on every call, and the call's controls while you're on it."),
+            SettingsKit.section("Calendar", rows: [
+                SettingsKit.row("Calendar access", detail: "Read only, on this Mac. Zoom, Meet, Teams, FaceTime and Webex links get a Join button.", control: access),
+                SettingsKit.row("Before a call", detail: "The notch pops two minutes before a call with a link, and ⌘J joins it.")
+            ]),
+            SettingsKit.section("On a call", footer: "Google Meet needs one switch in your browser: in Chrome, View → Developer → Allow JavaScript from Apple Events; in Safari, Settings → Advanced, then Develop → Allow JavaScript from Apple Events.", rows: [
+                SettingsKit.row("Mute, camera and leave", detail: "In the peek during a Zoom, Teams, Webex or Google Meet call. ⌃⌥M mutes from anywhere.",
+                                control: SettingsKit.status(AXIsProcessTrusted() ? "Ready" : "Needs Accessibility", good: AXIsProcessTrusted()))
+            ])
+        ])
+    }
+
+    // MARK: Clipboard
+
+    private func clipboardPane() -> NSView {
+        page([
+            SettingsKit.header("Clipboard", "Everything you copy, searchable from the notch, with boards for what you reuse."),
+            SettingsKit.section(nil, footer: "Copies from password managers are never recorded.", rows: [
+                SettingsKit.toggle("Record clipboard history", detail: "Kept in your Application Support folder, readable only by you.", badge: .onThisMac,
+                                   isOn: ClipboardHistory.shared.isPaused == false) { ClipboardHistory.shared.isPaused = $0 == false },
+                SettingsKit.row("Clear history", detail: "Pinned clips and clips on a board stay.",
+                                control: SettingsKit.button("Clear") { ClipboardHistory.shared.clear() })
+            ])
+        ])
+    }
+
+    // MARK: Shelf and screenshots
+
+    private func filesPane() -> NSView {
+        page([
+            SettingsKit.header("Shelf and screenshots", "Files held on the notch, things to do with them, and the screenshots you take."),
+            SettingsKit.section("Shelf", rows: [
+                SettingsKit.row("Drop zones", detail: "Drag files to the notch: drop on Shelf, AirDrop, a conversion, Zip or Copy text. Everything is done on your Mac."),
+                SettingsKit.row("New files", detail: "Converted, resized or zipped files go beside the originals, never over them.")
+            ]),
+            SettingsKit.section("Screenshots", rows: [
+                SettingsKit.row("Screenshots folder", detail: ScreenshotStore.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") + " — change it in the Screenshot app's Options",
+                                control: SettingsKit.button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([ScreenshotStore.folder]) }),
+                SettingsKit.row("Capture from the notch", detail: "⌃⌥4 for an area, or the buttons in the Screenshots view.",
+                                control: SettingsKit.status(CGPreflightScreenCaptureAccess() ? "Allowed" : "Asks the first time", good: CGPreflightScreenCaptureAccess() ? true : nil))
+            ])
+        ])
+    }
+
+    // MARK: Launchers
+
+    private func launchersPane() -> NSView {
+        page([
+            SettingsKit.header("Launchers", "Apps and macOS Shortcuts one click away in the notch. For keys and your own actions, see Shortcuts."),
+            SettingsKit.section(nil, rows: [inset(appsSection)]),
+            SettingsKit.section(nil, rows: [inset(shortcutsSection)])
+        ])
+    }
+
+    // MARK: Shortcuts
+
+    private func shortcutsPane() -> NSView {
+        let table = ShortcutsSettingsView()
+        table.onEditCustom = { [weak self] action in self?.edit(action) }
+        shortcutsView = table
+        return page([
+            SettingsKit.header("Shortcuts", "Every action NotchHover has, built in and your own. ⌘K in the panel runs any of them."),
+            table
+        ])
+    }
+
+    private func edit(_ action: CustomAction?) {
+        let editor = CustomActionEditor(action: action)
+        editor.onSave = { CustomActionStore.shared.save($0) }
+        self.editor = editor
+        if let sheet = editor.window { window?.beginSheet(sheet) }
+    }
+
+    // MARK: Gestures and haptics
+
+    private func gesturesPane() -> NSView {
+        page([
+            SettingsKit.header("Gestures and haptics", nil),
+            SettingsKit.section(nil, rows: [
+                SettingsKit.toggle("Trackpad gestures", detail: "Two fingers down on the notch to open it, up to close, sideways to change tab — or, on the resting bar, the track.",
+                                   isOn: SwipeRecognizer.isEnabled) { UserDefaults.standard.set($0, forKey: "TrackpadGestures") },
+                SettingsKit.toggle("Haptic feedback", detail: "A tap from a Force Touch trackpad when the panel opens, a tab changes or a swipe lands.",
+                                   isOn: Haptics.isEnabled) { UserDefaults.standard.set($0, forKey: "Haptics") }
+            ])
+        ])
+    }
+
+    // MARK: Notifications
+
+    private func notificationsPane() -> NSView {
         let trusted = NotificationWatcher.isTrusted
-        let status = SettingsStyle.label(
-            trusted
-                ? "Accessibility granted — banners are being read"
-                : "Reading notifications needs Accessibility access",
-            size: 11,
-            secondary: true
-        )
+        return page([
+            SettingsKit.header("Notifications", "Banners from other apps, mirrored into the notch."),
+            SettingsKit.section(nil, rows: [
+                SettingsKit.row("Mirror notification banners", detail: "Read from the banners on screen with Accessibility.",
+                                control: trusted ? SettingsKit.status("On", good: true) : SettingsKit.button("Allow", prominent: true) { [weak self] in
+                                    NotificationWatcher.requestTrust()
+                                    NotificationWatcher.openAccessibilitySettings()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self?.select(.notifications) }
+                                }),
+                SettingsKit.toggle("Speak notifications aloud", isOn: UserDefaults.standard.bool(forKey: "SpeakNotifications")) { [weak self] in
+                    UserDefaults.standard.set($0, forKey: "SpeakNotifications")
+                    self?.saved()
+                }
+            ])
+        ])
+    }
 
-        let clipboardToggle = ToggleRow(title: "Record clipboard history")
-        clipboardToggle.set(isOn: ClipboardHistory.shared.isPaused == false, notify: false)
-        clipboardToggle.onChange = { isOn in
-            ClipboardHistory.shared.isPaused = isOn == false
+    // MARK: Privacy and permissions
+
+    private func privacyPane() -> NSView {
+        let permissions = Permission.allCases.map { permission -> NSView in
+            let granted = permission.isGranted
+            let control: NSView = granted == true
+                ? SettingsKit.status("Allowed", good: true)
+                : SettingsKit.group([
+                    SettingsKit.status(granted == false ? "Not allowed" : "Asked when needed", good: granted == false ? false : nil),
+                    SettingsKit.button(granted == nil ? "Open" : "Allow") { [weak self] in
+                        permission.request()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self?.select(.privacy) }
+                    }
+                ])
+            return SettingsKit.row(permission.title, detail: permission.reason, control: control)
         }
-        let clipboardNote = SettingsStyle.label(
-            "Stored only on this Mac. Copies from password managers are never recorded.",
-            size: 11,
-            secondary: true
-        )
-        let clearClipboard = SettingsStyle.capsule("Clear clipboard history", target: self, action: #selector(handleClearClipboard))
+        return page([
+            SettingsKit.header("Privacy and permissions", "Everything stays on your Mac. These are the only exceptions, and they're off until you turn them on."),
+            SettingsKit.section("Goes beyond your Mac", rows: [
+                SettingsKit.toggle("Synced lyrics", detail: "Title, artist, album and length of each song, to lrclib.net, once.", badge: .internet,
+                                   isOn: LyricsService.isEnabled) { LyricsService.isEnabled = $0 },
+                SettingsKit.row("Spotify artwork", detail: "Spotify only hands out cover art as a link, so it's fetched from Spotify's image server. No account details are sent.")
+            ]),
+            SettingsKit.section("Permissions", footer: "Each is asked for only when you first use what needs it.", rows: permissions)
+        ])
+    }
 
-        let gesturesToggle = ToggleRow(title: "Trackpad gestures")
-        gesturesToggle.set(isOn: SwipeRecognizer.isEnabled, notify: false)
-        gesturesToggle.onChange = { isOn in UserDefaults.standard.set(isOn, forKey: "TrackpadGestures") }
-        let gesturesNote = SettingsStyle.label(
-            "Two fingers down on the notch to open it, up to close, sideways to change tab — or, on the resting bar, the track.",
-            size: 11,
-            secondary: true
-        )
-        let hapticsToggle = ToggleRow(title: "Haptic feedback")
-        hapticsToggle.set(isOn: Haptics.isEnabled, notify: false)
-        hapticsToggle.onChange = { isOn in UserDefaults.standard.set(isOn, forKey: "Haptics") }
+    // MARK: About
 
-        // The one switch that reaches the internet says exactly what it sends.
-        let lyricsToggle = ToggleRow(title: "Synced lyrics")
-        lyricsToggle.set(isOn: LyricsService.isEnabled, notify: false)
-        lyricsToggle.onChange = { isOn in LyricsService.isEnabled = isOn }
-        let levelsToggle = ToggleRow(title: "Live visualizer")
-        levelsToggle.set(isOn: AudioLevels.isEnabled, notify: false)
-        levelsToggle.onChange = { isOn in AudioLevels.isEnabled = isOn }
-        let levelsNote = SettingsStyle.label(
-            "The bars beside the notch move with the music itself. macOS will ask for System Audio Recording: NotchHover listens only to the app that's playing, turns each moment into three numbers, and keeps nothing. Not used on Bluetooth headphones.",
-            size: 11,
-            secondary: true
-        )
-
-        let lockToggle = ToggleRow(title: "Music on the lock screen")
-        lockToggle.set(isOn: LockScreenMusic.isEnabled, notify: false)
-        lockToggle.onChange = { isOn in LockScreenMusic.isEnabled = isOn }
-        let lockNote = SettingsStyle.label(
-            LockScreenSpace.shared.isAvailable
-                ? "While the Mac is locked, shows what Spotify or Music is playing, with play, pause and skip — nothing else. Anyone at your Mac can see the song and skip it."
-                : "Not available on this version of macOS.",
-            size: 11,
-            secondary: true
-        )
-        let lyricsNote = SettingsStyle.label(
-            "Uses the internet. For each Spotify or Music song, its title, artist, album and length are sent once to lrclib.net, an open lyrics database, and the answer is kept on this Mac. Nothing else is sent, and nothing at all while this is off.",
-            size: 11,
-            secondary: true
-        )
-
-        var rows: [NSView] = [
-            SettingsStyle.heading("Advanced"),
-            gesturesToggle, gesturesNote, hapticsToggle,
-            levelsToggle, levelsNote,
-            lyricsToggle, lyricsNote,
-            lockToggle, lockNote,
-            clipboardToggle, clipboardNote, clearClipboard,
-            toggle, status
-        ]
-        if trusted == false {
-            rows.append(SettingsStyle.capsule("Allow notifications…", target: self, action: #selector(handleNotificationAccess)))
+    private func aboutPane() -> NSView {
+        let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
+        icon.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 96).isActive = true
+        let name = NSTextField(labelWithString: "NotchHover")
+        name.font = .systemFont(ofSize: 26, weight: .bold)
+        name.textColor = theme.primaryText
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let line = NSTextField(labelWithString: "Version \(version) · free and open source under GPL-3.0")
+        line.textColor = theme.secondaryText
+        let repo = "https://github.com/BelalElrashidy/NotchHover"
+        func link(_ title: String, _ path: String) -> NSButton {
+            SettingsKit.button(title) { if let url = URL(string: repo + path) { NSWorkspace.shared.open(url) } }
         }
-
-        let stack = NSStackView(views: rows)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        return stack
+        let buttons = SettingsKit.group([
+            link("GitHub", ""),
+            link("What's new", "/blob/main/CHANGELOG.md"),
+            link("Releases", "/releases"),
+            link("Report a problem", "/issues/new"),
+            SettingsKit.button("Quit NotchHover") { NSApp.terminate(nil) }
+        ])
+        let hero = NSStackView(views: [icon, name, line, buttons])
+        hero.orientation = .vertical
+        hero.spacing = 10
+        hero.setCustomSpacing(18, after: line)
+        let privacy = NSTextField(wrappingLabelWithString: "No account, no analytics, no telemetry. Updates are on GitHub's Releases page; NotchHover never checks for them itself.")
+        privacy.textColor = theme.tertiaryText
+        privacy.alignment = .center
+        return page([hero, privacy])
     }
 
-    private func labeledRow(_ title: String, control: NSView) -> NSView {
-        let label = SettingsStyle.label(title, secondary: true)
-        let stack = NSStackView(views: [label, control])
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.spacing = 12
-        label.widthAnchor.constraint(equalToConstant: 96).isActive = true
-        return stack
-    }
-
-    private func storedRestingBarIndex() -> Int {
-        switch UserDefaults.standard.string(forKey: "RestingBar") ?? "playing" {
-        case "always": return 0
-        case "never": return 2
-        default: return 1
-        }
-    }
-
-    private func highlightSelectedThemeCard() {
-        for (id, card) in themeCards {
-            let active = id == theme.id
-            card.layer?.borderColor = active ? theme.accent.cgColor : NSColor.clear.cgColor
-            card.layer?.backgroundColor = active ? theme.accent.withAlphaComponent(0.14).cgColor : NSColor.clear.cgColor
-        }
-    }
-
-    // MARK: - Theming
-
-    private func applyTheme(_ newTheme: Theme) {
-        theme = newTheme
-        // Controls are rebuilt below and must be drawn in this theme, not the stored one.
-        SettingsStyle.themeOverride = newTheme
-        window?.appearance = newTheme.appearance
-        window?.backgroundColor = newTheme.windowBackground
-        root.layer?.backgroundColor = newTheme.windowBackground.cgColor
-        sidebarContainer.layer?.backgroundColor = newTheme.elevatedBackground.cgColor
-        previewCaption.textColor = newTheme.secondaryText
-        savedNote.textColor = newTheme.tertiaryText
-        // Built once at init, so it needs restyling by hand when the theme changes.
-        doneButton?.layer?.backgroundColor = newTheme.accent.cgColor
-        doneButton?.attributedTitle = NSAttributedString(
-            string: "Done",
-            attributes: [
-                .foregroundColor: newTheme.onAccentText,
-                .font: NSFont.systemFont(ofSize: 12, weight: .medium)
-            ]
-        )
-        select(selectedCategory)
-        refreshPreview()
-    }
-
-    private func refreshPreview() {
-        previewImageView.image = PreviewRenderer.snapshot(theme: theme, width: 400)
-        previewCaption.stringValue = "Live preview — \(theme.name)"
-    }
-
-    // MARK: - Load / save
+    // MARK: - Saving
 
     private func load() {
-        let defaults = UserDefaults.standard
-
-        playlistsSection.entries = (defaults.stringArray(forKey: PlaylistsPaneView.defaultsKey) ?? [])
+        playlistsSection.entries = (UserDefaults.standard.stringArray(forKey: PlaylistsPaneView.defaultsKey) ?? [])
             .compactMap { entry in
                 let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
-                guard parts.count == 2 else { return nil }
-                return (parts[0], parts[1])
+                return parts.count == 2 ? (parts[0], parts[1]) : nil
             }
         playlistsSection.reloadRows()
         playlistsSection.onChange = { [weak self] in self?.savePlaylists() }
-
-        shortcutsSection.entries = defaults.stringArray(forKey: ShortcutsRunner.defaultsKey) ?? []
+        shortcutsSection.entries = UserDefaults.standard.stringArray(forKey: ShortcutsRunner.defaultsKey) ?? []
         shortcutsSection.reloadRows()
         shortcutsSection.onChange = { [weak self] in self?.saveShortcuts() }
-
         appsSection.reload()
-        appsSection.onChange = { [weak self] in self?.save() }
-        layoutEditor.onChange = { [weak self] in
-            self?.refreshPreview()
-            self?.save()
-        }
-
-        applyTheme(ThemeStore.selected)
+        appsSection.onChange = { [weak self] in self?.saved() }
+        applyTheme()
     }
 
     private func savePlaylists() {
         playlistsSection.commitEdits()
         let playlists = playlistsSection.entries
             .filter { $0.key.isEmpty == false && $0.value.isEmpty == false }
-            .compactMap { entry -> String? in
-                guard let uri = SpotifyURI.normalize(entry.value) else { return nil }
-                return "\(entry.key)|\(uri)"
-            }
+            .compactMap { entry -> String? in SpotifyURI.normalize(entry.value).map { "\(entry.key)|\($0)" } }
         UserDefaults.standard.set(playlists, forKey: PlaylistsPaneView.defaultsKey)
-        save()
+        saved()
     }
 
     private func saveShortcuts() {
         shortcutsSection.commitEdits()
         UserDefaults.standard.set(shortcutsSection.entries.filter { $0.isEmpty == false }, forKey: ShortcutsRunner.defaultsKey)
-        save()
+        saved()
     }
 
     /// Every control calls this the moment it changes; there is no Save button.
-    private func save() {
+    private func saved() {
         NotificationCenter.default.post(name: .notchHoverSettingsChanged, object: nil)
     }
 
-    @objc private func handleThemeCard(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue,
-              let picked = Theme.all.first(where: { $0.id == id }) else { return }
-        UserDefaults.standard.set(picked.id, forKey: ThemeStore.defaultsKey)
-        applyTheme(picked)
-        save()
-    }
-
-    @objc private func handleCategory(_ sender: NSButton) {
-        guard let category = Category(rawValue: sender.tag) else { return }
-        select(category)
-    }
-
-    @objc private func handleClearClipboard() {
-        ClipboardHistory.shared.clear()
-    }
-
-    @objc private func handleNotificationAccess() {
-        NotificationWatcher.requestTrust()
-        NotificationWatcher.openAccessibilitySettings()
-    }
-
-    @objc private func handleDone() {
-        // Text fields commit on focus loss, so nothing is lost by closing.
+    func windowWillClose(_ notification: Notification) {
         window?.makeFirstResponder(nil)
         savePlaylists()
         saveShortcuts()
-        window?.performClose(nil)
+        SettingsStyle.themeOverride = nil
     }
+
+    // MARK: - Self-test
 
     /// Exercises the window without a pointer: --settings-selftest
     func runSelfTest() {
         func report(_ message: String) {
             FileHandle.standardError.write(Data((message + "\n").utf8))
         }
-
-        report("start: \(playlistsSection.entries.count) playlist rows, \(playlistsSection.rowCount) row views")
-        playlistsSection.addRow()
-        report("after add: \(playlistsSection.entries.count) entries, \(playlistsSection.rowCount) row views")
-        playlistsSection.removeRow(at: 0)
-        report("after remove: \(playlistsSection.entries.count) entries, \(playlistsSection.rowCount) row views")
-
-        for category in Category.allCases {
+        let order = ProcessInfo.processInfo.environment["SETTINGS_REVERSED"] == nil ? Category.allCases : Category.allCases.reversed()
+        for category in order {
             select(category)
-            report("category \(category.title): \(detailContainer.subviews.count) pane view(s)")
-        }
-
-        for (candidate, category) in [(Theme.midnight, Category.layout), (Theme.frost, Category.appearance)] {
-            applyTheme(candidate)
-            select(category)
-            guard let content = window?.contentView else { continue }
-            content.layoutSubtreeIfNeeded()
+            window?.contentView?.layoutSubtreeIfNeeded()
+            report("pane \(category.title): \(paneDocument.subviews.first?.fittingSize.height ?? 0 > 40 ? "built" : "EMPTY")")
+            let target = ProcessInfo.processInfo.environment["SETTINGS_PANE_ONLY"] == nil ? window?.contentView : paneDocument
+            guard let content = target, let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { continue }
+            report("  size \(content.bounds.size), document \(paneDocument.frame.size), scroll \(paneScroll.frame.size)")
+            // Drawn in the window's own appearance: system colours resolve light otherwise.
             let image = NSImage(size: content.bounds.size)
-            image.lockFocus()
-            if let context = NSGraphicsContext.current {
-                content.displayIgnoringOpacity(content.bounds, in: context)
+            (window?.effectiveAppearance ?? NSAppearance.currentDrawing()).performAsCurrentDrawingAppearance {
+                content.cacheDisplay(in: content.bounds, to: rep)
+                image.lockFocus()
+                theme.windowBackground.setFill()
+                NSRect(origin: .zero, size: content.bounds.size).fill()
+                rep.draw(in: NSRect(origin: .zero, size: content.bounds.size))
+                image.unlockFocus()
             }
-            image.unlockFocus()
-
-            let path = NSTemporaryDirectory() + "notchhover-settings-\(candidate.id).png"
-            if let tiff = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let png = bitmap.representation(using: .png, properties: [:]) {
+            let path = NSTemporaryDirectory() + "notchhover-settings-\(category.rawValue)-\(category.title.lowercased().replacingOccurrences(of: " ", with: "-")).png"
+            if let tiff = image.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
                 try? png.write(to: URL(fileURLWithPath: path))
                 report("wrote \(path)")
             }
         }
-        applyTheme(ThemeStore.selected)
+        search.stringValue = "lyrics"
+        rebuildSidebar()
+        report("search \"lyrics\" finds: \(sidebarRows.keys.map(\.title).sorted().joined(separator: ", "))")
+        search.stringValue = ""
+        rebuildSidebar()
+    }
+}
+
+/// A sidebar entry: a coloured square with a white symbol, and the name.
+private final class SidebarRow: NSView {
+    var onSelect: (() -> Void)?
+    var isSelected: Bool { didSet { refresh() } }
+    private let title: NSTextField
+    private let theme: Theme
+
+    init(category: SettingsWindowController.Category, isSelected: Bool, theme: Theme) {
+        self.isSelected = isSelected
+        self.theme = theme
+        title = NSTextField(labelWithString: category.title)
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 6
+
+        let square = NSView()
+        square.wantsLayer = true
+        square.layer?.cornerRadius = 5
+        square.layer?.cornerCurve = .continuous
+        square.layer?.backgroundColor = category.color.cgColor
+        let symbol = NSImageView(image: NSImage(systemSymbolName: category.symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold)) ?? NSImage())
+        symbol.contentTintColor = .white
+        symbol.translatesAutoresizingMaskIntoConstraints = false
+        square.addSubview(symbol)
+        title.font = .systemFont(ofSize: 13)
+
+        let stack = NSStackView(views: [square, title])
+        stack.spacing = 9
+        stack.alignment = .centerY
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 28),
+            square.widthAnchor.constraint(equalToConstant: 20),
+            square.heightAnchor.constraint(equalToConstant: 20),
+            symbol.centerXAnchor.constraint(equalTo: square.centerXAnchor),
+            symbol.centerYAnchor.constraint(equalTo: square.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+        refresh()
     }
 
-    func windowWillClose(_ notification: Notification) {
-        SettingsStyle.themeOverride = nil
-        load()
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
+
+    private func refresh() {
+        layer?.backgroundColor = isSelected ? theme.accent.cgColor : NSColor.clear.cgColor
+        title.textColor = isSelected ? theme.onAccentText : theme.primaryText
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onSelect?() }
+}
+
+/// A theme as a picture of the panel in it, ringed when chosen — Linear's theme tiles.
+private final class ThemeCard: NSView {
+    var onPick: (() -> Void)?
+
+    init(theme candidate: Theme, isSelected: Bool) {
+        super.init(frame: .zero)
+        let theme = SettingsKit.theme
+        let image = NSImageView(image: PreviewRenderer.snapshot(theme: candidate, width: 150) ?? NSImage())
+        image.imageScaling = .scaleProportionallyUpOrDown
+        image.wantsLayer = true
+        image.layer?.cornerRadius = 8
+        image.layer?.masksToBounds = true
+        image.layer?.borderWidth = isSelected ? 2.5 : 0.5
+        image.layer?.borderColor = (isSelected ? theme.accent : theme.primaryText.withAlphaComponent(0.15)).cgColor
+        let name = NSTextField(labelWithString: candidate.name)
+        name.font = .systemFont(ofSize: 11, weight: isSelected ? .semibold : .regular)
+        name.textColor = theme.primaryText
+        let stack = NSStackView(views: [image, name])
+        stack.orientation = .vertical
+        stack.spacing = 5
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            image.widthAnchor.constraint(equalToConstant: 128),
+            image.heightAnchor.constraint(equalToConstant: 64),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onPick?() }
 }

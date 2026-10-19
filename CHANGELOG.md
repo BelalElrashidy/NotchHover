@@ -10,6 +10,35 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-10-19
+
+New Settings, and shortcuts you can change and make.
+
+### Added
+- **⌘K in the panel**: every action NotchHover has, with its keys. Type to find one, ↵ to
+  run it, ⌘E to change its hotkey. It replaces the old list of keys, and ⌘/ opens it too.
+- **Settings → Shortcuts**: every action in one table, Raycast-style — search, filter by
+  built-in, yours, has a hotkey, or clashes; click a hotkey to record a new one, ⌫ to
+  clear it, right-click to reset; switch any action off. Two actions on the same keys are
+  flagged in red.
+- **Your own shortcuts**: a name, an icon, and steps run in order — open a link (with
+  `{query}` for a word you type, or `{clipboard}`), open an app, run a macOS Shortcut, a
+  shell command or AppleScript, type text, or wait. Give one a hotkey, or run it from ⌘K.
+- **Privacy and permissions** in Settings: what goes beyond your Mac, and every
+  permission NotchHover may ask for, whether it has it, and a button to grant it.
+- **About** in Settings, with links to the changelog, releases and issues.
+
+### Changed
+- **Settings is redesigned** after System Settings: a sidebar of coloured icons with
+  search, grouped into what the notch looks like, what it shows, your Mac, and privacy.
+  Every setting says what it does in a line underneath, and the ones that reach beyond
+  your Mac or ask for a permission say so.
+- **A live picture of the notch** sits at the top of Appearance and Layout, and switches
+  between resting, peek and open.
+- **Layout is drag and drop**: Home's widgets drawn as they sit in the panel — drag one
+  to move it, × to remove it, drag one in from the widgets below.
+- Hover delay can be set in Appearance.
+
 ## [0.11.0] — 2026-10-19
 
 Next in playlist.
@@ -227,7 +256,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...v0.9.0

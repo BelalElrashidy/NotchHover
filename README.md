@@ -112,13 +112,15 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 
 ## Keyboard and trackpad
 
-NotchHover never needs the pointer. Press <kbd>⌘</kbd><kbd>/</kbd> in the panel to see
-every shortcut.
+NotchHover never needs the pointer. Press <kbd>⌘</kbd><kbd>K</kbd> in the panel for every
+action and its keys — type to find one, <kbd>↩</kbd> to run it. Every global hotkey can be
+changed or switched off in Settings → Shortcuts, where you can also make your own: a
+link that takes a search word, an app, a script, a macOS Shortcut, or several in a row.
 
 | Where | Keys |
 |---|---|
 | Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>M</kbd> mute the call you're on · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>4</kbd> screenshot an area |
-| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>6</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
+| In the panel | <kbd>⌘</kbd><kbd>K</kbd> every action · <kbd>⌘</kbd><kbd>1</kbd>–<kbd>6</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
 | Playing | <kbd>Space</kbd> play or pause · <kbd>⌘</kbd><kbd>←</kbd> <kbd>⌘</kbd><kbd>→</kbd> previous, next · <kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd> volume · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> mute the microphone |
 | Clipboard | <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>↩</kbd> copy · <kbd>⌘</kbd><kbd>↩</kbd> paste into the front app · <kbd>⌘</kbd><kbd>P</kbd> pin · <kbd>⌘</kbd><kbd>⌫</kbd> delete |
 | Notes, Shelf | <kbd>⌘</kbd><kbd>↩</kbd> save · <kbd>⌘</kbd><kbd>N</kbd> new · <kbd>⌘</kbd><kbd>[</kbd> <kbd>⌘</kbd><kbd>]</kbd> other notes · <kbd>⌘</kbd><kbd>S</kbd> send the shelf · <kbd>⌘</kbd><kbd>R</kbd> show in Finder |
@@ -193,7 +195,7 @@ NotchHover makes no network requests of its own, with two exceptions:
 
 - Spotify only hands out artwork as a link, so album art for Spotify tracks is fetched
   from Spotify's image server. No account information is sent with that request.
-- **Synced lyrics, only if you turn them on** (Settings → Advanced, off by default). For
+- **Synced lyrics, only if you turn them on** (Settings → Privacy and permissions, off by default). For
   each Spotify or Music song, its title, artist, album and length are sent once to
   [lrclib.net](https://lrclib.net), a free, open lyrics database — no account, cookie or
   identifier goes with them. The answer, lyrics or "none", is kept in Application

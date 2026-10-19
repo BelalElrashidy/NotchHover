@@ -211,6 +211,8 @@ private final class PaletteRow: NSView {
                                 size: 10, color: Style.tertiaryText)
         title.setContentCompressionResistancePriority(.init(700), for: .horizontal)
         group.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // Priorities alone lost this fight on the first row; the text's own width is a floor.
+        group.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(group.intrinsicContentSize.width)).isActive = true
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         spacer.setContentCompressionResistancePriority(.init(1), for: .horizontal)
@@ -220,6 +222,7 @@ private final class PaletteRow: NSView {
             // Its key inside the panel, quieter than a hotkey that works everywhere.
             let label = Style.label(panelKeys, size: 10, color: Style.tertiaryText)
             label.setContentCompressionResistancePriority(.required, for: .horizontal)
+            label.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(label.intrinsicContentSize.width)).isActive = true
             label.toolTip = "In the open panel"
             views.append(label)
         }

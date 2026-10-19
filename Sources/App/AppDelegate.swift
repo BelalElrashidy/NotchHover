@@ -63,15 +63,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: .notchHoverOpenSettings,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.showSettings()
+        ) { [weak self] note in
+            // ⌘E in the ⌘K list names an action: open Shortcuts on it.
+            if let id = note.object as? String {
+                self?.showSettings(focusingAction: id)
+            } else {
+                self?.showSettings()
+            }
         }
 
         poller.start()
 
         // NotchHover.app/Contents/MacOS/NotchHover --settings opens straight to settings.
-        if CommandLine.arguments.contains("--settings") {
+        // --settings 7 opens it on the eighth pane, for checking a pane on screen.
+        if let index = CommandLine.arguments.firstIndex(of: "--settings") {
             showSettings()
+            if CommandLine.arguments.count > index + 1, let pane = Int(CommandLine.arguments[index + 1]),
+               let category = SettingsWindowController.Category(rawValue: pane) {
+                settingsController?.select(category)
+            }
         }
 
         // There is no Dock icon and no menu bar icon, so on the very first launch the
@@ -138,11 +148,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showSettings()
     }
 
-    private func showSettings() {
+    private func showSettings(focusingAction id: String? = nil) {
         if settingsController == nil {
             settingsController = SettingsWindowController()
         }
-        settingsController?.show()
+        if let id {
+            settingsController?.show(focusingAction: id)
+        } else {
+            settingsController?.show()
+        }
     }
 
     /// Everything NotchHover can do by name — for the ⌘K list, the shortcuts table in

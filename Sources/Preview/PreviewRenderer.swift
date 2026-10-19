@@ -377,7 +377,7 @@ enum PreviewRenderer {
     }
 
     /// A thumbnail of the panel in a given theme, for the settings window's live preview.
-    static func snapshot(theme: Theme, width: CGFloat) -> NSImage? {
+    static func snapshot(theme: Theme, width: CGFloat, presentation: NotchContentView.Presentation = .expanded, margin: CGFloat = 12) -> NSImage? {
         let previousOverride = ThemeStore.override
         let previousGlass = GlassCardView.usesLiveGlass
         ThemeStore.override = theme
@@ -400,10 +400,23 @@ enum PreviewRenderer {
             volume: 65,
             isShuffling: true
         )))
-        view.selectTabForPreview(.home)
+        switch presentation {
+        case .peek: view.present(.idle, animated: false); view.showPeekForPreview()
+        case .idle: view.present(.idle, animated: false)
+        default: view.selectTabForPreview(.home)
+        }
         view.layoutSubtreeIfNeeded()
 
-        let full = render(view: view, margin: 12)
+        var full = render(view: view, margin: margin)
+        // The notch hangs from the top of the screen: a wide margin is desktop at the
+        // sides and below, never above.
+        if margin > 12 {
+            let cropped = NSImage(size: NSSize(width: full.size.width, height: full.size.height - margin))
+            cropped.lockFocus()
+            full.draw(at: .zero, from: NSRect(x: 0, y: 0, width: full.size.width, height: full.size.height - margin), operation: .copy, fraction: 1)
+            cropped.unlockFocus()
+            full = cropped
+        }
         let scale = width / full.size.width
         let target = NSSize(width: width, height: (full.size.height * scale).rounded())
         let scaled = NSImage(size: target)

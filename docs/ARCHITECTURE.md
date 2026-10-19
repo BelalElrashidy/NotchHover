@@ -274,7 +274,7 @@ to `open` skips it.
 
 ### Lyrics and the lock screen
 
-Both are off until switched on in Settings → Advanced.
+Both are off until switched on in Settings (Music, or Privacy and permissions).
 
 - `LyricsService` takes every poller reading. For a Spotify or Music track with a length
   it looks for the song in its disk cache (Application Support/NotchHover/Lyrics, one
@@ -626,21 +626,43 @@ panel; zones, playlists, resting-bar mode and the app list are read live.
 
 ## Settings
 
-A sidebar window: Appearance, Layout, Playlists, Shortcuts, Apps, Advanced, with a live
-preview of the real panel underneath, rendered by `PreviewRenderer`.
+`SettingsWindowController` is laid out like System Settings: a sidebar of coloured icons
+in groups (Look · What it shows · Your Mac · Privacy), with a search field that filters
+it by title and keywords, and the chosen pane beside it. Appearance and Layout keep a
+`NotchStageView` pinned on top — the real panel rendered by `PreviewRenderer` on a
+stand-in desktop, switchable between resting, peek and open, redrawn on every change.
 
-**Layout** is the layout editor (`LayoutEditorView`): one chip per widget in panel order,
-with ◀ ▶ to reorder and ✕ to remove, an "Add widget…" menu of what is not in use, a
-readout of how much width the set wants, and sliders for every `PanelSizes` value. The
-preview redraws as you drag. The detail area scrolls, so a long pane never collides
-with the preview.
+Panes are built from `SettingsKit`: grouped cards of `SettingsRowView`s — a title, a line
+saying what the setting does, a badge where it reaches beyond the Mac ("uses the
+internet", "asks for System Audio Recording"), and the control at the right edge. Rows
+are laid out by hand because a wrapping description has to know its real width.
 
-There is no Save button — every control writes as you change it. Text fields commit on
-Enter or focus loss; Done commits anything still being typed, then closes.
+- **Layout** is `PanelCanvasView`: Home's widgets as tiles as wide as the panel would
+  make them; drag one sideways to move it, × to remove it, or drag one in from the
+  `WidgetGalleryTile`s below. Size sliders underneath.
+- **Shortcuts** is `ShortcutsSettingsView`: every `NotchAction` in one table with search
+  and filters (built-in, yours, has a hotkey, clashes), a `HotkeyRecorder` per row, the
+  in-panel keys, and an on/off switch. "+ New shortcut" and double-click open
+  `CustomActionEditor`, a sheet of steps. ⌘E in the ⌘K list opens this pane recording
+  that action's hotkey.
+- **Privacy and permissions** lists what goes beyond the Mac, then every `Permission`
+  with whether it's granted and a button to grant it or open its System Settings page.
 
-Controls are drawn from the theme, not stock AppKit: `SettingsStyle` provides themed
-fields, capsules and cards, plus `SegmentedRow`, `ToggleRow` and `MenuButton`. Stock
-controls only follow light/dark and stayed grey whatever the theme.
+There is no Save button — every control writes as you change it. Controls are drawn from
+the theme, not stock AppKit, so Frost gets a light window and Midnight a dark one.
+
+`--settings 7` opens the window on a given pane, for checking one on screen.
+
+### Actions and shortcuts
+
+`ActionRegistry` holds every `NotchAction`: the built-ins the app registers at launch
+(open a view, play/pause and skip, mute and join calls, screenshots, settings) and yours
+from `CustomActionStore`. Each has an optional default global hotkey (`KeyCombo`) and the
+keys that do it in the open panel. Overrides and disabled actions live in defaults;
+every change re-registers all Carbon hotkeys. `CustomAction` is a name, an icon and steps
+— open a link (with `{query}` and `{clipboard}`), open an app, run a Shortcut, shell,
+AppleScript, type text, wait — run in order by `CustomActionRunner`. `CommandPaletteView`
+is ⌘K (and ⌘/) in the panel: type to filter, ↵ to run, a quicklink asks for its word.
 
 ### Stored settings
 
@@ -669,6 +691,8 @@ All under `com.notchhover.NotchHover`.
 | `SyncedLyrics` | bool | Look up lyrics on lrclib.net (off by default) |
 | `LockScreenMusic` | bool | Music card on the lock screen (off by default) |
 | `LiveVisualizer` | bool | Meter driven by a process tap (off by default) |
+| `ShortcutHotkeys` | `{actionID: KeyCombo JSON}` | Changed hotkeys; empty data means none |
+| `ShortcutsDisabled` | `[actionID]` | Actions switched off |
 | `Material` | legacy | Migrated to `Theme` on read |
 | `ZoneLeft` / `ZoneMiddle` / `ZoneRight` | legacy | Migrated to `PanelWidgets`; an unset position keeps its old default |
 
@@ -731,6 +755,7 @@ The app cannot screenshot itself, so it renders itself instead:
 ./build/NotchHover.app/Contents/MacOS/NotchHover --fileactions-selftest   # every file action on a made-up image
 ./build/NotchHover.app/Contents/MacOS/NotchHover --screenshots-selftest   # screenshots told apart from other pictures
 ./build/NotchHover.app/Contents/MacOS/NotchHover --levels-selftest        # the meter's band split on pure tones
+./build/NotchHover.app/Contents/MacOS/NotchHover --actions-selftest       # hotkeys, clashes, quicklink filling
 ```
 
 `--animation-selftest` puts a real panel on screen, runs hidden → resting bar → panel →
