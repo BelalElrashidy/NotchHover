@@ -105,7 +105,8 @@ enum TypingSelfTest {
             if let tab {
                 content.selectTabForPreview(tab)
             } else {
-                content.showPeekForPreview(.playing(title: "Test", subtitle: "Test", icon: nil, isPlaying: true, isControllable: true))
+                content.showPeekForPreview(.playing(PeekTrack(title: "Test", subtitle: "Test", icon: nil, isPlaying: true,
+                                                              isControllable: true, position: 30, duration: 200)))
             }
             content.layoutSubtreeIfNeeded()
             guard let root = panel.contentView else { return }

@@ -44,8 +44,9 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
   and skip, hanging from the notch while the Mac is locked. Nothing else ever shows there
 
 **Rest, peek, open**
-- Rest on the notch for a moment and a small **peek** comes up: what's playing with its
-  controls, a call about to start with **Join**, or the date and what's next. Click it, or
+- Rest on the notch for a moment and a **peek** comes up, laid out like the Dynamic
+  Island: what's playing with its scrubber and controls, a countdown to a call with
+  **Join**, or the time and what's next. Click it, or
   swipe down, for the full panel; move away and it's gone
 - Prefer the panel straight away? Settings → Appearance → On hover
 
@@ -219,6 +220,7 @@ How it's put together is written up in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 The longer list, with what's built and what isn't, is in [docs/FEATURES.md](docs/FEATURES.md),
 and how NotchHover compares with the other notch apps is in [docs/COMPETITORS.md](docs/COMPETITORS.md).
+What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 

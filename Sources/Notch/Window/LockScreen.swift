@@ -138,8 +138,8 @@ final class LockScreenMusic {
         guard LockScreenSpace.shared.isAvailable,
               let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
         let geometry = NotchGeometry(screen: screen)
-        let size = Self.cardSize(notchWidth: geometry.notchRect.width, bandHeight: geometry.notchRect.height)
-        let frame = geometry.expandedFrame(size: size)
+        let (card, peek) = Self.makeCard(notchWidth: geometry.notchRect.width, bandHeight: geometry.notchRect.height)
+        let frame = geometry.expandedFrame(size: card.frame.size)
 
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
@@ -150,7 +150,6 @@ final class LockScreenMusic {
         panel.canBecomeVisibleWithoutLogin = true
         panel.isReleasedWhenClosed = false
 
-        let (card, peek) = Self.makeCard(size: size, notchWidth: geometry.notchRect.width, bandHeight: geometry.notchRect.height)
         peek.onPlayPause = { [weak self] in self?.onPlayPause?() }
         peek.onNext = { [weak self] in self?.onNext?() }
         peek.onPrevious = { [weak self] in self?.onPrevious?() }
@@ -179,13 +178,9 @@ final class LockScreenMusic {
 
     private func render() {
         guard let peek, let track else { return }
-        peek.show(.playing(
-            title: track.name,
-            subtitle: LyricsService.shared.currentLine ?? [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
-            icon: artwork ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: track.sourceBundleIdentifier).map { NSWorkspace.shared.icon(forFile: $0.path) },
-            isPlaying: track.isPlaying,
-            isControllable: true
-        ))
+        let icon = artwork ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: track.sourceBundleIdentifier).map { NSWorkspace.shared.icon(forFile: $0.path) }
+        let tint = artwork.flatMap { ArtworkColor.meterColor(from: $0, key: artworkKey ?? "") }
+        peek.show(.playing(PeekTrack(track: track, icon: icon, tint: tint, asOf: Date())))
     }
 
     private func loadArtwork(for track: TrackInfo?) {
@@ -201,23 +196,19 @@ final class LockScreenMusic {
         }
     }
 
-    /// The card and the peek row inside it. Separate so the preview draws the same thing.
-    static func makeCard(size: CGSize, notchWidth: CGFloat, bandHeight: CGFloat) -> (NSView, PeekView) {
-        let card = LockScreenCardView(frame: CGRect(origin: .zero, size: size))
+    /// The card and the peek inside it, sized for a track with its scrubber and controls.
+    /// Separate so the preview draws the same thing.
+    static func makeCard(notchWidth: CGFloat, bandHeight: CGFloat) -> (NSView, PeekView) {
         let peek = PeekView(notchWidth: notchWidth, bandHeight: bandHeight)
+        peek.show(.playing(PeekTrack(title: "", subtitle: "", icon: nil, isPlaying: false, isControllable: true, duration: 1)))
+        let size = PeekView.cardSize(height: peek.preferredHeight, notchWidth: notchWidth)
+        let card = LockScreenCardView(frame: CGRect(origin: .zero, size: size))
         peek.frame = card.bounds
         peek.autoresizingMask = [.width, .height]
         peek.bodyWidth = size.width - NotchShape.flare(in: card.bounds) * 2
         peek.isActive = true
         card.addSubview(peek)
         return (card, peek)
-    }
-
-    /// The peek's size: a little wider than the notch, one row deep.
-    static func cardSize(notchWidth: CGFloat, bandHeight: CGFloat) -> CGSize {
-        let height = bandHeight + PeekView.rowHeight
-        let flare = min(NotchShape.topFlare, height * 0.55)
-        return CGSize(width: notchWidth + (flare + 130) * 2, height: height)
     }
 
     /// Self-test hook: puts a card on the lock-screen space and takes it away again,

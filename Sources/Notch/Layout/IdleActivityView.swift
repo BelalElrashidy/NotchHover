@@ -290,6 +290,11 @@ final class LevelMeterView: NSView {
 
     private let bars: [CALayer] = (0..<3).map { _ in CALayer() }
 
+    /// The artwork's colour; nil for the theme's text colour.
+    var tint: NSColor? {
+        didSet { bars.forEach { $0.backgroundColor = (tint ?? Style.primaryText).cgColor } }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true

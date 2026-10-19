@@ -1,82 +1,167 @@
 import AppKit
 
-/// What the peek shows: one line of whatever matters most right now.
-enum PeekContent {
-    /// A track or anything else playing. Only Spotify and Music can be controlled.
-    case playing(title: String, subtitle: String, icon: NSImage?, isPlaying: Bool, isControllable: Bool)
-    /// A call that is on now or about to start, with a link to join it.
-    case meeting(title: String, when: String, service: String)
-    /// Nothing happening: the date, and what's next today.
-    case glance(title: String, subtitle: String)
+/// A track for the peek. Position is where the track was at `asOf`; the peek moves it on
+/// itself while playing, so the scrubber runs smoothly between poller ticks.
+struct PeekTrack {
+    var title: String
+    var subtitle: String
+    var icon: NSImage?
+    var isPlaying: Bool
+    /// Only Spotify and Music can be controlled; a browser video can only be shown.
+    var isControllable: Bool
+    var position: Double = 0
+    var duration: Double = 0
+    var asOf = Date()
+    /// The artwork's colour, for the level meter.
+    var tint: NSColor?
 }
 
-/// The peek: the resting bar grown into a small card when the pointer rests on the
-/// notch. The band keeps the resting bar's artwork and meter, so it reads as the same
-/// thing opening up; underneath, one row says what is happening, with the one or two
-/// controls that go with it. A click anywhere else on it opens the full panel.
+extension PeekTrack {
+    /// A Spotify or Music track as the peek and the lock screen show it: the line being
+    /// sung in place of the artist, when lyrics are on.
+    init(track: TrackInfo, icon: NSImage?, tint: NSColor?, asOf: Date) {
+        self.init(
+            title: track.name,
+            subtitle: LyricsService.shared.currentLine
+                ?? [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
+            icon: icon,
+            isPlaying: track.isPlaying,
+            isControllable: true,
+            position: track.position,
+            duration: track.duration,
+            asOf: asOf,
+            tint: tint
+        )
+    }
+}
+
+/// An event for the peek's "next" line.
+struct PeekEvent {
+    var title: String
+    var start: Date
+    var color: NSColor
+}
+
+/// What the peek shows: whatever matters most right now.
+enum PeekContent {
+    case playing(PeekTrack)
+    /// A call on now or about to start, with a link to join it.
+    case meeting(title: String, service: String, start: Date)
+    /// Nothing happening: the time, the date, and what's next today.
+    case glance(next: PeekEvent?, hasCalendar: Bool)
+}
+
+/// The peek, laid out like the Dynamic Island's expanded view — the layout Crest and
+/// Droppy borrow, and the one people already read without thinking: artwork beside the
+/// title, the level meter in the artwork's colour, a scrubber with elapsed and remaining
+/// time, and the transport underneath. A call about to start gets a countdown and a
+/// Join button; with nothing on, the clock and the next event.
+///
+/// A click anywhere that isn't a control opens the full panel.
 final class PeekView: NSView {
     var onOpen: (() -> Void)?
     var onPlayPause: (() -> Void)?
     var onNext: (() -> Void)?
     var onPrevious: (() -> Void)?
     var onJoin: (() -> Void)?
+    /// The content changed height; the card has to follow.
+    var onHeightChange: (() -> Void)?
 
     /// Only while the peek is on screen does it take clicks. It spans the whole card and
     /// sits above the panel's content, and AppKit hit-tests faded-out views — the same
     /// trap that once swallowed every click in the open panel.
-    var isActive = false
+    var isActive = false {
+        didSet {
+            guard isActive != oldValue else { return }
+            isActive ? startClock() : stopClock()
+        }
+    }
 
     /// The straight part of the peek card, which is all the content may use.
     var bodyWidth: CGFloat = 0 {
         didSet { if bodyWidth != oldValue { needsLayout = true } }
     }
 
-    static let rowHeight: CGFloat = 40
+    /// The card's width. Wide enough for a title beside the artwork, still far smaller
+    /// than the panel.
+    static func cardWidth(notchWidth: CGFloat) -> CGFloat {
+        max(notchWidth + 200, 400)
+    }
+
+    /// The whole card for a body of `preferredHeight`: the straight body plus the flares.
+    static func cardSize(height: CGFloat, notchWidth: CGFloat) -> CGSize {
+        let flare = min(NotchShape.topFlare, height * 0.55)
+        return CGSize(width: cardWidth(notchWidth: notchWidth) + flare * 2, height: height)
+    }
 
     private let notchWidth: CGFloat
     private let bandHeight: CGFloat
+    private(set) var content: PeekContent = .glance(next: nil, hasCalendar: false)
 
-    private let icon = Style.roundedImageView(cornerRadius: 6)
+    private let icon = Style.roundedImageView(cornerRadius: 8)
     private let meter = LevelMeterView()
     private let titleLabel = Style.label("", size: 13, weight: .semibold)
     private let subtitleLabel = Style.label("", size: 11, color: Style.secondaryText)
-    private lazy var previousButton = Style.symbolButton("backward.fill", pointSize: 13, target: self, action: #selector(handlePrevious))
-    private lazy var playButton = Style.symbolButton("pause.fill", pointSize: 16, target: self, action: #selector(handlePlayPause))
-    private lazy var nextButton = Style.symbolButton("forward.fill", pointSize: 13, target: self, action: #selector(handleNext))
+    private let elapsedLabel = Style.label("0:00", size: 10, color: Style.secondaryText)
+    private let remainingLabel = Style.label("-0:00", size: 10, color: Style.secondaryText)
+    private let progressTrack = CALayer()
+    private let progressFill = CALayer()
+    private lazy var previousButton = Style.symbolButton("backward.fill", pointSize: 14, target: self, action: #selector(handlePrevious))
+    private lazy var playButton = Style.symbolButton("pause.fill", pointSize: 18, target: self, action: #selector(handlePlayPause))
+    private lazy var nextButton = Style.symbolButton("forward.fill", pointSize: 14, target: self, action: #selector(handleNext))
     private lazy var joinButton = Style.pushButton("Join", prominent: true, target: self, action: #selector(handleJoin))
-    private let actions = NSStackView()
-    private let text = NSStackView()
+    private let bigLabel = Style.label("", size: 24, weight: .medium)
+    private let rule = CALayer()
+    private let eventBar = CALayer()
+    private let eventTitle = Style.label("", size: 12, weight: .semibold)
+    private let eventDetail = Style.label("", size: 11, color: Style.secondaryText)
+    private var clock: Timer?
 
     private enum Layout {
-        static let iconSize: CGFloat = 24
-        static let meterSize = CGSize(width: 18, height: 13)
-        static let notchGap: CGFloat = 10
         static let edgeInset: CGFloat = 18
+        static let topGap: CGFloat = 8
+        static let iconSize: CGFloat = 38
+        static let meterSize = CGSize(width: 17, height: 13)
+        static let progressRow: CGFloat = 12
+        static let controlsRow: CGFloat = 24
+        static let bottomInset: CGFloat = 12
     }
 
     init(notchWidth: CGFloat, bandHeight: CGFloat) {
         self.notchWidth = notchWidth
         self.bandHeight = bandHeight
         super.init(frame: .zero)
+        wantsLayer = true
 
         icon.imageScaling = .scaleProportionallyUpOrDown
-        [titleLabel, subtitleLabel].forEach(text.addArrangedSubview)
-        text.orientation = .vertical
-        text.alignment = .leading
-        text.spacing = 0
+        [elapsedLabel, remainingLabel].forEach {
+            $0.font = .monospacedDigitSystemFont(ofSize: Style.scaled(10), weight: .regular)
+        }
+        remainingLabel.alignment = .right
+        bigLabel.font = .monospacedDigitSystemFont(ofSize: Style.scaled(24), weight: .medium)
 
-        [previousButton, playButton, nextButton, joinButton].forEach(actions.addArrangedSubview)
-        actions.orientation = .horizontal
-        actions.alignment = .centerY
-        actions.spacing = 14
-        actions.setHuggingPriority(.required, for: .horizontal)
-        actions.setContentCompressionResistancePriority(.required, for: .horizontal)
+        progressTrack.backgroundColor = Style.primaryText.withAlphaComponent(0.18).cgColor
+        progressTrack.cornerRadius = 1.5
+        progressFill.backgroundColor = Style.primaryText.cgColor
+        progressFill.cornerRadius = 1.5
+        rule.backgroundColor = Style.primaryText.withAlphaComponent(0.12).cgColor
+        eventBar.cornerRadius = 1.5
+        [progressTrack, progressFill, rule, eventBar].forEach { layer?.addSublayer($0) }
 
-        [icon, meter, text, actions].forEach(addSubview)
+        [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
+         previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail].forEach(addSubview)
+
         previousButton.toolTip = "Previous — ⌘←"
         playButton.toolTip = "Play or pause — Space"
         nextButton.toolTip = "Next — ⌘→"
         joinButton.toolTip = "Join the call — ⌘J"
+        // Join is green, as call buttons are everywhere — the one control that means "go".
+        joinButton.layer?.backgroundColor = NSColor(srgbRed: 0.19, green: 0.82, blue: 0.35, alpha: 1).cgColor
+        joinButton.attributedTitle = NSAttributedString(string: "Join", attributes: [
+            .foregroundColor: NSColor(srgbRed: 0.02, green: 0.13, blue: 0.05, alpha: 1),
+            .font: NSFont.systemFont(ofSize: Style.scaled(13), weight: .semibold)
+        ])
+        show(content)
     }
 
     @available(*, unavailable)
@@ -95,83 +180,237 @@ final class PeekView: NSView {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    // MARK: - Content
+
     func show(_ content: PeekContent) {
+        let oldHeight = preferredHeight
+        self.content = content
+        let allViews: [NSView] = [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
+                                  previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail]
+        var visible: [NSView] = []
+        var layers: [CALayer] = []
+
         switch content {
-        case let .playing(title, subtitle, image, isPlaying, isControllable):
-            icon.image = image ?? Style.symbolImage("waveform", pointSize: 13)
-            icon.contentTintColor = image == nil ? Style.primaryText : nil
-            icon.isHidden = false
-            meter.isHidden = false
-            meter.isRunning = isPlaying
-            meter.alphaValue = isPlaying ? 1 : 0.35
-            titleLabel.stringValue = title
-            subtitleLabel.stringValue = subtitle
-            playButton.image = Style.symbolImage(isPlaying ? "pause.fill" : "play.fill", pointSize: 16)
-            [previousButton, playButton, nextButton].forEach { $0.isHidden = isControllable == false }
-            joinButton.isHidden = true
+        case .playing(let track):
+            icon.image = track.icon ?? Style.symbolImage("waveform", pointSize: 16)
+            icon.contentTintColor = track.icon == nil ? Style.primaryText : nil
+            icon.layer?.backgroundColor = track.icon == nil ? Style.controlFill.cgColor : NSColor.clear.cgColor
+            titleLabel.stringValue = track.title
+            subtitleLabel.stringValue = track.subtitle
+            meter.tint = track.tint
+            meter.isRunning = track.isPlaying
+            meter.alphaValue = track.isPlaying ? 1 : 0.35
+            playButton.image = Style.symbolImage(track.isPlaying ? "pause.fill" : "play.fill", pointSize: 18)
+            visible = [icon, meter, titleLabel, subtitleLabel]
+            if track.isControllable {
+                visible += [previousButton, playButton, nextButton]
+                if track.duration > 0 {
+                    visible += [elapsedLabel, remainingLabel]
+                    layers = [progressTrack, progressFill]
+                }
+            }
 
-        case let .meeting(title, when, service):
-            icon.image = Style.symbolImage("video.fill", pointSize: 13)
-            icon.contentTintColor = Style.accent
-            icon.isHidden = false
-            meter.isHidden = true
-            meter.isRunning = false
+        case let .meeting(title, service, start):
+            icon.image = Style.symbolImage("video.fill", pointSize: 17)
+            icon.contentTintColor = .white
+            icon.layer?.backgroundColor = Self.serviceColor(service).cgColor
             titleLabel.stringValue = title
-            subtitleLabel.stringValue = "\(when) · \(service)"
-            [previousButton, playButton, nextButton].forEach { $0.isHidden = true }
-            joinButton.isHidden = false
+            subtitleLabel.stringValue = "\(service) · \(start.formatted(date: .omitted, time: .shortened))"
+            meter.isRunning = false
+            visible = [icon, titleLabel, subtitleLabel, bigLabel, joinButton]
 
-        case let .glance(title, subtitle):
-            icon.isHidden = true
-            meter.isHidden = true
+        case let .glance(next, _):
             meter.isRunning = false
-            titleLabel.stringValue = title
-            subtitleLabel.stringValue = subtitle
-            [previousButton, playButton, nextButton, joinButton].forEach { $0.isHidden = true }
+            visible = [bigLabel, subtitleLabel]
+            if let next {
+                eventTitle.stringValue = next.title
+                eventBar.backgroundColor = next.color.cgColor
+                visible += [eventTitle, eventDetail]
+                layers = [rule, eventBar]
+            }
         }
+
+        allViews.forEach { $0.isHidden = visible.contains($0) == false }
+        [progressTrack, progressFill, rule, eventBar].forEach { $0.isHidden = layers.contains($0) == false }
+        tick()
         needsLayout = true
+        if preferredHeight != oldHeight { onHeightChange?() }
     }
+
+    /// Height of the whole card, the notch's band included.
+    var preferredHeight: CGFloat {
+        let body: CGFloat
+        switch content {
+        case .playing(let track):
+            var height = Layout.topGap + Layout.iconSize
+            if track.isControllable {
+                if track.duration > 0 { height += 10 + Layout.progressRow }
+                height += 6 + Layout.controlsRow
+            }
+            body = height + Layout.bottomInset
+        case .meeting:
+            body = Layout.topGap + Layout.iconSize + 10 + 30 + Layout.bottomInset
+        case .glance(let next, _):
+            body = Layout.topGap + 46 + (next == nil ? 0 : 10 + 1 + 10 + 30) + Layout.bottomInset
+        }
+        return bandHeight + body
+    }
+
+    // MARK: - Time
+
+    private func startClock() {
+        tick()
+        clock?.invalidate()
+        clock = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.tick() }
+    }
+
+    private func stopClock() {
+        clock?.invalidate()
+        clock = nil
+    }
+
+    /// Everything that moves with the clock: the scrubber, the countdown, the time.
+    private func tick() {
+        let now = Date()
+        switch content {
+        case .playing(let track):
+            guard track.duration > 0 else { return }
+            let position = min(track.duration, track.position + (track.isPlaying ? now.timeIntervalSince(track.asOf) : 0))
+            elapsedLabel.stringValue = Self.time(position)
+            remainingLabel.stringValue = "-" + Self.time(track.duration - position)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            progressFill.frame.size.width = progressTrack.frame.width * CGFloat(position / track.duration)
+            CATransaction.commit()
+
+        case .meeting(_, _, let start):
+            let seconds = Int(start.timeIntervalSince(now).rounded(.up))
+            if seconds > 0 {
+                bigLabel.stringValue = Self.time(Double(seconds))
+            } else {
+                let minutes = -seconds / 60
+                bigLabel.stringValue = minutes == 0 ? "Now" : "\(minutes) min in"
+            }
+
+        case .glance(let next, let hasCalendar):
+            bigLabel.stringValue = now.formatted(date: .omitted, time: .shortened)
+            subtitleLabel.stringValue = now.formatted(.dateTime.weekday(.wide).day().month(.wide))
+            if let next {
+                eventDetail.stringValue = "\(next.start.formatted(date: .omitted, time: .shortened)) · \(Self.relative(next.start, from: now))"
+            } else if hasCalendar {
+                subtitleLabel.stringValue += " · nothing else today"
+            }
+        }
+    }
+
+    /// "3:52", "1:04:09".
+    static func time(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds))
+        let hours = total / 3600, minutes = total / 60 % 60, secs = total % 60
+        return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, secs) : String(format: "%d:%02d", minutes, secs)
+    }
+
+    /// "in 3 h", "in 25 min", "now".
+    static func relative(_ date: Date, from now: Date = Date()) -> String {
+        let minutes = Int((date.timeIntervalSince(now) / 60).rounded())
+        if minutes <= 0 { return "now" }
+        if minutes < 60 { return "in \(minutes) min" }
+        let hours = Int((Double(minutes) / 60).rounded())
+        return "in \(hours) h"
+    }
+
+    /// The colour each service paints its own buttons, as Atoll uses for Join.
+    static func serviceColor(_ service: String) -> NSColor {
+        switch service {
+        case "Zoom": return NSColor(srgbRed: 0.16, green: 0.52, blue: 0.95, alpha: 1)
+        case "Google Meet": return NSColor(srgbRed: 0, green: 0.65, blue: 0.42, alpha: 1)
+        case "Teams": return NSColor(srgbRed: 0.36, green: 0.42, blue: 0.89, alpha: 1)
+        case "Webex": return NSColor(srgbRed: 0.04, green: 0.6, blue: 0.55, alpha: 1)
+        default: return NSColor(srgbRed: 0.19, green: 0.82, blue: 0.35, alpha: 1)
+        }
+    }
+
+    // MARK: - Layout
 
     override func layout() {
         super.layout()
 
-        let notchLeft = (bounds.width - notchWidth) / 2
-        let notchRight = notchLeft + notchWidth
-        let bandMidY = bounds.height - bandHeight / 2
         let body = max(bodyWidth, notchWidth)
-        let bodyLeft = (bounds.width - body) / 2 + Layout.edgeInset
-        let bodyRight = (bounds.width + body) / 2 - Layout.edgeInset
+        let left = (bounds.width - body) / 2 + Layout.edgeInset
+        let right = (bounds.width + body) / 2 - Layout.edgeInset
+        var y = bounds.height - bandHeight - Layout.topGap
 
-        // The band carries over from the resting bar: artwork left of the notch, meter right.
-        icon.frame = CGRect(
-            x: notchLeft - Layout.notchGap - Layout.iconSize,
-            y: bandMidY - Layout.iconSize / 2,
-            width: Layout.iconSize,
-            height: Layout.iconSize
-        )
-        meter.frame = CGRect(
-            x: notchRight + Layout.notchGap,
-            y: bandMidY - Layout.meterSize.height / 2,
-            width: Layout.meterSize.width,
-            height: Layout.meterSize.height
-        )
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
 
-        // The row below the notch: words on the left, controls on the right.
-        let rowMidY = bounds.height - bandHeight - Self.rowHeight / 2 - 2
-        let actionsSize = actions.fittingSize
-        actions.frame = CGRect(
-            x: bodyRight - actionsSize.width,
-            y: rowMidY - actionsSize.height / 2,
-            width: actionsSize.width,
-            height: actionsSize.height
-        )
-        let textHeight = text.fittingSize.height
-        text.frame = CGRect(
-            x: bodyLeft,
-            y: rowMidY - textHeight / 2,
-            width: max(0, actions.frame.minX - 14 - bodyLeft),
-            height: textHeight
-        )
+        switch content {
+        case .playing, .meeting:
+            // Row 1: artwork (or the call's tile), title and subtitle, the meter.
+            let rowMid = y - Layout.iconSize / 2
+            icon.frame = CGRect(x: left, y: y - Layout.iconSize, width: Layout.iconSize, height: Layout.iconSize)
+            let meterRight = meter.isHidden ? right : right - Layout.meterSize.width - 10
+            meter.frame = CGRect(x: right - Layout.meterSize.width, y: rowMid - Layout.meterSize.height / 2,
+                                 width: Layout.meterSize.width, height: Layout.meterSize.height)
+            let textLeft = icon.frame.maxX + 10
+            let titleHeight = titleLabel.fittingSize.height, subtitleHeight = subtitleLabel.fittingSize.height
+            let textTop = rowMid + (titleHeight + subtitleHeight) / 2
+            titleLabel.frame = CGRect(x: textLeft, y: textTop - titleHeight, width: max(0, meterRight - textLeft), height: titleHeight)
+            subtitleLabel.frame = CGRect(x: textLeft, y: titleLabel.frame.minY - subtitleHeight, width: max(0, meterRight - textLeft), height: subtitleHeight)
+            y -= Layout.iconSize
+
+            if case .meeting = content {
+                // Row 2: the countdown, and Join.
+                y -= 10
+                let joinSize = joinButton.fittingSize
+                joinButton.frame = CGRect(x: right - joinSize.width, y: y - 15 - joinSize.height / 2, width: joinSize.width, height: joinSize.height)
+                let bigHeight = bigLabel.fittingSize.height
+                bigLabel.frame = CGRect(x: left, y: y - 15 - bigHeight / 2, width: joinButton.frame.minX - left - 10, height: bigHeight)
+                return
+            }
+
+            // Row 2: the scrubber.
+            if progressTrack.isHidden == false {
+                y -= 10
+                let labelWidth: CGFloat = 40
+                let mid = y - Layout.progressRow / 2
+                let labelHeight = elapsedLabel.fittingSize.height
+                elapsedLabel.frame = CGRect(x: left, y: mid - labelHeight / 2, width: labelWidth, height: labelHeight)
+                remainingLabel.frame = CGRect(x: right - labelWidth, y: mid - labelHeight / 2, width: labelWidth, height: labelHeight)
+                progressTrack.frame = CGRect(x: left + labelWidth + 4, y: mid - 1.5, width: right - left - (labelWidth + 4) * 2, height: 3)
+                progressFill.frame = CGRect(x: progressTrack.frame.minX, y: progressTrack.frame.minY,
+                                            width: progressFill.frame.width, height: 3)
+                y -= Layout.progressRow
+            }
+
+            // Row 3: the transport, centred under everything.
+            y -= 6
+            let mid = y - Layout.controlsRow / 2
+            let centre = (left + right) / 2
+            let spacing: CGFloat = 46
+            for (button, offset) in [(previousButton, -spacing), (playButton, 0), (nextButton, spacing)] {
+                let size = button.fittingSize
+                button.frame = CGRect(x: centre + offset - size.width / 2, y: mid - size.height / 2, width: size.width, height: size.height)
+            }
+            tick()
+
+        case .glance:
+            // The time, big, with the date under it.
+            let bigHeight = bigLabel.fittingSize.height
+            bigLabel.frame = CGRect(x: left, y: y - bigHeight, width: right - left, height: bigHeight)
+            let subtitleHeight = subtitleLabel.fittingSize.height
+            subtitleLabel.frame = CGRect(x: left, y: bigLabel.frame.minY - subtitleHeight, width: right - left, height: subtitleHeight)
+            y -= 46
+
+            // A hairline, then what's next.
+            y -= 10
+            rule.frame = CGRect(x: left, y: y, width: right - left, height: 1)
+            y -= 11
+            eventBar.frame = CGRect(x: left, y: y - 28, width: 3, height: 28)
+            let titleHeight = eventTitle.fittingSize.height, detailHeight = eventDetail.fittingSize.height
+            eventTitle.frame = CGRect(x: left + 11, y: y - titleHeight, width: right - left - 11, height: titleHeight)
+            eventDetail.frame = CGRect(x: left + 11, y: eventTitle.frame.minY - detailHeight, width: right - left - 11, height: detailHeight)
+        }
     }
 
     @objc private func handlePlayPause() { onPlayPause?() }

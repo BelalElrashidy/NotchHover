@@ -95,6 +95,12 @@ final class NotchContentView: NSView {
     private let peekContent: PeekView
     /// What is playing, kept so the peek can be built from it when it opens.
     private var lastNowPlaying: NowPlayingState = .message("Nothing playing")
+    /// When the last track reading arrived, so the peek's scrubber can run on from it.
+    private var trackAsOf = Date()
+    /// The artwork's colour, for the peek's level meter.
+    private var meterTint: NSColor?
+    /// Preview hook: content the preview can't get from the calendar or a player.
+    private var peekOverride: PeekContent?
     /// The peek was clicked: open the full panel.
     var onPeekOpen: (() -> Void)?
 
@@ -376,53 +382,46 @@ final class NotchContentView: NSView {
         peekContent.onNext = { [weak self] in self?.onNextTrack?() }
         peekContent.onPrevious = { [weak self] in self?.onPreviousTrack?() }
         peekContent.onJoin = { [weak self] in self?.joinMeeting() }
+        peekContent.onHeightChange = { [weak self] in self?.refitPeek() }
         LyricsService.shared.addObserver { [weak self] _ in
             guard let self, case .track = self.lastNowPlaying else { return }
             self.refreshPeek()
         }
     }
 
-    /// The peek's one line, in order of what matters: what is playing, then a call about
-    /// to start, then the date and what's next today.
+    /// The peek, in order of what matters: what is playing, then a call about to start,
+    /// then the time and what's next today.
     private func refreshPeek() {
+        peekContent.show(peekOverride ?? currentPeekContent())
+    }
+
+    private func currentPeekContent() -> PeekContent {
         switch lastNowPlaying {
         case .track(let track):
-            peekContent.show(.playing(
-                title: track.name,
-                // The line being sung, when lyrics are on: the peek is where a glance lands.
-                subtitle: LyricsService.shared.currentLine
-                    ?? [track.artist, track.sourceName].filter { $0.isEmpty == false }.joined(separator: " · "),
-                icon: artwork,
-                isPlaying: track.isPlaying,
-                isControllable: true
-            ))
-            return
+            return .playing(PeekTrack(track: track, icon: artwork, tint: meterTint, asOf: trackAsOf))
         case .external(let source):
-            peekContent.show(.playing(
-                title: source.displayName,
-                subtitle: source.detail,
-                icon: source.displayIcon,
-                isPlaying: true,
-                isControllable: false
-            ))
-            return
+            return .playing(PeekTrack(title: source.displayName, subtitle: source.detail, icon: source.displayIcon,
+                                      isPlaying: true, isControllable: false))
         case .message:
             break
         }
 
         if let (event, link) = CalendarService.shared.joinableMeeting() {
-            peekContent.show(.meeting(title: event.title ?? "Meeting", when: Self.relative(event.startDate), service: link.service))
-            return
+            return .meeting(title: event.title ?? "Meeting", service: link.service, start: event.startDate)
         }
 
-        let date = Date().formatted(.dateTime.weekday(.wide).day().month(.wide))
-        let next: String
-        if let event = CalendarService.shared.nextEvent() {
-            next = "\(event.startDate.formatted(date: .omitted, time: .shortened)) · \(event.title ?? "Untitled")"
-        } else {
-            next = CalendarService.shared.isAuthorized ? "Nothing else today" : "Nothing playing"
+        let next = CalendarService.shared.nextEvent().map {
+            PeekEvent(title: $0.title ?? "Untitled", start: $0.startDate, color: $0.calendar.map { NSColor(cgColor: $0.cgColor) ?? Style.accent } ?? Style.accent)
         }
-        peekContent.show(.glance(title: date, subtitle: next))
+        return .glance(next: next, hasCalendar: CalendarService.shared.isAuthorized)
+    }
+
+    /// The peek's content changed height while it is showing: the card follows.
+    private func refitPeek() {
+        guard presentation == .peek else { return }
+        peekContent.bodyWidth = peekBodyWidth
+        card.animateShape(to: peekCardFrame, bottomRadius: min(22, NotchShape.bottomRadius), duration: 0.25,
+                          timing: CAMediaTimingFunction(controlPoints: 0.22, 0.61, 0.36, 1))
     }
 
     /// "in 4 min", "now", "started 2 min ago".
@@ -546,8 +545,8 @@ final class NotchContentView: NSView {
     /// Preview hook: the peek, optionally with content the preview can't get from the
     /// calendar or a player.
     func showPeekForPreview(_ content: PeekContent? = nil) {
+        peekOverride = content
         present(.peek, animated: false)
-        if let content { peekContent.show(content) }
     }
 
     /// Preview hook.
@@ -773,11 +772,12 @@ final class NotchContentView: NSView {
     /// Where the notch sits inside the preview canvas and the idle bar.
     var notchSpan: CGFloat { notchWidth }
 
-    /// The peek: wider than the resting bar, one row deeper, far smaller than the panel.
+    /// The peek: wider than the resting bar, as tall as what it shows, far smaller than
+    /// the panel.
     private var peekCardFrame: CGRect {
-        let height = bandHeight + PeekView.rowHeight
-        let flare = min(NotchShape.topFlare, height * 0.55)
-        let width = min(bounds.width, notchWidth + (flare + 130) * 2)
+        let size = PeekView.cardSize(height: peekContent.preferredHeight, notchWidth: notchWidth)
+        let width = min(bounds.width, size.width)
+        let height = min(bounds.height, size.height)
         return CGRect(x: (bounds.width - width) / 2, y: bounds.height - height, width: width, height: height)
     }
 
@@ -812,10 +812,11 @@ final class NotchContentView: NSView {
             // whole panel — anything wider is cut off by the slab's mask.
             idleContent.barWidth = idleBodyWidth
         case .peek:
+            // Content first: the card is as tall as what it is about to show.
+            refreshPeek()
             targetFrame = peekCardFrame
             cardAlpha = 1
             peekContent.bodyWidth = peekBodyWidth
-            refreshPeek()
         case .expanded:
             targetFrame = expandedCardFrame
             cardAlpha = 1
@@ -916,6 +917,7 @@ final class NotchContentView: NSView {
         switch state {
         case .track(let track):
             hasTrack = true
+            trackAsOf = Date()
             loadArtwork(track)
             idleContent.update(artwork: artwork, isPlaying: track.isPlaying)
 
@@ -947,6 +949,7 @@ final class NotchContentView: NSView {
         let key = track.artworkURL?.absoluteString ?? "app:\(track.sourceBundleIdentifier)"
         guard artworkKey != key else { return }
         artworkKey = key
+        meterTint = nil
 
         guard let url = track.artworkURL else {
             let icon = NSWorkspace.shared
@@ -969,6 +972,8 @@ final class NotchContentView: NSView {
 
     /// Themes that follow the artwork recolour here rather than rebuilding the panel.
     private func applyArtworkTint(from image: NSImage, key: String) {
+        meterTint = ArtworkColor.meterColor(from: image, key: key)
+        if presentation == .peek { refreshPeek() }
         guard ThemeStore.selected.followsArtwork,
               let color = ArtworkColor.panelColor(from: image, key: key) else { return }
         ThemeStore.artworkColor = color

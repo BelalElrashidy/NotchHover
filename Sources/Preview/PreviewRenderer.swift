@@ -115,12 +115,13 @@ enum PreviewRenderer {
 
         write(named: "peek-meeting", directory: directory) { view in
             view.renderNowPlaying(.message("Nothing playing"))
-            view.showPeekForPreview(.meeting(title: "Design review", when: "in 4 min", service: "Zoom"))
+            view.showPeekForPreview(.meeting(title: "Design review", service: "Zoom", start: Date().addingTimeInterval(232)))
         }
 
         write(named: "peek-glance", directory: directory) { view in
             view.renderNowPlaying(.message("Nothing playing"))
-            view.showPeekForPreview(.glance(title: "Friday 17 October", subtitle: "14:30 · Design review"))
+            view.showPeekForPreview(.glance(next: PeekEvent(title: "Gym", start: Date().addingTimeInterval(3 * 3600),
+                                                            color: NSColor(srgbRed: 1, green: 0.62, blue: 0.04, alpha: 1)), hasCalendar: true))
         }
 
         // Single cards, drawn on the panel colour the way they sit on Home.
@@ -242,10 +243,10 @@ enum PreviewRenderer {
 
     /// The lock screen's music card over a stand-in lock screen.
     private static func writeLockScreen(track: TrackInfo, directory: String) {
-        let size = LockScreenMusic.cardSize(notchWidth: 179, bandHeight: 32)
-        let (card, peek) = LockScreenMusic.makeCard(size: size, notchWidth: 179, bandHeight: 32)
-        peek.show(.playing(title: track.name, subtitle: "\(track.artist) · \(track.sourceName)",
-                           icon: NSWorkspace.shared.icon(forFile: "/Applications/Spotify.app"), isPlaying: true, isControllable: true))
+        let (card, peek) = LockScreenMusic.makeCard(notchWidth: 179, bandHeight: 32)
+        let size = card.frame.size
+        peek.show(.playing(PeekTrack(track: track, icon: NSWorkspace.shared.icon(forFile: "/Applications/Spotify.app"),
+                                     tint: NSColor(srgbRed: 0.3, green: 0.85, blue: 0.45, alpha: 1), asOf: Date())))
         card.layoutSubtreeIfNeeded()
         peek.layoutSubtreeIfNeeded()
 

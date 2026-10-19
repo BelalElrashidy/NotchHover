@@ -243,12 +243,16 @@ and few tabs — everything else is a Home card, a header button or a shortcut.
 ### Rest, peek, open
 
 Resting on the notch waits `HoverDelay` (0.3s) — passing it on the way to the menu bar
-does nothing — then brings up the **peek**: the resting bar grown into a small card,
-~490×72 against the panel's 738×184. The band keeps the resting bar's artwork and meter;
-one row underneath shows what is playing with its controls, a call about to start with
-Join, or the date and what's next. A click on it, a swipe down or a shortcut opens the
-full panel; leaving it puts it back at once. It is one more rect in the same morph, and
-`PeekView` only hit-tests while it is on screen. `HoverAction` set to `open` skips it.
+does nothing — then brings up the **peek**: the resting bar grown into a card about
+470pt wide against the panel's 738, laid out like the Dynamic Island's expanded view.
+Playing: artwork, title and artist, the level meter in the artwork's colour
+(`ArtworkColor.meterColor`), a scrubber that runs on between poller ticks, and the
+transport. A call about to start: the service's tile, a countdown and a green Join. With
+nothing on: the time, the date and the next event. The card is as tall as what it shows
+(`PeekView.preferredHeight`) and refits when that changes. A click on it, a swipe down
+or a shortcut opens the full panel; leaving it puts it back at once. It is one more rect
+in the same morph, and `PeekView` only hit-tests while it is on screen. `HoverAction` set
+to `open` skips it.
 
 ### Calendar, accessories, Claude Code
 

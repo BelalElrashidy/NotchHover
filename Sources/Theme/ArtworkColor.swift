@@ -62,4 +62,21 @@ enum ArtworkColor {
         if cache.count > 40 { cache.removeAll() }
         return panel
     }
+
+    private static var meterCache: [String: NSColor] = [:]
+
+    /// The cover's own colour, bright enough to read as bars on black — or nil for a
+    /// grey cover, which keeps the bars white.
+    static func meterColor(from image: NSImage, key: String) -> NSColor? {
+        if let cached = meterCache[key] { return cached }
+        guard let panel = panelColor(from: image, key: key) else { return nil }
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        panel.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        // panelColor clamps saturation to at least 0.28; that floor means a grey cover.
+        guard saturation > 0.29 else { return nil }
+        let color = NSColor(hue: hue, saturation: min(0.7, saturation + 0.15), brightness: 0.98, alpha: 1)
+        meterCache[key] = color
+        if meterCache.count > 40 { meterCache.removeAll() }
+        return color
+    }
 }
