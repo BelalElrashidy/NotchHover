@@ -168,13 +168,19 @@ enum PreviewRenderer {
             view.showShortcutsForPreview()
         }
 
+        // The shelf with real pictures on it, and the drop zones a drag brings up.
+        let pictures = ["Mac Blue.heic", "Mac Pink.heic", "Radial Sky Blue.heic"]
+            .map { URL(fileURLWithPath: "/System/Library/Desktop Pictures/\($0)") }
+        FileTray.shared.clear()
+        FileTray.shared.add(pictures + [URL(fileURLWithPath: "/etc/hosts")])
         write(named: "expanded-tray", directory: directory) { view in
             view.renderNowPlaying(.track(track))
-            FileTray.shared.add([
-                URL(fileURLWithPath: "/System/Applications/Notes.app"),
-                URL(fileURLWithPath: "/etc/hosts")
-            ])
             view.selectTabForPreview(.tray)
+            // Quick Look makes thumbnails in the background.
+            RunLoop.main.run(until: Date().addingTimeInterval(1.5))
+        }
+        write(named: "expanded-dropzones", directory: directory) { view in
+            view.showDropZonesForPreview(Array(pictures.prefix(2)), hot: .action(.toJPEG))
         }
 
         write(named: "expanded-timer", directory: directory) { view in

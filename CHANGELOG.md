@@ -10,6 +10,31 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-10-19
+
+Drop to do: a new shelf, and things to do with files.
+
+### Added
+- **Drop zones.** Drag files to the notch and it opens straight away — no hover delay —
+  on zones for what to do with them: **Shelf**, **AirDrop**, a conversion (**To JPEG**,
+  **To PNG** or **To MP4**), **Zip**, and **Copy text** for pictures and PDFs. Let go on
+  one and it's done.
+- **File actions**, all on your Mac with what macOS already has:
+  - convert pictures to JPEG or PNG, and videos to MP4
+  - resize a picture to half, or compress it
+  - copy the text out of a picture or a PDF
+  - cut the subject out of a photo, onto a transparent background
+  - make one PDF from pictures and PDFs
+  - remove a picture's location and camera details
+  - zip anything, keeping Finder's metadata
+- New files go beside the originals, never over an existing file, and land on the shelf.
+  The resting bar says when it's done.
+
+### Changed
+- **The shelf** shows each file as a thumbnail with its name. Click to select, drag one
+  out, double-click to open. The actions that fit what's selected — or the whole shelf —
+  sit underneath as chips, with AirDrop, Show in Finder and Remove.
+
 ## [0.6.0] — 2026-10-19
 
 Meeting controls.
@@ -129,7 +154,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.3.0...v0.4.0

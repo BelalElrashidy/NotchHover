@@ -62,8 +62,11 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - The resting bar takes a breath when something starts playing
 
 **Getting things done**
-- **Shelf** — drop files on the notch to hold them, beside your most recent clips; drag
-  them out later, or AirDrop them
+- **Shelf** — drag files to the notch and it opens on drop zones: keep them on the
+  shelf, AirDrop them, or drop straight onto **Convert**, **Zip** or **Copy text**. On the
+  shelf, select files and the actions that fit appear: convert, resize, compress, copy
+  the text out of a picture or PDF, cut out the subject, make a PDF, remove the location,
+  zip — all done on your Mac
 - **Clipboard history** — search, pin and paste back with <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
 - **Quick notes** — <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> to start one, <kbd>⌘</kbd><kbd>↩</kbd> to keep it
 - **Controls** — output volume, microphone gain and mute, display brightness, keyboard backlight

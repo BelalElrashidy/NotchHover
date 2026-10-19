@@ -161,6 +161,7 @@ final class NotchContentView: NSView {
     private let paneContainer = NSView()
     /// ⌘/ — every shortcut, over the pane.
     private lazy var shortcutSheet = ShortcutSheetView()
+    private let dropZones = DropZonesView()
     /// Which view the panel is showing.
     private(set) var selectedTab: PanelTab = .home
 
@@ -723,19 +724,82 @@ final class NotchContentView: NSView {
 
     // MARK: - Dropping files on the notch
 
+    /// Files being dragged in from elsewhere — not one of the shelf's own, on its way out.
+    private func droppedFiles(_ sender: NSDraggingInfo) -> [URL]? {
+        guard sender.draggingSource as? TrayItemView == nil,
+              let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+              urls.isEmpty == false else { return nil }
+        return urls
+    }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: nil) ? .copy : []
+        guard let urls = droppedFiles(sender) else { return [] }
+        setDropZonesVisible(true, for: urls)
+        return draggingUpdated(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard dropZones.superview != nil else { return droppedFiles(sender) == nil ? [] : .copy }
+        dropZones.hot = dropZones.zone(at: dropZones.convert(sender.draggingLocation, from: nil))
+        return .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        dropZones.hot = nil
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        setDropZonesVisible(false, for: [])
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-              urls.isEmpty == false else { return false }
+        guard let urls = droppedFiles(sender) else { return false }
+        let zone = dropZones.superview == nil ? .shelf : (dropZones.zone(at: dropZones.convert(sender.draggingLocation, from: nil)) ?? .shelf)
+        setDropZonesVisible(false, for: [])
+        Haptics.step()
 
-        FileTray.shared.add(urls)
-        // Dropped files land on the Shelf, so that is where the panel opens.
-        show(.shelf)
-        onFilesDropped?()
+        switch zone {
+        case .shelf:
+            FileTray.shared.add(urls)
+            // Dropped files land on the Shelf, so that is where the panel opens.
+            show(.shelf)
+            onFilesDropped?()
+        case .airDrop:
+            NSSharingService(named: .sendViaAirDrop)?.perform(withItems: urls)
+            onDismiss?()
+        case .action(let action):
+            FileActionRunner.run(action, on: urls)
+            if action == .copyText {
+                onDismiss?()
+            } else {
+                // What it makes lands on the shelf; that's where to look.
+                show(.shelf)
+                onFilesDropped?()
+            }
+        }
         return true
+    }
+
+    /// The drop zones cover the panel's content while a drag is over it.
+    func setDropZonesVisible(_ visible: Bool, for urls: [URL]) {
+        if visible { dropZones.configure(for: urls) }
+        guard visible != (dropZones.superview != nil) else { return }
+        if visible { setShortcutSheetVisible(false) }
+        paneContainer.isHidden = visible
+        if visible {
+            dropZones.frame = detailContainer.frame
+            dropZones.autoresizingMask = [.width, .height]
+            expandedContent.addSubview(dropZones)
+        } else {
+            dropZones.removeFromSuperview()
+        }
+    }
+
+    /// Preview hook.
+    func showDropZonesForPreview(_ urls: [URL], hot: DropZonesView.Zone?) {
+        present(.expanded, animated: false)
+        setDropZonesVisible(true, for: urls)
+        dropZones.hot = hot
     }
 
     // MARK: - Frames

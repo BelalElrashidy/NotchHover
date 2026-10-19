@@ -162,6 +162,20 @@ final class NotchController {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: handler) {
             mouseMonitors.append(global)
         }
+        // A file drag is told apart from any other by the drag pasteboard changing after
+        // the button went down — the way Boring Notch and NotchDrop do it.
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp], handler: { [weak self] event in
+            guard let self else { return }
+            if event.type == .leftMouseDown {
+                self.dragPasteboardCount = NSPasteboard(name: .drag).changeCount
+            } else {
+                self.dragPasteboardCount = nil
+                // A drag let go somewhere else leaves no zones behind.
+                self.broadcast { $0.setDropZonesVisible(false, for: []) }
+            }
+        }) {
+            mouseMonitors.append(global)
+        }
         // The global monitor goes quiet while the pointer is over our own panel.
         if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved], handler: { event in
             handler(event)
@@ -370,8 +384,30 @@ final class NotchController {
 
     // MARK: - Hover handling
 
+    /// The drag pasteboard's count when the button went down; nil with the button up.
+    private var dragPasteboardCount: Int?
+
+    /// Files are being dragged right now, from somewhere else.
+    private var isDraggingFiles: Bool {
+        guard let count = dragPasteboardCount, NSEvent.pressedMouseButtons & 1 != 0 else { return false }
+        let pasteboard = NSPasteboard(name: .drag)
+        return pasteboard.changeCount != count
+            && pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+    }
+
     private func handlePointerMoved() {
         let location = NSEvent.mouseLocation
+
+        // Files dragged to a closed notch open it at once, on the drop zones: waiting out
+        // the hover delay with a file in hand feels broken.
+        if isExpanded == false, isDraggingFiles,
+           let display = displays.values.first(where: { $0.geometry.hoverRect.insetBy(dx: -20, dy: -24).containsPointer(location) }) {
+            let urls = NSPasteboard(name: .drag).readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+            expand(display)
+            display.content.setDropZonesVisible(true, for: urls)
+            Haptics.tick()
+            return
+        }
 
         if isExpanded {
             guard let panel else { return }

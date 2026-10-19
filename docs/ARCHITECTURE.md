@@ -303,6 +303,20 @@ off ("Allow JavaScript from Apple Events"), and the peek says so. FaceTime, Slac
 anything else get the Mac's own microphone mute. A call outranks everything in the peek;
 ⌃⌥M and ⌘⇧M mute it.
 
+### Shelf and file actions
+
+A file drag is noticed globally: the drag pasteboard's change count moves after the
+mouse went down. Reaching the notch with one opens the panel at once on `DropZonesView`
+— Shelf, AirDrop, and the conversion, Zip and Copy text that fit the files — and the
+zone under the pointer when it's let go decides what happens. `FileAction` is the list
+of things to do and which files they fit; each runs off the main thread with ImageIO
+(convert, resize, compress, strip location), Vision (text recognition, subject
+cut-out), PDFKit (make PDF, a PDF's own text), AVFoundation (to MP4) or `ditto` (zip).
+New files go beside the originals, never over anything, and land on the shelf;
+`FileActionRunner` reports in the resting bar. `TrayPaneView` shows the shelf as
+thumbnail tiles — click to select, drag out, double-click to open — with the actions
+that fit the selection as chips.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to
@@ -671,6 +685,8 @@ The app cannot screenshot itself, so it renders itself instead:
 ./build/NotchHover.app/Contents/MacOS/NotchHover --claude-selftest        # this Mac's Claude Code sessions
 ./build/NotchHover.app/Contents/MacOS/NotchHover --lyrics-selftest [live] # LRC timing; `live` asks lrclib.net once
 ./build/NotchHover.app/Contents/MacOS/NotchHover --lockscreen-selftest    # an invisible window onto the lock screen space
+./build/NotchHover.app/Contents/MacOS/NotchHover --meeting-selftest       # who has the mic; the Meet script compiles per browser
+./build/NotchHover.app/Contents/MacOS/NotchHover --fileactions-selftest   # every file action on a made-up image
 ```
 
 `--animation-selftest` puts a real panel on screen, runs hidden → resting bar → panel →

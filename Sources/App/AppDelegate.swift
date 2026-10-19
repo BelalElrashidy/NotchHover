@@ -50,6 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MeetingControls.shared.toggleMute()
         }
         MeetingControls.shared.start()
+        FileActionRunner.onReport = { [weak activityCenter] symbol, text in
+            activityCenter?.post(.status(symbol: symbol, text: text))
+        }
 
         NotificationWatcher.shared.configure(activityCenter: activityCenter)
         NotificationWatcher.shared.start()

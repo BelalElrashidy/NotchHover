@@ -14,6 +14,8 @@ enum LiveActivity: Equatable {
     case device(DeviceBattery)
     /// A Claude Code session finished its turn and is waiting on you.
     case claudeDone(project: String)
+    /// A few words about something NotchHover just did, like a file action finishing.
+    case status(symbol: String, text: String)
 
     /// How long the bar holds it before falling back to now playing.
     var duration: TimeInterval {
@@ -25,6 +27,7 @@ enum LiveActivity: Equatable {
         case .meeting: return 6
         case .device: return 3
         case .claudeDone: return 4
+        case .status: return 2.5
         case .timer: return 1.2
         }
     }

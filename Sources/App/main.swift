@@ -70,6 +70,12 @@ if CommandLine.arguments.contains("--meeting-selftest") {
     exit(lines.contains { $0.contains("NOT") } ? 1 : 0)
 }
 
+// Every file action on a made-up image in a temporary folder: --fileactions-selftest
+if CommandLine.arguments.contains("--fileactions-selftest") {
+    app.setActivationPolicy(.prohibited)
+    FileActionsSelfTest.run()
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

@@ -47,7 +47,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Up Next queue | | | | | | | | | ✅ | |
 | **Files and text** | | | | | | | | | | |
 | File shelf + AirDrop | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | |
-| File actions (convert, compress, OCR) | | | | | | | | | ✅ | ✅ |
+| File actions (convert, compress, OCR) | ✅ | | | | | | | | ✅ | ✅ |
 | Clipboard history | ✅ | | ✅ | | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Clipboard OCR / pinned boards | | | | | | | | ✅ | | ✅ |
 | Quick notes | ✅ | | | ✅ | | ✅ | ✅ | | | |

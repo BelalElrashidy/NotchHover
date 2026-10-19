@@ -165,6 +165,11 @@ final class IdleActivityView: NSView {
             levelLabel.stringValue = device.lowest.map { "\($0)%" } ?? device.caseLevel.map { "\($0)%" } ?? ""
             levelLabel.isHidden = false
             levelBar.isHidden = true
+        case let .status(symbol, text):
+            activityIcon.image = Style.symbolImage(symbol, pointSize: 15)
+            levelLabel.stringValue = text
+            levelLabel.isHidden = false
+            levelBar.isHidden = true
         case .claudeDone(let project):
             // Claude's own icon when the app is installed; the project is the label.
             activityIcon.image = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop")
