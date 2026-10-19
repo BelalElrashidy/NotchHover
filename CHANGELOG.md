@@ -10,6 +10,27 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-19
+
+Clipboard boards.
+
+### Added
+- **Boards for the clipboard**, like Paste's pinboards: coloured, named collections of
+  clips you keep reusing. Make one with **+**, drag a card onto it to keep the card there,
+  or right-click a card and tick the boards it belongs on. Right-click a board to rename
+  it, change its colour or delete it — deleting a board never deletes its clips.
+- Anything on a board, like anything pinned, survives **Clear** and the 250-clip limit.
+
+### Changed
+- **The Clipboard tab is a strip of cards**: each clip shows what it is — text, link,
+  file, picture or colour — with the app it came from, the boards it's on, and the clip
+  itself: wrapped text, code in a monospaced font, a link's address, a picture, a colour
+  swatch for a hex value. Click to copy, double-click to paste, drag it out into any app.
+- ← and → move through the cards, as ↑ and ↓ do.
+
+### Fixed
+- The peek's Join button logged a layout conflict between its frame and its size.
+
 ## [0.7.0] — 2026-10-19
 
 Drop to do: a new shelf, and things to do with files.
@@ -154,7 +175,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.4.0...v0.5.0

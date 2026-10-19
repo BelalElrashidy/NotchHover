@@ -34,7 +34,10 @@ final class ClipboardSearchField: NSTextField {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Clipboard history: search, click to copy, paste straight into the front app.
+/// Clipboard history. The full pane is Paste's layout: coloured boards along the top —
+/// History, Pinned, and boards of your own — over a strip of cards, one per clip. Click a
+/// card to copy it, double-click to paste it, drag it onto a board to keep it there. The
+/// Home card keeps the compact list.
 final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     /// Paste needs the panel out of the way first, so the controller handles it.
     var onPaste: ((ClipboardItem) -> Void)?
@@ -45,12 +48,28 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     private lazy var pauseButton = Style.symbolButton("pause.circle", pointSize: 13, target: self, action: #selector(handlePause))
     private lazy var clearButton = Style.symbolButton("trash", pointSize: 12, target: self, action: #selector(handleClear))
     private let listStack = NSStackView()
+    private let boardsStack = NSStackView()
+    private let boardsScroll = NSScrollView()
+    private let cardsStack = NSStackView()
+    private let cardsScroll = NSScrollView()
     private let emptyLabel = Style.label("", size: 11, color: nil)
     private var observer: UUID?
     private var copiedID: UUID?
-    /// The row the arrow keys are on. Kept as an id, not an index, so it stays on the
+    /// The clip the arrow keys are on. Kept as an id, not an index, so it stays on the
     /// same clip when the list reorders under it.
     private var selectedID: UUID?
+    private var filter: ClipboardHistory.Filter = .history
+    private lazy var newBoardField: NSTextField = {
+        let field = NSTextField()
+        field.placeholderString = "Board name"
+        field.font = .systemFont(ofSize: Style.scaled(11))
+        field.focusRingType = .none
+        field.bezelStyle = .roundedBezel
+        field.delegate = self
+        field.widthAnchor.constraint(equalToConstant: 110).isActive = true
+        return field
+    }()
+    private var isAddingBoard = false
 
     init(isCompact: Bool = false) {
         self.isCompact = isCompact
@@ -73,7 +92,7 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         emptyLabel.textColor = Style.tertiaryText
 
         searchField.placeholderAttributedString = NSAttributedString(
-            string: "Search clipboard — ↩ copies the top result",
+            string: "Search — ↩ copies",
             attributes: [.foregroundColor: Style.tertiaryText, .font: NSFont.systemFont(ofSize: Style.scaled(12))]
         )
         searchField.font = .systemFont(ofSize: Style.scaled(12))
@@ -88,57 +107,91 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         searchField.delegate = self
 
         pauseButton.toolTip = "Pause recording"
-        clearButton.toolTip = "Clear history (pinned items stay)"
+        clearButton.toolTip = "Clear history (pinned and boarded clips stay)"
         [pauseButton, clearButton].forEach { $0.contentTintColor = Style.secondaryText }
 
+        isCompact ? configureList() : configureBoards()
+    }
+
+    /// The Home card: the newest few, as rows.
+    private func configureList() {
         listStack.orientation = .vertical
         listStack.alignment = .leading
         listStack.spacing = 1
-
-        let document = FlippedView()
-        document.translatesAutoresizingMaskIntoConstraints = false
         listStack.translatesAutoresizingMaskIntoConstraints = false
-        document.addSubview(listStack)
+        addSubview(listStack)
+        NSLayoutConstraint.activate([
+            listStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            listStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            listStack.topAnchor.constraint(equalTo: topAnchor, constant: 6)
+        ])
+    }
 
-        let scroll = NSScrollView()
-        scroll.documentView = document
-        scroll.hasVerticalScroller = true
-        scroll.drawsBackground = false
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(scroll)
+    /// The Clipboard tab: boards, then the cards.
+    private func configureBoards() {
+        // The boards scroll sideways rather than squeeze: any number of them, at any
+        // width, each keeping its whole name.
+        boardsStack.orientation = .horizontal
+        boardsStack.spacing = 6
+        boardsStack.translatesAutoresizingMaskIntoConstraints = false
+        let boardsDocument = NSView()
+        boardsDocument.translatesAutoresizingMaskIntoConstraints = false
+        boardsDocument.addSubview(boardsStack)
+        boardsScroll.documentView = boardsDocument
+        boardsScroll.drawsBackground = false
+        boardsScroll.hasHorizontalScroller = false
+        boardsScroll.horizontalScrollElasticity = .allowed
+        boardsScroll.setContentHuggingPriority(.init(1), for: .horizontal)
+        boardsScroll.setContentCompressionResistancePriority(.init(1), for: .horizontal)
 
-        var constraints = [
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
-            document.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            document.trailingAnchor.constraint(equalTo: scroll.contentView.trailingAnchor),
-            document.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-            listStack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
-            listStack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
-            listStack.topAnchor.constraint(equalTo: document.topAnchor),
-            listStack.bottomAnchor.constraint(equalTo: document.bottomAnchor)
-        ]
+        let header = NSStackView(views: [boardsScroll, searchField, pauseButton, clearButton])
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 8
+        header.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(header)
+        NSLayoutConstraint.activate([
+            boardsScroll.heightAnchor.constraint(equalToConstant: 24),
+            boardsDocument.topAnchor.constraint(equalTo: boardsScroll.contentView.topAnchor),
+            boardsDocument.leadingAnchor.constraint(equalTo: boardsScroll.contentView.leadingAnchor),
+            boardsDocument.heightAnchor.constraint(equalToConstant: 24),
+            boardsStack.leadingAnchor.constraint(equalTo: boardsDocument.leadingAnchor),
+            boardsStack.trailingAnchor.constraint(equalTo: boardsDocument.trailingAnchor),
+            boardsStack.topAnchor.constraint(equalTo: boardsDocument.topAnchor),
+            boardsStack.bottomAnchor.constraint(equalTo: boardsDocument.bottomAnchor)
+        ])
 
-        if isCompact {
-            constraints.append(scroll.topAnchor.constraint(equalTo: topAnchor, constant: 6))
-        } else {
-            let header = NSStackView(views: [searchField, pauseButton, clearButton])
-            header.orientation = .horizontal
-            header.alignment = .centerY
-            header.spacing = 8
-            header.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(header)
-            constraints += [
-                header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-                header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-                header.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-                searchField.heightAnchor.constraint(equalToConstant: 24),
-                scroll.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 6)
-            ]
-        }
+        cardsStack.orientation = .horizontal
+        cardsStack.alignment = .top
+        cardsStack.spacing = 8
+        cardsStack.translatesAutoresizingMaskIntoConstraints = false
+        let document = NSView()
+        document.translatesAutoresizingMaskIntoConstraints = false
+        document.addSubview(cardsStack)
+        cardsScroll.documentView = document
+        cardsScroll.drawsBackground = false
+        cardsScroll.hasHorizontalScroller = false
+        cardsScroll.horizontalScrollElasticity = .allowed
+        cardsScroll.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(cardsScroll)
 
-        NSLayoutConstraint.activate(constraints)
+        NSLayoutConstraint.activate([
+            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            header.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            searchField.heightAnchor.constraint(equalToConstant: 24),
+            searchField.widthAnchor.constraint(equalToConstant: 130),
+            cardsScroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            cardsScroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            cardsScroll.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
+            cardsScroll.heightAnchor.constraint(equalToConstant: ClipboardCardView.size.height + 2),
+            document.topAnchor.constraint(equalTo: cardsScroll.contentView.topAnchor),
+            document.leadingAnchor.constraint(equalTo: cardsScroll.contentView.leadingAnchor),
+            document.heightAnchor.constraint(equalTo: cardsScroll.contentView.heightAnchor),
+            cardsStack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 1),
+            cardsStack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -1),
+            cardsStack.topAnchor.constraint(equalTo: document.topAnchor, constant: 1)
+        ])
     }
 
     /// Puts the cursor in search, for the keyboard shortcut.
@@ -146,49 +199,119 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(searchField)
     }
 
-    // MARK: - List
+    // MARK: - Showing
 
     private var results: [ClipboardItem] {
-        ClipboardHistory.shared.search(isCompact ? "" : searchField.stringValue)
+        ClipboardHistory.shared.search(isCompact ? "" : searchField.stringValue, in: isCompact ? .history : filter)
     }
 
     private func reload() {
         let history = ClipboardHistory.shared
         pauseButton.image = Style.symbolImage(history.isPaused ? "play.circle" : "pause.circle", pointSize: 13)
         pauseButton.toolTip = history.isPaused ? "Resume recording" : "Pause recording"
+        if case .board(let id) = filter, history.boards.contains(where: { $0.id == id }) == false { filter = .history }
 
-        listStack.arrangedSubviews.forEach {
-            listStack.removeArrangedSubview($0)
-            $0.removeFromSuperview()
-        }
-
-        let items = results.prefix(isCompact ? 4 : 60)
-        // A selection that fell out of the results goes back to the top.
+        let items = Array(results.prefix(isCompact ? 4 : 60))
+        // A selection that fell out of the results goes back to the first.
         if isCompact == false, items.contains(where: { $0.id == selectedID }) == false {
             selectedID = items.first?.id
         }
+        emptyLabel.stringValue = history.isPaused
+            ? "Recording is paused"
+            : (searchField.stringValue.isEmpty == false ? "No matches"
+               : (filter == .history ? "Copy something and it appears here" : "Drag a card here to keep it on this board"))
+
+        isCompact ? reloadList(items) : reloadBoards(items)
+    }
+
+    private func reloadList(_ items: [ClipboardItem]) {
+        listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         guard items.isEmpty == false else {
-            emptyLabel.stringValue = history.isPaused
-                ? "Recording is paused"
-                : (searchField.stringValue.isEmpty ? "Copy something and it appears here" : "No matches")
             listStack.addArrangedSubview(emptyLabel)
             return
         }
-
         for item in items {
-            let row = ClipboardRowView(
-                item: item,
-                isCompact: isCompact,
-                justCopied: item.id == copiedID,
-                isSelected: isCompact == false && item.id == selectedID
-            )
+            let row = ClipboardRowView(item: item, isCompact: true, justCopied: item.id == copiedID)
             row.onCopy = { [weak self] in self?.copy(item) }
-            row.onPaste = { [weak self] in self?.onPaste?(item) }
-            row.onPin = { ClipboardHistory.shared.togglePin(item.id) }
-            row.onDelete = { ClipboardHistory.shared.delete(item.id) }
             listStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
         }
+    }
+
+    private func reloadBoards(_ items: [ClipboardItem]) {
+        let history = ClipboardHistory.shared
+
+        boardsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let pinnedCount = history.items.filter(\.isPinned).count
+        var chips: [BoardChipView] = [BoardChipView(title: "History", color: nil, filter: .history)]
+        if pinnedCount > 0 { chips.append(BoardChipView(title: "Pinned", color: nil, symbol: "pin.fill", filter: .pinned, count: pinnedCount)) }
+        for board in history.boards {
+            let count = history.items.filter { $0.boardIDs?.contains(board.id) == true }.count
+            chips.append(BoardChipView(title: board.name, color: board.nsColor, filter: .board(board.id), count: count))
+        }
+        for chip in chips {
+            chip.isSelected = chip.filter == filter
+            chip.onSelect = { [weak self] in
+                self?.filter = chip.filter
+                self?.selectedID = nil
+                Haptics.tick()
+                self?.reload()
+            }
+            chip.onDropItem = { itemID in
+                switch chip.filter {
+                case .board(let boardID): ClipboardHistory.shared.add(itemID, to: boardID)
+                case .pinned:
+                    if ClipboardHistory.shared.items.first(where: { $0.id == itemID })?.isPinned == false {
+                        ClipboardHistory.shared.togglePin(itemID)
+                    }
+                case .history: break
+                }
+                Haptics.step()
+            }
+            boardsStack.addArrangedSubview(chip)
+        }
+        if isAddingBoard {
+            boardsStack.addArrangedSubview(newBoardField)
+        } else {
+            let add = BoardChipView(title: "", color: nil, symbol: "plus", filter: .history)
+            add.toolTip = "New board"
+            add.onSelect = { [weak self] in self?.beginAddingBoard() }
+            boardsStack.addArrangedSubview(add)
+        }
+
+        cardsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        guard items.isEmpty == false else {
+            cardsStack.addArrangedSubview(emptyLabel)
+            return
+        }
+        for item in items {
+            let card = ClipboardCardView(item: item, justCopied: item.id == copiedID, isSelected: item.id == selectedID)
+            card.onCopy = { [weak self] in self?.copy(item) }
+            card.onPaste = { [weak self] in self?.onPaste?(item) }
+            card.onPin = { ClipboardHistory.shared.togglePin(item.id) }
+            card.onDelete = { ClipboardHistory.shared.delete(item.id) }
+            card.onToggleBoard = { boardID in ClipboardHistory.shared.toggle(item.id, on: boardID) }
+            cardsStack.addArrangedSubview(card)
+        }
+    }
+
+    private func beginAddingBoard() {
+        isAddingBoard = true
+        newBoardField.stringValue = ""
+        reload()
+        window?.makeFirstResponder(newBoardField)
+    }
+
+    private func finishAddingBoard(save: Bool) {
+        let name = newBoardField.stringValue.trimmingCharacters(in: .whitespaces)
+        isAddingBoard = false
+        if save, name.isEmpty == false {
+            let board = ClipboardHistory.shared.addBoard(named: name)
+            filter = .board(board.id)
+        } else {
+            reload()
+        }
+        window?.makeFirstResponder(searchField)
     }
 
     private func copy(_ item: ClipboardItem) {
@@ -203,6 +326,7 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     }
 
     func controlTextDidChange(_ notification: Notification) {
+        guard (notification.object as? NSTextField) === searchField else { return }
         // A new search starts at its best match.
         selectedID = nil
         reload()
@@ -220,7 +344,7 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         results.first { $0.id == selectedID } ?? results.first
     }
 
-    /// ↑ and ↓ move through the results, wherever the focus is.
+    /// The arrow keys move through the clips, wherever the focus is.
     func moveSelection(by offset: Int) {
         let items = Array(results.prefix(60))
         guard items.isEmpty == false else { return }
@@ -228,8 +352,9 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         let next = min(max(current + offset, 0), items.count - 1)
         selectedID = items[next].id
         reload()
-        // Keep the chosen row on screen as the selection walks past the bottom.
-        listStack.arrangedSubviews.first { ($0 as? ClipboardRowView)?.isSelected == true }
+        // Keep the chosen clip on screen as the selection walks past the edge.
+        let views = isCompact ? listStack.arrangedSubviews : cardsStack.arrangedSubviews
+        views.first { ($0 as? ClipboardCardView)?.isSelected == true || ($0 as? ClipboardRowView)?.isSelected == true }
             .map { $0.scrollToVisible($0.bounds) }
     }
 
@@ -250,7 +375,7 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
 
     func deleteSelected() {
         guard let item = selectedItem else { return }
-        // Land on the neighbour rather than jumping back to the top.
+        // Land on the neighbour rather than jumping back to the start.
         let items = Array(results.prefix(60))
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             let neighbour = index + 1 < items.count ? items[index + 1] : (index > 0 ? items[index - 1] : nil)
@@ -260,6 +385,13 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        if control === newBoardField {
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)): finishAddingBoard(save: true); return true
+            case #selector(NSResponder.cancelOperation(_:)): finishAddingBoard(save: false); return true
+            default: return false
+            }
+        }
         switch selector {
         case #selector(NSResponder.moveUp(_:)):
             moveSelection(by: -1)
@@ -280,6 +412,13 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
             return true
         default:
             return false
+        }
+    }
+
+    func controlTextDidEndEditing(_ notification: Notification) {
+        // Clicking away from a half-typed board name keeps it, as Finder does.
+        if (notification.object as? NSTextField) === newBoardField, isAddingBoard {
+            finishAddingBoard(save: true)
         }
     }
 

@@ -171,6 +171,9 @@ final class PeekView: NSView {
         playButton.toolTip = "Play or pause — Space"
         nextButton.toolTip = "Next — ⌘→"
         joinButton.toolTip = "Join the call — ⌘J"
+        // The peek lays its controls out by frame; the factory's size constraints would
+        // fight the frame it is given.
+        NSLayoutConstraint.deactivate(joinButton.constraints)
         // Join is green, as call buttons are everywhere — the one control that means "go".
         joinButton.layer?.backgroundColor = NSColor(srgbRed: 0.19, green: 0.82, blue: 0.35, alpha: 1).cgColor
         joinButton.attributedTitle = NSAttributedString(string: "Join", attributes: [
@@ -439,7 +442,7 @@ final class PeekView: NSView {
             if case .meeting = content {
                 // Row 2: the countdown, and Join.
                 y -= 10
-                let joinSize = joinButton.fittingSize
+                let joinSize = CGSize(width: max(70, joinButton.intrinsicContentSize.width + 28), height: 26)
                 joinButton.frame = CGRect(x: right - joinSize.width, y: y - 15 - joinSize.height / 2, width: joinSize.width, height: joinSize.height)
                 let bigHeight = bigLabel.fittingSize.height
                 bigLabel.frame = CGRect(x: left, y: y - 15 - bigHeight / 2, width: joinButton.frame.minX - left - 10, height: bigHeight)

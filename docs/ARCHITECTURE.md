@@ -317,6 +317,16 @@ New files go beside the originals, never over anything, and land on the shelf;
 thumbnail tiles — click to select, drag out, double-click to open — with the actions
 that fit the selection as chips.
 
+### Clipboard boards
+
+`ClipboardBoard` is a named colour; an item's `boardIDs` say which boards it's on, and
+anything pinned or on a board (`isKept`) survives clearing and trimming. Boards are saved
+beside the history in `Clipboard/boards.json`. The Clipboard tab is Paste's layout:
+`BoardChipView`s along the top (History, Pinned, then boards, in a sideways scroll so
+they never squeeze), over a strip of `ClipboardCardView`s. A card drags out with the
+clip itself plus an internal `com.notchhover.clipboard-item` id, which a board chip
+accepts. The Home card keeps the compact list.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to

@@ -543,6 +543,9 @@ final class NotchContentView: NSView {
             case .space where isTyping == false && mode == .media: onPlayPause?(); return true
             case .up where selectedTab == .clipboard: clipboardPane.moveSelection(by: -1); return true
             case .down where selectedTab == .clipboard: clipboardPane.moveSelection(by: 1); return true
+            // The clipboard is a strip of cards: across works as well as up and down.
+            case .left where selectedTab == .clipboard: clipboardPane.moveSelection(by: -1); return true
+            case .right where selectedTab == .clipboard: clipboardPane.moveSelection(by: 1); return true
             case .enter where selectedTab == .clipboard: clipboardPane.copySelected(); return true
             default: return false
             }
@@ -726,7 +729,7 @@ final class NotchContentView: NSView {
 
     /// Files being dragged in from elsewhere — not one of the shelf's own, on its way out.
     private func droppedFiles(_ sender: NSDraggingInfo) -> [URL]? {
-        guard sender.draggingSource as? TrayItemView == nil,
+        guard sender.draggingSource as? TrayItemView == nil, sender.draggingSource as? ClipboardCardView == nil,
               let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
               urls.isEmpty == false else { return nil }
         return urls

@@ -67,7 +67,9 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
   shelf, select files and the actions that fit appear: convert, resize, compress, copy
   the text out of a picture or PDF, cut out the subject, make a PDF, remove the location,
   zip — all done on your Mac
-- **Clipboard history** — search, pin and paste back with <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
+- **Clipboard history** — every clip as a card, with coloured **boards** to keep the ones
+  you reuse (drag a card onto a board); search, pin and paste back with
+  <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
 - **Quick notes** — <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> to start one, <kbd>⌘</kbd><kbd>↩</kbd> to keep it
 - **Controls** — output volume, microphone gain and mute, display brightness, keyboard backlight
 - **Schedule** — a week strip over a timeline of the day, with a red line at now, all-day

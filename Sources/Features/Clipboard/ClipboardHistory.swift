@@ -21,6 +21,11 @@ struct ClipboardItem: Codable, Identifiable, Equatable {
     var copied: Date
     var isPinned: Bool
     var copyCount: Int
+    /// The boards it has been put on. Optional so histories saved before boards load.
+    var boardIDs: [UUID]? = nil
+
+    /// Pinned or on a board: kept through clearing and trimming.
+    var isKept: Bool { isPinned || (boardIDs?.isEmpty == false) }
 
     var preview: String {
         switch kind {
@@ -85,6 +90,8 @@ final class ClipboardHistory {
     private static let maximumImagePixels: CGFloat = 1600
 
     private(set) var items: [ClipboardItem] = []
+    private(set) var boards: [ClipboardBoard] = []
+    private static let boardsName = "Clipboard/boards.json"
     private var observers: [UUID: () -> Void] = [:]
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -95,6 +102,7 @@ final class ClipboardHistory {
 
     private init() {
         items = LocalStore.load([ClipboardItem].self, from: Self.indexName) ?? []
+        boards = LocalStore.load([ClipboardBoard].self, from: Self.boardsName) ?? []
     }
 
     var isPaused: Bool {
@@ -230,8 +238,8 @@ final class ClipboardHistory {
     }
 
     private func trim() {
-        while items.filter({ $0.isPinned == false }).count > Self.maximumItems,
-              let index = items.lastIndex(where: { $0.isPinned == false }) {
+        while items.filter({ $0.isKept == false }).count > Self.maximumItems,
+              let index = items.lastIndex(where: { $0.isKept == false }) {
             let removed = items.remove(at: index)
             if let file = removed.imageFileName { deleteImage(file) }
         }
@@ -294,17 +302,28 @@ final class ClipboardHistory {
         changed()
     }
 
-    /// Pinned items survive a clear.
+    /// Pinned items, and anything on a board, survive a clear.
     func clear() {
-        for item in items where item.isPinned == false {
+        for item in items where item.isKept == false {
             if let file = item.imageFileName { deleteImage(file) }
         }
-        items.removeAll { $0.isPinned == false }
+        items.removeAll { $0.isKept == false }
         changed()
     }
 
-    func search(_ query: String) -> [ClipboardItem] {
-        let sorted = items.sorted {
+    /// Which items a list shows: everything, the pinned ones, or one board.
+    enum Filter: Equatable {
+        case history, pinned, board(UUID)
+    }
+
+    func search(_ query: String, in filter: Filter = .history) -> [ClipboardItem] {
+        let sorted = items.filter { item in
+            switch filter {
+            case .history: return true
+            case .pinned: return item.isPinned
+            case .board(let id): return item.boardIDs?.contains(id) == true
+            }
+        }.sorted {
             if $0.isPinned != $1.isPinned { return $0.isPinned }
             return $0.copied > $1.copied
         }
@@ -317,10 +336,56 @@ final class ClipboardHistory {
     }
 
     /// Used by previews to show the widget with sample content.
-    func loadSample(_ sample: [ClipboardItem]) {
+    func loadSample(_ sample: [ClipboardItem], boards: [ClipboardBoard] = []) {
         persists = false
         items = sample
+        self.boards = boards
         notify()
+    }
+
+    // MARK: - Boards
+
+    /// A new board, in the next colour nobody is using yet.
+    @discardableResult
+    func addBoard(named name: String) -> ClipboardBoard {
+        let used = Set(boards.map(\.color))
+        let color = ClipboardBoard.palette.first { used.contains($0) == false } ?? ClipboardBoard.palette[boards.count % ClipboardBoard.palette.count]
+        let board = ClipboardBoard(id: UUID(), name: name, color: color)
+        boards.append(board)
+        changed()
+        return board
+    }
+
+    func renameBoard(_ id: UUID, to name: String) {
+        guard let index = boards.firstIndex(where: { $0.id == id }), name.isEmpty == false else { return }
+        boards[index].name = name
+        changed()
+    }
+
+    func recolorBoard(_ id: UUID, to color: String) {
+        guard let index = boards.firstIndex(where: { $0.id == id }) else { return }
+        boards[index].color = color
+        changed()
+    }
+
+    /// The board goes; what was on it stays in the history.
+    func deleteBoard(_ id: UUID) {
+        boards.removeAll { $0.id == id }
+        for index in items.indices { items[index].boardIDs?.removeAll { $0 == id } }
+        changed()
+    }
+
+    func toggle(_ itemID: UUID, on boardID: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
+        var ids = items[index].boardIDs ?? []
+        if let existing = ids.firstIndex(of: boardID) { ids.remove(at: existing) } else { ids.append(boardID) }
+        items[index].boardIDs = ids
+        changed()
+    }
+
+    func add(_ itemID: UUID, to boardID: UUID) {
+        guard let item = items.first(where: { $0.id == itemID }), item.boardIDs?.contains(boardID) != true else { return }
+        toggle(itemID, on: boardID)
     }
 
     // MARK: - Images
@@ -383,5 +448,31 @@ final class ClipboardHistory {
         guard persists else { return }
         LocalStore.ensureDirectory(imageDirectory)
         LocalStore.save(items, to: Self.indexName)
+        LocalStore.save(boards, to: Self.boardsName)
+    }
+}
+
+/// A named, coloured collection of clips, as Paste calls pinboards.
+struct ClipboardBoard: Codable, Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    /// A name from `palette`.
+    var color: String
+
+    static let palette = ["orange", "green", "purple", "blue", "pink", "yellow", "teal", "red"]
+
+    var nsColor: NSColor { Self.color(named: color) }
+
+    static func color(named name: String) -> NSColor {
+        switch name {
+        case "orange": return .systemOrange
+        case "green": return .systemGreen
+        case "purple": return .systemPurple
+        case "blue": return .systemBlue
+        case "pink": return .systemPink
+        case "yellow": return .systemYellow
+        case "teal": return .systemTeal
+        default: return .systemRed
+        }
     }
 }

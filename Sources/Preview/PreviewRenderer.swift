@@ -80,13 +80,21 @@ enum PreviewRenderer {
             ClipboardItem(id: UUID(), kind: kind, text: text, filePaths: files, imageFileName: nil, imageWidth: nil, imageHeight: nil,
                           sourceBundleIdentifier: nil, sourceName: app, copied: now.addingTimeInterval(-ago), isPinned: pinned, copyCount: 1)
         }
+        let work = ClipboardBoard(id: UUID(), name: "Work", color: "orange")
+        let code = ClipboardBoard(id: UUID(), name: "Code", color: "green")
+        let links = ClipboardBoard(id: UUID(), name: "Links", color: "purple")
+        var rebase = sample(.text, "git rebase -i HEAD~3", "Terminal", 30, pinned: true)
+        rebase.sourceBundleIdentifier = "com.apple.Terminal"
+        rebase.boardIDs = [code.id]
+        var docs = sample(.link, "https://developer.apple.com/documentation/appkit/nspanel", "Safari", 240)
+        docs.boardIDs = [links.id, work.id]
         ClipboardHistory.shared.loadSample([
-            sample(.text, "git rebase -i HEAD~3", "Terminal", 30, pinned: true),
-            sample(.link, "https://developer.apple.com/documentation/appkit/nspanel", "Safari", 240),
+            rebase,
+            docs,
             sample(.text, "Thanks — that works for me, let's lock in Thursday.", "Mail", 900),
             sample(.file, nil, "Finder", 3000, files: ["/Users/you/Desktop/Invoice-0421.pdf"]),
             sample(.text, "#D9622F", "Figma", 7200)
-        ])
+        ], boards: [work, code, links])
 
         write(named: "expanded-clipboard", directory: directory) { view in
             view.renderNowPlaying(.track(track))
