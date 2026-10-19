@@ -651,12 +651,99 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
                 SettingsKit.row("New files", detail: "Converted, resized or zipped files go beside the originals, never over them.")
             ]),
             SettingsKit.section("Screenshots", rows: [
-                SettingsKit.row("Screenshots folder", detail: ScreenshotStore.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") + " — change it in the Screenshot app's Options",
+                screenshotFolderRow(),
+            ] + screenshotKeysRow() + [
+                SettingsKit.row("Where they are now", detail: Self.shortPath(ScreenshotStore.folder),
                                 control: SettingsKit.button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([ScreenshotStore.folder]) }),
                 SettingsKit.row("Capture from the notch", detail: "⌃⌥4 for an area, or the buttons in the Screenshots view.",
                                 control: SettingsKit.status(CGPreflightScreenCaptureAccess() ? "Allowed" : "Asks the first time", good: CGPreflightScreenCaptureAccess() ? true : nil))
             ])
         ])
+    }
+
+    private static func shortPath(_ url: URL) -> String {
+        url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+    }
+
+    static let screenshotKeysKey = "ScreenshotFolderForKeys"
+    private static let previousSystemFolderKey = "ScreenshotPreviousSystemFolder"
+
+    /// Where NotchHover's screenshots go: macOS's folder, two usual places, or one you pick.
+    private func screenshotFolderRow() -> NSView {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let presets: [(title: String, url: URL?)] = [
+            ("Same as macOS — \(Self.shortPath(ScreenshotStore.systemFolder))", nil),
+            ("Pictures › Screenshots", home.appendingPathComponent("Pictures/Screenshots", isDirectory: true)),
+            ("Documents › Screenshots", home.appendingPathComponent("Documents/Screenshots", isDirectory: true))
+        ]
+        let chosen = ScreenshotStore.chosenFolder?.standardizedFileURL
+        var options = presets.map(\.title)
+        var selected = presets.firstIndex { $0.url?.standardizedFileURL == chosen } ?? 0
+        if let chosen, presets.contains(where: { $0.url?.standardizedFileURL == chosen }) == false {
+            options.append(chosen.lastPathComponent)
+            selected = options.count - 1
+        }
+        options.append("Choose a folder…")
+        let chooseIndex = options.count - 1
+
+        return SettingsKit.popup("Save screenshots to", detail: "Screenshots taken from the notch. The Screenshots view shows these and the ones from macOS's keys.",
+                                 options: options, selected: selected) { [weak self] index in
+            var folder: URL?
+            if index == chooseIndex {
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = false
+                panel.canCreateDirectories = true
+                panel.prompt = "Save Here"
+                panel.directoryURL = ScreenshotStore.folder
+                guard panel.runModal() == .OK, let url = panel.url else { self?.select(.files); return }
+                folder = url
+            } else if index < presets.count {
+                folder = presets[index].url
+            } else {
+                folder = ScreenshotStore.chosenFolder
+            }
+            if let folder { try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+            UserDefaults.standard.set(folder?.path, forKey: ScreenshotStore.folderKey)
+            if UserDefaults.standard.bool(forKey: Self.screenshotKeysKey) {
+                Self.applyFolderToKeys(folder)
+                // Back to macOS's own folder: there's nothing left to point the keys at.
+                if folder == nil { UserDefaults.standard.set(false, forKey: Self.screenshotKeysKey) }
+            }
+            ScreenshotStore.shared.restart()
+            self?.saved()
+            self?.select(.files)
+        }
+    }
+
+    /// Optionally, ⇧⌘3, ⇧⌘4 and ⇧⌘5 save there too — only offered once a folder is chosen.
+    private func screenshotKeysRow() -> [NSView] {
+        guard let chosen = ScreenshotStore.chosenFolder else { return [] }
+        return [SettingsKit.toggle("Use it for ⇧⌘3, ⇧⌘4 and ⇧⌘5 too",
+                                   detail: "Changes the Screenshot app's Save to, the same setting. Turning this off puts it back how it was.",
+                                   isOn: UserDefaults.standard.bool(forKey: Self.screenshotKeysKey)) { [weak self] isOn in
+            UserDefaults.standard.set(isOn, forKey: Self.screenshotKeysKey)
+            Self.applyFolderToKeys(isOn ? chosen : nil)
+            ScreenshotStore.shared.restart()
+            self?.saved()
+            self?.select(.files)
+        }]
+    }
+
+    /// Points macOS's screenshot keys at a folder, remembering where they pointed before;
+    /// nil puts that back.
+    private static func applyFolderToKeys(_ folder: URL?) {
+        let system = UserDefaults(suiteName: "com.apple.screencapture")
+        if let folder {
+            if UserDefaults.standard.object(forKey: previousSystemFolderKey) == nil {
+                UserDefaults.standard.set(system?.string(forKey: "location") ?? "", forKey: previousSystemFolderKey)
+            }
+            ScreenshotStore.setSystemFolder(folder)
+        } else {
+            let previous = UserDefaults.standard.string(forKey: previousSystemFolderKey) ?? ""
+            ScreenshotStore.setSystemFolder(previous.isEmpty ? nil : URL(fileURLWithPath: previous))
+            UserDefaults.standard.removeObject(forKey: previousSystemFolderKey)
+        }
     }
 
     // MARK: Launchers

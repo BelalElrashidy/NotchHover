@@ -32,7 +32,7 @@ enum ScreenshotsSelfTest {
 
         expect("a screenshot is recognised by its marker, in any language", ScreenshotStore.isScreenshot(newer))
         expect("an ordinary picture is not", ScreenshotStore.isScreenshot(photo) == false)
-        expect("newest first, pictures left out", ScreenshotStore.scan(folder).map(\.lastPathComponent) == [newer, older].map(\.lastPathComponent))
+        expect("newest first, pictures left out", ScreenshotStore.scan([folder]).map(\.lastPathComponent) == [newer, older].map(\.lastPathComponent))
         expect("the screenshots folder exists (\(ScreenshotStore.folder.path))", FileManager.default.fileExists(atPath: ScreenshotStore.folder.path))
 
         let failed = results.filter { $0.hasPrefix("✗") }.count

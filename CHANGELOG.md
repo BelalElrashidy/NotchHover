@@ -10,6 +10,21 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.7] — 2026-10-20
+
+Screenshots where you want them.
+
+### Fixed
+- **Choose where screenshots are saved.** Settings → Shelf and screenshots → Save
+  screenshots to: the same folder as macOS, Pictures › Screenshots, Documents ›
+  Screenshots, or any folder you pick. It's created if it isn't there.
+- **Optionally for macOS's keys too.** "Use it for ⇧⌘3, ⇧⌘4 and ⇧⌘5 too" sets the
+  Screenshot app's own Save to; turning it off puts back what was there before.
+- The Screenshots view watches both your folder and macOS's, so a screenshot shows up
+  whichever way it was taken.
+- A menu button with a long title — a folder's path, say — no longer squeezes its row's
+  label into a narrow column: it stops at 300pt and cuts the title in the middle.
+
 ## [0.14.6] — 2026-10-20
 
 Playlists from Apple Music too, and from the Share menu.
@@ -431,7 +446,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...HEAD
+[0.14.7]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...v0.14.4

@@ -257,7 +257,10 @@ final class MenuButton: NSView {
         button.imageHugsTitle = true
         button.contentTintColor = theme.secondaryText
         width?.isActive = false
-        width = widthAnchor.constraint(equalToConstant: ceil(button.intrinsicContentSize.width) + 22)
+        // Never so wide that it crowds out the row's own label; a long title is cut in
+        // the middle instead, where a path's least telling part is.
+        (button.cell as? NSButtonCell)?.lineBreakMode = .byTruncatingMiddle
+        width = widthAnchor.constraint(equalToConstant: min(300, ceil(button.intrinsicContentSize.width) + 22))
         width?.isActive = true
         if notify { onSelect?(index) }
     }

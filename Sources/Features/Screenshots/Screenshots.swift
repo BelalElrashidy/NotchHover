@@ -1,9 +1,9 @@
 import AppKit
 
-/// Screenshots, wherever macOS saves them. NotchHover doesn't take over the screenshot
-/// keys: it watches the folder macOS writes to (Desktop unless you changed it in the
-/// Screenshot app's Options) and notices each new one as it lands, by the marker macOS
-/// puts on every screenshot. It can also take one itself, through the same
+/// Screenshots, wherever they're saved. NotchHover doesn't take over the screenshot
+/// keys: it watches the folder macOS writes to (Desktop unless you changed it) and the
+/// one you chose for NotchHover's own, and notices each new one as it lands, by the
+/// marker macOS puts on every screenshot. It can also take one itself, through the same
 /// `screencapture` tool ⇧⌘4 uses.
 final class ScreenshotStore {
     static let shared = ScreenshotStore()
@@ -13,15 +13,15 @@ final class ScreenshotStore {
     var onNew: ((URL) -> Void)?
 
     private var observers: [UUID: () -> Void] = [:]
-    private var source: DispatchSourceFileSystemObject?
-    private var folderDescriptor: Int32 = -1
-    private var watchedFolder: URL?
+    private var sources: [DispatchSourceFileSystemObject] = []
     private let queue = DispatchQueue(label: "com.notchhover.screenshots", qos: .utility)
     private var known = Set<URL>()
     private static let recentLimit = 30
 
+    static let folderKey = "ScreenshotFolder"
+
     /// Where macOS saves screenshots: the Screenshot app's choice, or the Desktop.
-    static var folder: URL {
+    static var systemFolder: URL {
         let defaults = UserDefaults(suiteName: "com.apple.screencapture")
         if let location = defaults?.string(forKey: "location"), location.isEmpty == false {
             let path = (location as NSString).expandingTildeInPath
@@ -33,6 +33,37 @@ final class ScreenshotStore {
         return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
     }
 
+    /// The folder you chose in Settings, if any — and if it's still there.
+    static var chosenFolder: URL? {
+        guard let path = UserDefaults.standard.string(forKey: folderKey), path.isEmpty == false else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// Where NotchHover's own screenshots go: your choice, else wherever macOS puts them.
+    static var folder: URL { chosenFolder ?? systemFolder }
+
+    /// Every folder new screenshots can land in: yours, and macOS's for the keyboard
+    /// shortcuts, if they're different.
+    static var watchedFolders: [URL] {
+        var folders = [folder]
+        if systemFolder.standardizedFileURL != folder.standardizedFileURL { folders.append(systemFolder) }
+        return folders
+    }
+
+    /// Sends ⇧⌘3, ⇧⌘4 and ⇧⌘5 to a folder too — the setting the Screenshot app's
+    /// Options → Save to writes. Nil puts them back on the Desktop.
+    static func setSystemFolder(_ url: URL?) {
+        let defaults = UserDefaults(suiteName: "com.apple.screencapture")
+        if let url {
+            defaults?.set(url.path, forKey: "location")
+        } else {
+            defaults?.removeObject(forKey: "location")
+        }
+        defaults?.synchronize()
+    }
+
     @discardableResult
     func addObserver(_ handler: @escaping () -> Void) -> UUID {
         let id = UUID()
@@ -41,44 +72,50 @@ final class ScreenshotStore {
     }
 
     func start() {
-        let folder = Self.folder
-        watchedFolder = folder
+        let folders = Self.watchedFolders
         queue.async { [weak self] in
             guard let self else { return }
-            let found = Self.scan(folder)
+            let found = Self.scan(folders)
             DispatchQueue.main.async {
                 self.known = Set(found)
                 self.items = found
                 self.notify()
             }
         }
-        watch(folder)
+        folders.forEach(watch)
     }
 
     func stop() {
-        source?.cancel()
-        source = nil
+        sources.forEach { $0.cancel() }
+        sources.removeAll()
     }
 
-    /// The folder changed: anything new that is a screenshot is announced.
+    /// The folder changed in Settings: look in the new places.
+    func restart() {
+        stop()
+        start()
+    }
+
+    /// A folder changed: anything new that is a screenshot is announced.
     private func watch(_ folder: URL) {
-        folderDescriptor = open(folder.path, O_EVTONLY)
-        guard folderDescriptor >= 0 else {
+        let descriptor = open(folder.path, O_EVTONLY)
+        guard descriptor >= 0 else {
             Log.system.error("Screenshots: can't watch \(folder.path, privacy: .public)")
             return
         }
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: folderDescriptor, eventMask: .write, queue: queue)
-        source.setEventHandler { [weak self] in self?.folderChanged(folder) }
-        source.setCancelHandler { [descriptor = folderDescriptor] in close(descriptor) }
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: .write, queue: queue)
+        source.setEventHandler { [weak self] in self?.foldersChanged() }
+        source.setCancelHandler { close(descriptor) }
         source.resume()
-        self.source = source
+        sources.append(source)
     }
 
-    private func folderChanged(_ folder: URL) {
+    private func foldersChanged() {
+        let folders = Self.watchedFolders
         // macOS writes the file, then marks it; give it a moment to finish.
         queue.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self else { return }
-            let found = Self.scan(folder)
+            let found = Self.scan(folders)
             DispatchQueue.main.async {
                 let fresh = found.filter { self.known.contains($0) == false }
                 self.known.formUnion(found)
@@ -117,11 +154,11 @@ final class ScreenshotStore {
 
     // MARK: - Finding them
 
-    /// Newest first, the last few dozen.
-    static func scan(_ folder: URL) -> [URL] {
+    /// Newest first, the last few dozen, across every folder.
+    static func scan(_ folders: [URL]) -> [URL] {
         let keys: [URLResourceKey] = [.creationDateKey, .isRegularFileKey]
-        guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else {
-            return []
+        let files = folders.flatMap {
+            (try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles])) ?? []
         }
         return files
             .filter(isScreenshot)
