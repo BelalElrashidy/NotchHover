@@ -368,6 +368,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let lyricsToggle = ToggleRow(title: "Synced lyrics")
         lyricsToggle.set(isOn: LyricsService.isEnabled, notify: false)
         lyricsToggle.onChange = { isOn in LyricsService.isEnabled = isOn }
+        let levelsToggle = ToggleRow(title: "Live visualizer")
+        levelsToggle.set(isOn: AudioLevels.isEnabled, notify: false)
+        levelsToggle.onChange = { isOn in AudioLevels.isEnabled = isOn }
+        let levelsNote = SettingsStyle.label(
+            "The bars beside the notch move with the music itself. macOS will ask for System Audio Recording: NotchHover listens only to the app that's playing, turns each moment into three numbers, and keeps nothing. Not used on Bluetooth headphones.",
+            size: 11,
+            secondary: true
+        )
+
         let lockToggle = ToggleRow(title: "Music on the lock screen")
         lockToggle.set(isOn: LockScreenMusic.isEnabled, notify: false)
         lockToggle.onChange = { isOn in LockScreenMusic.isEnabled = isOn }
@@ -387,6 +396,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         var rows: [NSView] = [
             SettingsStyle.heading("Advanced"),
             gesturesToggle, gesturesNote, hapticsToggle,
+            levelsToggle, levelsNote,
             lyricsToggle, lyricsNote,
             lockToggle, lockNote,
             clipboardToggle, clipboardNote, clearClipboard,

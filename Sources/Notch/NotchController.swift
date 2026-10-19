@@ -363,6 +363,13 @@ final class NotchController {
     private func render(_ state: NowPlayingState) {
         lastState = state
         broadcast { $0.renderNowPlaying(state) }
+
+        // The meter follows whichever app is making the sound.
+        switch state {
+        case .track(let track) where track.isPlaying: AudioLevels.shared.follow(track.sourceBundleIdentifier)
+        case .external(let source): AudioLevels.shared.follow(source.bundleIdentifier)
+        default: AudioLevels.shared.follow(nil)
+        }
     }
 
     private func broadcast(_ body: (NotchContentView) -> Void) {

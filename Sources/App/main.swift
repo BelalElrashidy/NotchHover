@@ -82,6 +82,12 @@ if CommandLine.arguments.contains("--screenshots-selftest") {
     ScreenshotsSelfTest.run()
 }
 
+// The level meter's band split on pure tones: --levels-selftest
+if CommandLine.arguments.contains("--levels-selftest") {
+    app.setActivationPolicy(.prohibited)
+    LevelsSelfTest.run()
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

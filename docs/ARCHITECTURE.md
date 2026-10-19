@@ -337,6 +337,18 @@ whatever language the file name is in. A new one pops from the notch as a transi
 Screenshots tab is the recent strip plus capture buttons, which collapse the panel and run
 `/usr/sbin/screencapture` (Screen Recording is asked for on first use).
 
+### Live visualizer
+
+`AudioLevels` follows whichever app the bar says is playing. With the setting on, it
+builds a private Core Audio **process tap** (`CATapDescription`, macOS 14.4) on that
+app's audio processes — helpers included, which is where a browser's sound comes from —
+inside a private aggregate device, and `BandAnalyzer` turns each block into low, middle
+and high levels with cascaded one-pole filters (12 dB an octave). The meters take them at
+30 fps, rising at once and falling gently, and `LevelMeterView` drops its animation while
+they come. Exact silence for four seconds (the permission refused) or Bluetooth output
+(a tap there turns the AirPods' pause into Siri) falls back to the animation. The bars
+are tinted with `ArtworkColor.meterColor`.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to
@@ -649,6 +661,7 @@ All under `com.notchhover.NotchHover`.
 | `TrackpadGestures` / `Haptics` | bool | Swipes on the notch; haptic taps |
 | `SyncedLyrics` | bool | Look up lyrics on lrclib.net (off by default) |
 | `LockScreenMusic` | bool | Music card on the lock screen (off by default) |
+| `LiveVisualizer` | bool | Meter driven by a process tap (off by default) |
 | `Material` | legacy | Migrated to `Theme` on read |
 | `ZoneLeft` / `ZoneMiddle` / `ZoneRight` | legacy | Migrated to `PanelWidgets`; an unset position keeps its old default |
 
@@ -666,6 +679,7 @@ greyed-out row, or a feature that never fires — rather than crashing:
 | Notification banners | Accessibility API against `com.apple.notificationcenterui` |
 | Meeting controls | Accessibility on the call app's menus and buttons; AppleScript + JavaScript in a Meet tab |
 | Screenshots | Screen Recording for the capture buttons; access to the screenshots folder if it's Desktop or Documents |
+| Live visualizer | System Audio Recording, when switched on |
 | Music on the lock screen | `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`, `SLSRemoveWindowsFromSpaces` from SkyLight via `dlopen` — the technique Boring Notch uses through the MIT-licensed SkyLightWindow package |
 
 The Notification Center database (`group.com.apple.usernoted`) was the alternative for
@@ -709,6 +723,7 @@ The app cannot screenshot itself, so it renders itself instead:
 ./build/NotchHover.app/Contents/MacOS/NotchHover --meeting-selftest       # who has the mic; the Meet script compiles per browser
 ./build/NotchHover.app/Contents/MacOS/NotchHover --fileactions-selftest   # every file action on a made-up image
 ./build/NotchHover.app/Contents/MacOS/NotchHover --screenshots-selftest   # screenshots told apart from other pictures
+./build/NotchHover.app/Contents/MacOS/NotchHover --levels-selftest        # the meter's band split on pure tones
 ```
 
 `--animation-selftest` puts a real panel on screen, runs hidden → resting bar → panel →

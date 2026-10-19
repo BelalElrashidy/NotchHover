@@ -511,6 +511,11 @@ final class PeekView: NSView {
         }
     }
 
+    /// The meter follows the sound when `AudioLevels` is listening.
+    func setLevels(_ levels: [Float]?) {
+        meter.setLevels(levels)
+    }
+
     @objc private func handlePlayPause() { onPlayPause?() }
     @objc private func handleNext() { onNext?() }
     @objc private func handlePrevious() { onPrevious?() }

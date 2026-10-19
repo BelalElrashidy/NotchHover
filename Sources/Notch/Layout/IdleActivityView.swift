@@ -325,7 +325,32 @@ final class LevelMeterView: NSView {
         }
     }
 
+    /// Real levels — low, middle, high — from `AudioLevels`. While they come, the bars
+    /// follow the sound; nil hands them back to the animation.
+    private var liveLevels: [Float]?
+
+    func setLevels(_ levels: [Float]?) {
+        let wasLive = liveLevels != nil
+        liveLevels = levels
+        guard let levels else {
+            if wasLive, isRunning { startAnimating() }
+            return
+        }
+        if wasLive == false { stopAnimating() }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(1.0 / 30)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
+        // The middle bar is the tallest, so it carries the bass, which moves most.
+        for (bar, level) in zip(bars, [levels[1], levels[0], levels[2]]) {
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0)
+            bar.transform = CATransform3DMakeScale(1, CGFloat(0.18 + 0.82 * (isRunning ? level : 0)), 1)
+        }
+        CATransaction.commit()
+    }
+
     private func startAnimating() {
+        guard liveLevels == nil else { return }
+        bars.forEach { $0.transform = CATransform3DIdentity }
         for (index, bar) in bars.enumerated() {
             let animation = CABasicAnimation(keyPath: "transform.scale.y")
             animation.fromValue = 0.35

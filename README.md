@@ -37,6 +37,8 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - Anything else that plays sound is shown too — a video in your browser appears as the
   site it's on, with that site's own icon
 - Pinned playlists you can start from the notch
+- **A live visualizer**, if you switch it on — the bars beside the notch move with the
+  music itself, in the artwork's colour
 - **Synced lyrics**, if you switch them on — the line being sung, in the peek and the
   Now Playing card. Off by default, because it is the one feature that goes online
   (see [Privacy](#privacy))

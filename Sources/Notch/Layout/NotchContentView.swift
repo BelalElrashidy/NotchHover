@@ -396,6 +396,10 @@ final class NotchContentView: NSView {
         peekContent.onMute = { MeetingControls.shared.toggleMute() }
         peekContent.onCamera = { MeetingControls.shared.toggleCamera() }
         peekContent.onLeave = { MeetingControls.shared.leave() }
+        AudioLevels.shared.addObserver { [weak self] levels in
+            self?.idleContent.levelMeter.setLevels(levels)
+            self?.peekContent.setLevels(levels)
+        }
         MeetingControls.shared.addObserver { [weak self] _ in
             guard let self, self.presentation == .peek else { return }
             self.refreshPeek()
@@ -1045,6 +1049,7 @@ final class NotchContentView: NSView {
         guard artworkKey != key else { return }
         artworkKey = key
         meterTint = nil
+        idleContent.levelMeter.tint = nil
 
         guard let url = track.artworkURL else {
             let icon = NSWorkspace.shared
@@ -1068,6 +1073,8 @@ final class NotchContentView: NSView {
     /// Themes that follow the artwork recolour here rather than rebuilding the panel.
     private func applyArtworkTint(from image: NSImage, key: String) {
         meterTint = ArtworkColor.meterColor(from: image, key: key)
+        // The bars beside the notch take the artwork's colour too.
+        idleContent.levelMeter.tint = meterTint
         if presentation == .peek { refreshPeek() }
         guard ThemeStore.selected.followsArtwork,
               let color = ArtworkColor.panelColor(from: image, key: key) else { return }

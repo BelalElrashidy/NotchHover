@@ -10,6 +10,21 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-19
+
+A visualizer that listens.
+
+### Added
+- **Live visualizer, opt-in.** Switch it on in Settings → Advanced and the bars beside
+  the notch, and in the peek, move with the music itself — bass, middle and treble —
+  instead of a loop. It listens only to the app that's playing, turns each moment into
+  three numbers and keeps nothing. macOS asks for **System Audio Recording** the first
+  time. On Bluetooth headphones, or if the permission is refused, the bars go back to
+  their animation.
+
+### Changed
+- The bars beside the notch take the colour of the artwork, as the peek's already did.
+
 ## [0.9.0] — 2026-10-19
 
 Screenshots.
@@ -198,7 +213,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...v0.7.0

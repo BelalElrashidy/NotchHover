@@ -87,6 +87,34 @@ enum AudioSourceProbe {
             .filter { seen.insert($0.processIdentifier).inserted }
     }
 
+    /// The CoreAudio process objects playing on behalf of an app — the app itself and
+    /// its helpers, which is where a browser's sound actually comes from.
+    static func outputProcessObjects(of bundleIdentifier: String) -> [AudioObjectID] {
+        guard #available(macOS 14.4, *) else { return [] }
+        return processObjects().filter { object in
+            guard property(object, kAudioProcessPropertyIsRunningOutput, UInt32(0)) == 1,
+                  let pid = property(object, kAudioProcessPropertyPID, pid_t(0)) else { return false }
+            return owningApplication(of: pid)?.bundleIdentifier == bundleIdentifier
+        }
+    }
+
+    @available(macOS 14.4, *)
+    private static func processObjects() -> [AudioObjectID] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size) == noErr,
+              size > 0 else { return [] }
+        var objects = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &objects) == noErr else {
+            return []
+        }
+        return objects
+    }
+
     /// Every process CoreAudio says is running output right now.
     @available(macOS 14.4, *)
     private static func playingProcessIdentifiers() -> [pid_t] {

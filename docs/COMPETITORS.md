@@ -42,7 +42,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Now playing with controls | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Any app playing, not just Spotify/Music | ✅ | | ✅ | | | ✅ | ✅ | | | |
 | Names the browser page playing | ✅ | | | | | | | ✅ | | |
-| Visualiser | 🟡 | ✅ | | | ✅ | | ✅ | | | ✅ |
+| Visualiser | ✅ | ✅ | | | ✅ | | ✅ | | | ✅ |
 | Synced lyrics | ✅ opt-in | ✅ | | | | | ✅ | | ✅ | ✅ |
 | Up Next queue | | | | | | | | | ✅ | |
 | **Files and text** | | | | | | | | | | |
