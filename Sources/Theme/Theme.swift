@@ -128,6 +128,23 @@ struct Theme {
 
     static let all: [Theme] = [midnight, graphite, frost, clearGlass, artworkTint, highContrast]
 
+    /// The same theme with a different surface or accent — for your adjustments and
+    /// the artwork theme's recolouring.
+    func with(surface: Surface? = nil, accent: NSColor? = nil) -> Theme {
+        Theme(
+            id: id, name: name, summary: summary, surface: surface ?? self.surface,
+            primaryText: primaryText, secondaryText: secondaryText, tertiaryText: tertiaryText,
+            accent: accent ?? self.accent, controlFill: controlFill, bottomRadius: bottomRadius,
+            typeScale: typeScale, usesTextShadow: usesTextShadow, followsArtwork: followsArtwork
+        )
+    }
+
+    /// How opaque the surface is as designed: what the opacity slider starts at.
+    var designedOpacity: CGFloat {
+        guard case .solid(let color) = surface else { return 1 }
+        return color.alphaComponent
+    }
+
     /// Whether the surface is light enough to need dark system controls.
     var isLightSurface: Bool {
         guard case .solid(let color) = surface,
@@ -189,7 +206,14 @@ enum ThemeStore {
         let stored = UserDefaults.standard.string(forKey: defaultsKey)
             // Carried over from when the setting was Black/Glass.
             ?? (UserDefaults.standard.string(forKey: "Material") == "glass" ? Theme.clearGlass.id : nil)
-        return Theme.all.first { $0.id == stored } ?? .midnight
+        let theme = Theme.all.first { $0.id == stored } ?? .midnight
+        return ThemeTweaks.apply(to: theme)
+    }
+
+    /// What a panel has to be rebuilt for: the theme, and the accent baked into its
+    /// views. Opacity and the glass's tint and blur change on the panel as it is.
+    static var signature: String {
+        selected.id + "|" + ThemeTweaks.accentName
     }
 
     /// The theme as drawn: identical to `selected`, except the artwork theme swaps in
@@ -197,20 +221,59 @@ enum ThemeStore {
     static var active: Theme {
         let theme = selected
         guard theme.followsArtwork, let artworkColor else { return theme }
-        return Theme(
-            id: theme.id,
-            name: theme.name,
-            summary: theme.summary,
-            surface: .solid(artworkColor),
-            primaryText: theme.primaryText,
-            secondaryText: theme.secondaryText,
-            tertiaryText: theme.tertiaryText,
-            accent: artworkColor.notchAccentVariant,
-            controlFill: theme.controlFill,
-            bottomRadius: theme.bottomRadius,
-            typeScale: theme.typeScale,
-            usesTextShadow: theme.usesTextShadow,
-            followsArtwork: true
-        )
+        return theme.with(surface: .solid(artworkColor.withAlphaComponent(ThemeTweaks.opacity(for: theme))),
+                          accent: ThemeTweaks.accentOverride ?? artworkColor.notchAccentVariant)
+    }
+}
+
+/// Your adjustments on top of a theme: how see-through it is, the glass's tint and
+/// blur, and an accent colour of your own. Each solid theme keeps its own opacity.
+enum ThemeTweaks {
+    static let glassTintKey = "GlassTint"
+    static let glassFrostedKey = "GlassFrosted"
+    static let accentKey = "AccentColour"
+
+    static func opacityKey(for theme: Theme) -> String { "ThemeOpacity.\(theme.id)" }
+
+    /// 0.3 to 1 — below that, text over a busy desktop can't be read.
+    static func opacity(for theme: Theme) -> CGFloat {
+        let stored = UserDefaults.standard.object(forKey: opacityKey(for: theme)) as? Double
+        return CGFloat(min(1, max(0.3, stored ?? Double(theme.designedOpacity))))
+    }
+
+    /// A dark wash over clear glass, 0 (none) to 0.85, so what's behind it can be
+    /// toned down until the panel reads.
+    static var glassTint: CGFloat {
+        CGFloat(min(0.85, max(0, UserDefaults.standard.double(forKey: glassTintKey))))
+    }
+
+    /// Frosted blurs what's behind the glass; clear leaves it sharp.
+    static var glassFrosted: Bool { UserDefaults.standard.bool(forKey: glassFrostedKey) }
+
+    /// macOS's own accent choices, plus the theme's.
+    static let accents: [(name: String, title: String, colour: NSColor?)] = [
+        ("theme", "Theme's own", nil),
+        ("blue", "Blue", .systemBlue),
+        ("purple", "Purple", .systemPurple),
+        ("pink", "Pink", .systemPink),
+        ("red", "Red", .systemRed),
+        ("orange", "Orange", .systemOrange),
+        ("yellow", "Yellow", .systemYellow),
+        ("green", "Green", .systemGreen),
+        ("graphite", "Graphite", .systemGray)
+    ]
+
+    static var accentName: String { UserDefaults.standard.string(forKey: accentKey) ?? "theme" }
+
+    static var accentOverride: NSColor? {
+        accents.first { $0.name == accentName }?.colour?.usingColorSpace(.sRGB)
+    }
+
+    static func apply(to theme: Theme) -> Theme {
+        var surface = theme.surface
+        if case .solid(let colour) = surface {
+            surface = .solid(colour.withAlphaComponent(opacity(for: theme)))
+        }
+        return theme.with(surface: surface, accent: accentOverride)
     }
 }

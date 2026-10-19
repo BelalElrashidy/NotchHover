@@ -346,6 +346,45 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
 
     // MARK: Appearance
 
+    /// The chosen theme's own adjustments: how see-through it is — or, for clear glass,
+    /// how dark and how blurred — and the accent colour.
+    private func themeTweakRows() -> [NSView] {
+        let base = Theme.all.first { $0.id == theme.id } ?? theme
+        var rows: [NSView] = []
+        if base.surface == .glass {
+            rows.append(SettingsKit.row("Tint", detail: "Darkens the glass, so a bright or busy desktop behind it doesn't drown out the panel",
+                                        control: SettingsKit.slider(value: Double(ThemeTweaks.glassTint) * 100, range: 0...85,
+                                                                    format: { "\(Int($0.rounded()))%" }) { [weak self] value in
+                UserDefaults.standard.set(value / 100, forKey: ThemeTweaks.glassTintKey)
+                self?.saved()
+                self?.stage.refresh()
+            }))
+            rows.append(SettingsKit.row("Blur", detail: "Frosted softens what's behind the glass; clear keeps it sharp",
+                                        control: SettingsKit.segmented(["Clear", "Frosted"], selected: ThemeTweaks.glassFrosted ? 1 : 0) { [weak self] index in
+                UserDefaults.standard.set(index == 1, forKey: ThemeTweaks.glassFrostedKey)
+                self?.saved()
+                self?.select(.appearance)
+            }))
+        } else {
+            rows.append(SettingsKit.row("Opacity", detail: "Below 100%, the desktop shows through the panel",
+                                        control: SettingsKit.slider(value: Double(ThemeTweaks.opacity(for: base)) * 100, range: 30...100,
+                                                                    format: { "\(Int($0.rounded()))%" }) { [weak self] value in
+                UserDefaults.standard.set(value / 100, forKey: ThemeTweaks.opacityKey(for: base))
+                self?.saved()
+                self?.stage.refresh()
+            }))
+        }
+        let accents = ThemeTweaks.accents
+        rows.append(SettingsKit.popup("Accent colour", detail: "Buttons, the selected tab, progress bars",
+                                      options: accents.map(\.title),
+                                      selected: accents.firstIndex { $0.name == ThemeTweaks.accentName } ?? 0) { [weak self] index in
+            UserDefaults.standard.set(accents[index].name, forKey: ThemeTweaks.accentKey)
+            self?.saved()
+            self?.applyTheme()
+        })
+        return rows
+    }
+
     private func appearancePane() -> NSView {
         let cards = Theme.all.map { candidate -> NSView in
             let card = ThemeCard(theme: candidate, isSelected: candidate.id == theme.id)
@@ -367,6 +406,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         return page([
             SettingsKit.header("Appearance", "How the notch looks, and how it answers when you come near it."),
             labelled("Theme", themes),
+            SettingsKit.section("Adjust \(theme.name)", rows: themeTweakRows()),
             SettingsKit.section("Behaviour", rows: [
                 SettingsKit.popup("Resting bar", detail: "The strip beside the notch between uses", options: ["Always", "While playing", "Never"],
                                   selected: restingIndex) { [weak self] index in

@@ -59,6 +59,7 @@ final class GlassCardView: NSView {
     private let maskLayer = CAShapeLayer()
     private let slabLayer = CAShapeLayer()
     private var backdropView: NSView?
+    private let tintView = NSView()
 
     /// The part of the card the slab currently occupies. The card itself always spans
     /// the whole panel; only this rect changes, so the shape can grow and shrink from
@@ -84,7 +85,7 @@ final class GlassCardView: NSView {
     init(frame frameRect: NSRect, bottomRadius: CGFloat = NotchShape.bottomRadius) {
         self.bottomRadius = bottomRadius
         let theme = ThemeStore.active
-        self.themeID = theme.id
+        self.themeID = ThemeStore.signature
         super.init(frame: frameRect)
 
         wantsLayer = true
@@ -95,7 +96,7 @@ final class GlassCardView: NSView {
                 glass.autoresizingMask = [.width, .height]
                 // The mask supplies the shape, so the glass stays a plain rectangle.
                 glass.cornerRadius = 0
-                glass.style = .clear
+                glass.style = ThemeTweaks.glassFrosted ? .regular : .clear
                 addSubview(glass)
                 backdropView = glass
                 Log.ui.notice("Surface: clear glass")
@@ -113,11 +114,22 @@ final class GlassCardView: NSView {
             if case .solid(let color) = theme.surface {
                 slabLayer.fillColor = color.cgColor
             } else {
-                // Preview mode renders glass themes as a flat stand-in.
-                slabLayer.fillColor = NSColor.black.withAlphaComponent(0.75).cgColor
+                // Preview mode renders glass themes as a flat stand-in, light enough
+                // that the tint over it still shows.
+                slabLayer.fillColor = NSColor.black.withAlphaComponent(0.35).cgColor
             }
             layer?.addSublayer(slabLayer)
             Log.ui.notice("Surface: \(theme.name, privacy: .public)")
+        }
+
+        // The glass's tint: a dark wash between it and the content, so a bright or busy
+        // desktop can be toned down until the panel reads.
+        if theme.surface == .glass {
+            tintView.wantsLayer = true
+            tintView.frame = bounds
+            tintView.autoresizingMask = [.width, .height]
+            tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(ThemeTweaks.glassTint).cgColor
+            addSubview(tintView)
         }
 
         // Always a sibling on top of the backdrop, never owned by it.
@@ -133,12 +145,28 @@ final class GlassCardView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Opacity, tint and blur changed in Settings, applied to the panel as it is.
+    func applyTweaks() {
+        let theme = ThemeStore.active
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.2)
+        if case .solid(let color) = theme.surface, slabLayer.superlayer != nil {
+            slabLayer.fillColor = color.cgColor
+        }
+        tintView.layer?.backgroundColor = NSColor.black.withAlphaComponent(ThemeTweaks.glassTint).cgColor
+        CATransaction.commit()
+        if #available(macOS 26.0, *), let glass = backdropView as? NSGlassEffectView {
+            glass.style = ThemeTweaks.glassFrosted ? .regular : .clear
+        }
+    }
+
     /// Live recolour for the artwork theme, without rebuilding the panel.
     func applySurfaceTint(_ color: NSColor) {
         guard slabLayer.superlayer != nil else { return }
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.35)
-        slabLayer.fillColor = color.cgColor
+        // At the opacity you chose for the theme, whatever the artwork's colour.
+        slabLayer.fillColor = color.withAlphaComponent(ThemeTweaks.opacity(for: ThemeStore.selected)).cgColor
         CATransaction.commit()
     }
 

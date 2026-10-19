@@ -10,6 +10,21 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.4] — 2026-10-20
+
+Adjust each theme.
+
+### Fixed
+- **Clear glass can be toned down.** Settings → Appearance → Adjust Clear glass has a
+  Tint slider (0–85%) that darkens the glass until the panel reads over a bright or
+  busy desktop, and Blur: Clear keeps what's behind sharp, Frosted softens it.
+- **Every other theme has an Opacity slider** (30–100%), kept separately for each
+  theme, so the desktop can show through Midnight, Graphite, Frost, Artwork tint or
+  High contrast as much as you like. Artwork tint keeps it while it recolours.
+- **Accent colour** can be the theme's own or any of macOS's — blue, purple, pink, red,
+  orange, yellow, green or graphite — for buttons, the selected tab and progress bars.
+- Opacity, tint and blur change the panel as you drag; the accent rebuilds it.
+
 ## [0.14.3] — 2026-10-20
 
 Your header, your way.
@@ -378,7 +393,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...HEAD
+[0.14.4]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.0...v0.14.1

@@ -788,6 +788,8 @@ final class NotchContentView: NSView {
     /// settings change actually needs a rebuild.
     var themeID: String { card.themeID }
 
+    func applyThemeTweaks() { card.applyTweaks() }
+
     func applySurfaceTint(_ color: NSColor) {
         card.applySurfaceTint(color)
     }

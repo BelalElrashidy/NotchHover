@@ -1013,7 +1013,7 @@ final class NotchController {
         // Never yank the panel out from under a pending approval.
         guard pendingRequests.isEmpty else { return }
 
-        let themeChanged = displays.values.contains { $0.content.themeID != ThemeStore.selected.id }
+        let themeChanged = displays.values.contains { $0.content.themeID != ThemeStore.signature }
         // A theme picked in quick settings rebuilds the panel; it comes back on them.
         let reopenQuickSettings = isExpanded && active?.content.isShowingQuickSettings == true
 
@@ -1035,6 +1035,7 @@ final class NotchController {
             }
         } else {
             broadcast { $0.reloadLists() }
+            broadcast { $0.applyThemeTweaks() }
         }
 
         poller.refresh()
