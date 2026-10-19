@@ -10,6 +10,20 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.3] — 2026-10-20
+
+Your header, your way.
+
+### Fixed
+- **Choose what sits beside the notch.** Settings → Layout → Beside the notch lists
+  Shelf, Notes, Screenshots, Clipboard, Mirror, Calendar, Timer, Now Playing, Playlists,
+  Apps, Shortcuts, Controls and Notifications. Each can be a tab on the left after Home,
+  a circle on the right before the gear, or off. The arrows set the order, and Reset puts
+  it back. Home is always first. A view you turn off is still on Home's cards and its
+  keyboard shortcut.
+- The panel changes as soon as you do — no restart.
+- ⌃⇥ and a sideways swipe step through Home, your left tabs, then your right circles.
+
 ## [0.14.2] — 2026-10-20
 
 A Settings window you can read.
@@ -364,7 +378,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...HEAD
+[0.14.3]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.2...v0.14.0

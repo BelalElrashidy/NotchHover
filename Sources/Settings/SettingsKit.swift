@@ -136,6 +136,57 @@ enum SettingsKit {
         return button
     }
 
+    /// A row of choices in one rounded track, the chosen one filled — macOS's segmented
+    /// control in the theme's colours. A choice that can't be taken is dimmed.
+    static func segmented(_ titles: [String], selected: Int, enabled: [Bool]? = nil, onSelect: @escaping (Int) -> Void) -> NSView {
+        let track = NSStackView()
+        track.spacing = 2
+        track.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
+        track.wantsLayer = true
+        track.layer?.cornerRadius = 7
+        track.layer?.backgroundColor = theme.controlFill.cgColor
+        // Every segment as wide as the widest title in bold, so the chosen one doesn't
+        // grow and tracks line up from row to row.
+        let bold = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let segmentWidth = max(52, ceil(titles.map { ($0 as NSString).size(withAttributes: [.font: bold]).width }.max() ?? 0) + 24)
+        for (index, title) in titles.enumerated() {
+            let isOn = index == selected
+            let isEnabled = enabled?[index] ?? true
+            let button = ClosureButton(title: title) { if index != selected { onSelect(index) } }
+            button.isBordered = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 5
+            button.layer?.backgroundColor = isOn ? theme.accent.cgColor : NSColor.clear.cgColor
+            button.isEnabled = isEnabled
+            button.attributedTitle = NSAttributedString(string: title, attributes: [
+                .foregroundColor: isOn ? theme.onAccentText : (isEnabled ? theme.primaryText : theme.tertiaryText),
+                .font: NSFont.systemFont(ofSize: 12, weight: isOn ? .semibold : .regular)
+            ])
+            button.heightAnchor.constraint(equalToConstant: 22).isActive = true
+            button.widthAnchor.constraint(equalToConstant: segmentWidth).isActive = true
+            track.addArrangedSubview(button)
+        }
+        return track
+    }
+
+    /// A small square button with a symbol: move up, move down.
+    static func iconButton(_ symbol: String, tip: String, enabled: Bool = true, action: @escaping () -> Void) -> NSButton {
+        let button = ClosureButton(title: "", action: action)
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        button.layer?.backgroundColor = theme.controlFill.cgColor
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tip)?
+            .withSymbolConfiguration(.init(pointSize: 10, weight: .semibold))
+        button.imagePosition = .imageOnly
+        button.contentTintColor = enabled ? theme.primaryText : theme.tertiaryText
+        button.isEnabled = enabled
+        button.toolTip = tip
+        button.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        return button
+    }
+
     /// A slider with its value beside it.
     static func slider(value: Double, range: ClosedRange<Double>, format: @escaping (Double) -> String, onChange: @escaping (Double) -> Void) -> NSView {
         let readout = NSTextField(labelWithString: format(value))

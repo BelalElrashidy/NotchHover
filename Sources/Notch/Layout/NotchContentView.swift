@@ -320,8 +320,7 @@ final class NotchContentView: NSView {
         leftWing.addSubview(headerTabs)
 
         headerActions.translatesAutoresizingMaskIntoConstraints = false
-        headerActions.onClipboard = { [weak self] in self?.toggle(.clipboard) }
-        headerActions.onMirror = { [weak self] in self?.toggle(.mirror) }
+        headerActions.onOpen = { [weak self] tab in self?.toggle(tab) }
         headerActions.onSettings = { [weak self] in self?.onOpenSettings?() }
         headerActions.onQuickSettings = { [weak self] in
             guard let self else { return }
@@ -642,7 +641,7 @@ final class NotchContentView: NSView {
     /// The next or previous of Home, Shelf and Notes, wrapping round — ⌃⇥ and a sideways
     /// swipe. From a view that isn't a tab, it starts again at Home.
     func selectAdjacentTab(by step: Int) {
-        let tabs = PanelTab.headerTabs
+        let tabs = HeaderLayout.cycle
         guard let current = tabs.firstIndex(of: selectedTab) else {
             show(.home)
             return
@@ -802,6 +801,9 @@ final class NotchContentView: NSView {
     }
 
     func reloadLists() {
+        // Tabs rearranged in Settings land here, like any other list.
+        headerTabs.setTabs(PanelTab.headerTabs)
+        headerActions.setTabs(HeaderLayout.right)
         playlistsPane.reload()
         shortcutsPane.reload()
         appsPane.reload()

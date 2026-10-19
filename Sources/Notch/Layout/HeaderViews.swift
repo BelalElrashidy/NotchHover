@@ -31,7 +31,17 @@ final class HeaderTabsView: NSView {
         highlight.layer?.cornerRadius = (Metrics.height - Metrics.inset * 2) / 2
         highlight.layer?.backgroundColor = Style.primaryText.withAlphaComponent(0.15).cgColor
         addSubview(highlight)
+        setTabs(tabs)
+    }
 
+    /// Puts these tabs in the capsule, in order — on launch, and when they're
+    /// rearranged in Settings.
+    func setTabs(_ tabs: [PanelTab]) {
+        guard tabs != buttons.map(\.tab) else { return }
+        let isFirst = buttons.isEmpty
+        let current = selected
+        buttons.forEach { $0.button.removeFromSuperview() }
+        buttons.removeAll()
         for tab in tabs {
             let button = ClickThroughButton(title: "", target: self, action: #selector(handleTab(_:)))
             button.isBordered = false
@@ -43,8 +53,10 @@ final class HeaderTabsView: NSView {
             addSubview(button)
             buttons.append((tab, button))
         }
-
-        select(.home, notify: false, animated: false)
+        invalidateIntrinsicContentSize()
+        // The first time, Home; after a rearrangement, whatever was highlighted, if it's
+        // still a tab here.
+        select(isFirst ? .home : current, notify: false, animated: false)
     }
 
     @available(*, unavailable)
@@ -127,8 +139,8 @@ final class HeaderTabsView: NSView {
 /// there is no menu bar icon, so this is where leaving the app lives. Battery fills
 /// the end when nothing is waiting.
 final class HeaderActionsView: NSView {
-    var onClipboard: (() -> Void)?
-    var onMirror: (() -> Void)?
+    /// One of the circles: the view it stands for.
+    var onOpen: ((PanelTab) -> Void)?
     var onSettings: (() -> Void)?
     /// The gear: quick settings in the panel. Right-click still has the old menu.
     var onQuickSettings: (() -> Void)?
@@ -137,8 +149,6 @@ final class HeaderActionsView: NSView {
     private(set) var isShowingMenu = false
 
     private let badge = Style.badge()
-    private lazy var clipboardButton = Style.symbolButton("doc.on.clipboard", pointSize: 10, target: self, action: #selector(handleClipboard))
-    private lazy var mirrorButton = Style.symbolButton("video", pointSize: 10, target: self, action: #selector(handleMirror))
     private lazy var gearButton = Style.symbolButton("gearshape", pointSize: 10, target: self, action: #selector(handleGear))
     private let batteryIcon = NSImageView()
     private let batteryLabel = Style.label("", size: 10, weight: .medium)
@@ -146,6 +156,9 @@ final class HeaderActionsView: NSView {
 
     private static let buttonSize: CGFloat = 22
     private var circles: [PanelTab: NSView] = [:]
+    private var tabs: [PanelTab] = []
+    private var gearCircle: NSView!
+    private var openTab: PanelTab?
 
     init() {
         super.init(frame: .zero)
@@ -166,17 +179,12 @@ final class HeaderActionsView: NSView {
 
         badge.isHidden = true
 
-        let circles = [
-            circle(around: clipboardButton, tip: "Clipboard history — ⌘4, or ⌃⌥V anywhere"),
-            circle(around: mirrorButton, tip: "Mirror — ⌘5"),
-            circle(around: gearButton, tip: "Settings ⌘, — every shortcut ⌘/")
-        ]
-        self.circles = [.clipboard: circles[0], .mirror: circles[1]]
-        ([badge] + circles + [battery]).forEach(stack.addArrangedSubview)
+        gearCircle = circle(around: gearButton, tip: "Settings ⌘, — every shortcut ⌘/")
+        ([badge, gearCircle, battery]).forEach(stack.addArrangedSubview)
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
-        stack.setCustomSpacing(9, after: circles[2])
+        stack.setCustomSpacing(9, after: gearCircle)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
@@ -191,9 +199,28 @@ final class HeaderActionsView: NSView {
         ])
 
         refreshBattery()
+        setTabs(HeaderLayout.right)
     }
 
-    @available(*, unavailable)
+    /// The circles before the gear, in order — on launch, and when they're rearranged.
+    func setTabs(_ tabs: [PanelTab]) {
+        guard tabs != self.tabs else { return }
+        self.tabs = tabs
+        circles.values.forEach { $0.removeFromSuperview() }
+        circles.removeAll()
+        for (offset, tab) in tabs.enumerated() {
+            let button = Style.symbolButton(tab.outlineSymbol, pointSize: 10, target: self, action: #selector(handleCircle(_:)))
+            button.tag = tab.rawValue
+            let tip = tab == .clipboard
+                ? "Clipboard history — ⌘4, or ⌃⌥V anywhere"
+                : [tab.title, tab.shortcut].compactMap { $0 }.joined(separator: " — ")
+            let circle = circle(around: button, tip: tip)
+            circles[tab] = circle
+            // After the badge, before the gear.
+            stack.insertArrangedSubview(circle, at: 1 + offset)
+        }
+        setOpen(openTab)
+    }
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -209,6 +236,7 @@ final class HeaderActionsView: NSView {
     /// Lights the circle for the view on screen, the way a tab is highlighted: the
     /// clipboard and the mirror are views too, just reached from this side.
     func setOpen(_ tab: PanelTab?) {
+        openTab = tab
         for (candidate, circle) in circles {
             let isOpen = candidate == tab
             circle.layer?.backgroundColor = Style.primaryText.withAlphaComponent(isOpen ? 0.2 : 0.08).cgColor
@@ -263,8 +291,10 @@ final class HeaderActionsView: NSView {
         return circle
     }
 
-    @objc private func handleClipboard() { onClipboard?() }
-    @objc private func handleMirror() { onMirror?() }
+    @objc private func handleCircle(_ sender: NSButton) {
+        guard let tab = PanelTab(rawValue: sender.tag) else { return }
+        onOpen?(tab)
+    }
 
     @objc private func handleGear() {
         if let onQuickSettings, NSApp.currentEvent?.type != .rightMouseDown {

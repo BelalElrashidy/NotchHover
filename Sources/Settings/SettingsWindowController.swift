@@ -432,6 +432,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             SettingsKit.header("Layout", "Home's widgets, as they sit in the panel. Drag one sideways to move it, hover for × to take it out, drag one in from below."),
             canvas,
             labelled(unused.isEmpty ? "Every widget is in the panel" : "More widgets", gallery),
+            SettingsKit.section("Beside the notch", footer: "Left: a tab after Home. Right: a circle before the gear. Off: not in the header — still on Home's cards and its keyboard shortcut. Each side has room for \(HeaderLayout.maxLeft).",
+                                rows: headerRows()),
             SettingsKit.section("Size", footer: "The panel fits its widgets unless the width is fixed.", rows: [
                 SettingsKit.popup("Panel width", options: ["Fits the widgets", "Fixed"], selected: PanelSizes.usesAutomaticWidth ? 0 : 1) { [weak self] index in
                     UserDefaults.standard.set(index == 0 ? "auto" : "fixed", forKey: PanelSizes.Key.widthMode)
@@ -447,6 +449,52 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
                 size("Text size", nil, key: PanelSizes.Key.typeScale, value: PanelSizes.typeScale, range: 85...130, unit: "%", scale: 100)
             ])
         ])
+    }
+
+    /// Home, fixed, then every view that can be placed: left ones in order, right ones
+    /// in order, then the ones left out.
+    private func headerRows() -> [NSView] {
+        let left = HeaderLayout.left, right = HeaderLayout.right
+        let hidden = HeaderLayout.movable.filter { left.contains($0) == false && right.contains($0) == false }
+        func changed() {
+            saved()
+            stage.refresh()
+            select(.layout)
+        }
+        var rows: [NSView] = [
+            SettingsKit.iconRow(Self.tabIcon(.home), title: "Home", control: SettingsKit.status("Always first on the left", good: nil))
+        ]
+        for tab in left + right + hidden {
+            let place = HeaderLayout.place(of: tab)
+            let side = place == .left ? left : (place == .right ? right : [])
+            let index = side.firstIndex(of: tab)
+            let choice = SettingsKit.segmented(HeaderLayout.Place.allCases.map(\.title), selected: place.rawValue,
+                                               enabled: HeaderLayout.Place.allCases.map { HeaderLayout.canMove(tab, to: $0) }) { picked in
+                HeaderLayout.Place(rawValue: picked).map { HeaderLayout.move(tab, to: $0) }
+                changed()
+            }
+            var controls: [NSView] = []
+            if let index {
+                controls.append(SettingsKit.iconButton("chevron.up", tip: place == .left ? "Further left" : "Earlier", enabled: index > 0) {
+                    HeaderLayout.shift(tab, by: -1); changed()
+                })
+                controls.append(SettingsKit.iconButton("chevron.down", tip: place == .left ? "Closer to the notch" : "Later", enabled: index < side.count - 1) {
+                    HeaderLayout.shift(tab, by: 1); changed()
+                })
+            }
+            controls.append(choice)
+            rows.append(SettingsKit.iconRow(Self.tabIcon(tab), title: tab.title, control: SettingsKit.group(controls)))
+        }
+        rows.append(SettingsKit.row("Back to how it came", control: SettingsKit.button("Reset") {
+            HeaderLayout.reset()
+            changed()
+        }))
+        return rows
+    }
+
+    private static func tabIcon(_ tab: PanelTab) -> NSImage? {
+        NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)?
+            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
     }
 
     // MARK: Music
