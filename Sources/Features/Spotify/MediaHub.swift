@@ -43,6 +43,13 @@ final class MediaHub: MediaControlling {
         queue.async { [weak self] in
             guard let self else { return }
 
+            // A pinned playlist goes to the app it belongs to, running or not.
+            if case .play(let uri) = action {
+                let outcome = self.play(uri)
+                DispatchQueue.main.async { completion(outcome) }
+                return
+            }
+
             let target = self.lastActiveProvider.flatMap { $0.isRunning ? $0 : nil }
                 // With nothing remembered, a music app: a browser only takes commands
                 // for a tab it has found playing.
@@ -63,6 +70,29 @@ final class MediaHub: MediaControlling {
                 DispatchQueue.main.async {
                     completion(.failure(.scriptExecutionFailed(error.localizedDescription)))
                 }
+            }
+        }
+    }
+
+    private func play(_ uri: String) -> Result<Void, MediaError> {
+        switch PinnedPlaylists.Service(link: uri) {
+        case .appleMusicLink:
+            // Music can't be told to play a catalogue link; it can be shown it.
+            var components = URLComponents(string: uri)
+            components?.scheme = "music"
+            if let url = components?.url { DispatchQueue.main.async { NSWorkspace.shared.open(url) } }
+            return .success(())
+        case .spotify, .musicLibrary, .unknown:
+            let bundle = uri.hasPrefix(PinnedPlaylists.libraryPrefix) ? "com.apple.Music" : "com.spotify.client"
+            guard let provider = providers.first(where: { $0.bundleIdentifier == bundle }) else { return .failure(.noPlayerInstalled) }
+            do {
+                try provider.control(.play(uri: uri))
+                lastActiveProvider = provider
+                return .success(())
+            } catch let error as MediaError {
+                return .failure(error)
+            } catch {
+                return .failure(.scriptExecutionFailed(error.localizedDescription))
             }
         }
     }

@@ -19,15 +19,26 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.14.5</string>
+	<string>0.14.6</string>
 	<key>CFBundleVersion</key>
-	<string>21</string>
+	<string>22</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.notchhover.NotchHover</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>notchhover</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>NotchHover reads and controls what Spotify, Music, TV, QuickTime, VLC and your browser tabs are playing, so the notch can show it. Nothing is sent anywhere.</string>
 	<key>NSAudioCaptureUsageDescription</key>

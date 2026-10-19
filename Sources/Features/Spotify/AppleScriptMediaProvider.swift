@@ -118,6 +118,10 @@ final class AppleScriptMediaProvider: MediaProvider {
             return "tell application \"\(appName)\" to set sound volume to \(max(0, min(100, percent)))"
         case .seek(let seconds):
             return "tell application \"\(appName)\" to set player position to \(max(0, seconds))"
+        case .play(let uri) where uri.hasPrefix(PinnedPlaylists.libraryPrefix):
+            // A playlist in your Music library, by the ID that survives renaming it.
+            let id = uri.dropFirst(PinnedPlaylists.libraryPrefix.count).filter(\.isHexDigit)
+            return "tell application \"\(appName)\" to play (some playlist whose persistent ID is \"\(id)\")"
         case .play(let uri):
             // `play track` takes any Spotify URI, playlists and albums included.
             return "tell application \"\(appName)\" to play track \"\(uri)\""

@@ -31,6 +31,24 @@ enum MediaSelfTest {
             lines.append("title \(ok ? "ok" : "WRONG"): \"\(raw)\" → \"\(cleaned)\"")
         }
 
+        // Shared links: what's kept, and what it's called.
+        let links: [(String, String?, String?, String)] = [
+            ("https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO?si=abc", "Peaceful Piano - playlist by Spotify | Spotify",
+             "spotify:playlist:37i9dQZF1DX4sWSpwq3LiO", "Peaceful Piano"),
+            ("https://music.apple.com/us/playlist/chill-vibes/pl.u-abc123?ls", nil,
+             "https://music.apple.com/us/playlist/chill-vibes/pl.u-abc123", "Chill Vibes"),
+            ("https://music.apple.com/gb/album/ok-computer/1097862870", "\u{200E}OK Computer - Album by Radiohead - Apple Music",
+             "https://music.apple.com/gb/album/ok-computer/1097862870", "OK Computer"),
+            ("https://example.com/not-music", nil, nil, "")
+        ]
+        for (raw, title, expectedLink, expectedName) in links {
+            let link = PinnedPlaylists.normalize(raw)
+            let name = link.map { PinnedPlaylists.name(for: $0, sharedTitle: title) } ?? ""
+            let ok = link == expectedLink && name == expectedName
+            failed = failed || ok == false
+            lines.append("link \(ok ? "ok" : "WRONG"): \(raw.prefix(40))… → \(link ?? "rejected") \"\(name)\"")
+        }
+
         for provider in MediaHub.defaultProviders where provider.isInstalled {
             let scripts: [String]
             switch provider {

@@ -45,6 +45,25 @@ xcrun actool "$PROJECT_ROOT/Resources/AppIcon.icon" \
 cp "$PROJECT_ROOT/Resources/MenuBarIcon.png" "$PROJECT_ROOT/Resources/MenuBarIcon@2x.png" "$CONTENTS/Resources/"
 printf 'APPL????' > "$CONTENTS/PkgInfo"
 
+# The Share menu's "NotchHover": a small app extension, built outside SwiftPM — which
+# has no extension targets — and signed before the app that contains it.
+SHARE_SOURCE="$PROJECT_ROOT/Extensions/Share"
+SHARE_BUNDLE="$CONTENTS/PlugIns/NotchHoverShare.appex"
+mkdir -p "$SHARE_BUNDLE/Contents/MacOS"
+OPTIMIZE="-Onone"; [ "$CONFIGURATION" = "release" ] && OPTIMIZE="-O"
+xcrun swiftc $OPTIMIZE -module-name NotchHoverShare -parse-as-library -application-extension \
+    -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path)" \
+    -Xlinker -e -Xlinker _NSExtensionMain \
+    "$SHARE_SOURCE/ShareViewController.swift" -o "$SHARE_BUNDLE/Contents/MacOS/NotchHoverShare"
+cp "$SHARE_SOURCE/Info.plist" "$SHARE_BUNDLE/Contents/Info.plist"
+# Same version as the app it ships in.
+for key in CFBundleShortVersionString CFBundleVersion; do
+    value="$(/usr/libexec/PlistBuddy -c "Print :$key" "$CONTENTS/Info.plist")"
+    /usr/libexec/PlistBuddy -c "Set :$key $value" "$SHARE_BUNDLE/Contents/Info.plist"
+done
+codesign --force --sign - --entitlements "$SHARE_SOURCE/Share.entitlements" \
+    --identifier com.notchhover.NotchHover.Share "$SHARE_BUNDLE"
+
 codesign --force --sign - --identifier com.notchhover.NotchHover "$APP_BUNDLE"
 
 echo "Built $APP_BUNDLE ($CONFIGURATION)"

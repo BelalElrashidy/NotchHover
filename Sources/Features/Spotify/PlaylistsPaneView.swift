@@ -1,7 +1,7 @@
 import AppKit
 
-/// Spotify's AppleScript dictionary cannot list your library, but it will play any
-/// URI — so playlists are pinned by URI and started with one click.
+/// Pinned playlists, albums and songs — Spotify links, Music library playlists and
+/// Apple Music links — started with one click. See `PinnedPlaylists`.
 final class PlaylistsPaneView: NSView {
     struct Playlist {
         let name: String
@@ -46,13 +46,7 @@ final class PlaylistsPaneView: NSView {
     }
 
     func reload() {
-        // Stored as "Name|spotify:playlist:id" entries.
-        playlists = (UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? [])
-            .compactMap { entry in
-                let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
-                guard parts.count == 2 else { return nil }
-                return Playlist(name: parts[0], uri: parts[1])
-            }
+        playlists = PinnedPlaylists.entries.map { Playlist(name: $0.name, uri: $0.link) }
 
         buttonStack.arrangedSubviews.forEach {
             buttonStack.removeArrangedSubview($0)
@@ -62,13 +56,13 @@ final class PlaylistsPaneView: NSView {
         for (index, playlist) in playlists.prefix(5).enumerated() {
             let button = Style.pushButton(playlist.name, prominent: index == 0, target: self, action: #selector(handlePlay(_:)))
             button.tag = index
-            button.toolTip = playlist.uri
+            button.toolTip = "\(playlist.name) — \(PinnedPlaylists.Service(link: playlist.uri).title)"
             buttonStack.addArrangedSubview(button)
         }
 
         hintLabel.stringValue = playlists.isEmpty
-            ? "Add with: defaults write com.notchhover.NotchHover Playlists -array \"Focus|spotify:playlist:ID\""
-            : "Right-click a playlist in Spotify → Share → Copy Spotify URI"
+            ? "Share a Spotify or Apple Music link to NotchHover, or add one in Settings → Music"
+            : "Share → NotchHover on any Spotify or Apple Music link adds it here"
     }
 
     @objc private func handlePlay(_ sender: NSButton) {

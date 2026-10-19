@@ -554,7 +554,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             ]),
             SettingsKit.section("Browsers", footer: "The browser runs a few lines of script in the playing tab and hands back the title, artist, artwork and position. Nothing is sent anywhere. Without it, the notch shows the tab's name only.",
                                 rows: browserRows()),
-            SettingsKit.section("Playlists", footer: "Paste a Spotify link or URI. Pinned playlists play from the notch's Playlists card.", rows: playlistRows())
+            SettingsKit.section("Playlists", footer: "Spotify links and your Music playlists play straight from the notch's Playlists card. Apple Music links open in Music, which can't be told to play one.", rows: playlistRows())
         ])
     }
 
@@ -797,38 +797,79 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
 
     // MARK: - Lists
 
-    /// Name and link for each pinned playlist, saved as you leave a field.
+    /// Name and link for each pinned playlist, saved as you leave a field, with where it
+    /// plays; then ways to add one.
     private func playlistRows() -> [NSView] {
-        var entries: [(name: String, link: String)] = (UserDefaults.standard.stringArray(forKey: PlaylistsPaneView.defaultsKey) ?? [])
-            .compactMap { entry in
-                let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
-                return parts.count == 2 ? (parts[0], parts[1]) : nil
-            }
+        var entries = PinnedPlaylists.entries
         func store() {
-            let lines = entries.compactMap { entry -> String? in
-                guard entry.name.isEmpty == false, let uri = SpotifyURI.normalize(entry.link) else { return nil }
-                return "\(entry.name)|\(uri)"
-            }
-            UserDefaults.standard.set(lines, forKey: PlaylistsPaneView.defaultsKey)
+            PinnedPlaylists.entries = entries.filter { $0.name.isEmpty == false && PinnedPlaylists.normalize($0.link) != nil }
             saved()
         }
         var rows: [NSView] = entries.enumerated().map { index, entry in
-            let name = SettingsKit.field(entry.name, placeholder: "Name", width: 150) { entries[index].name = $0; store() }
-            let link = SettingsKit.field(entry.link, placeholder: "https://open.spotify.com/playlist/…", width: nil) { entries[index].link = $0; store() }
+            let name = SettingsKit.field(entry.name, placeholder: "Name", width: 160) { entries[index].name = $0; store() }
+            let link = SettingsKit.field(entry.service == .musicLibrary ? "Music library playlist" : entry.link,
+                                         placeholder: "Spotify or Apple Music link", width: nil) { [weak self] text in
+                guard entry.service != .musicLibrary else { return }
+                entries[index].link = PinnedPlaylists.normalize(text) ?? text
+                store()
+                self?.select(.music)
+            }
+            link.isEditable = entry.service != .musicLibrary
+            link.toolTip = entry.service.title
+            let service = SettingsKit.status(entry.service == .appleMusicLink ? "Opens in Music" : entry.service == .musicLibrary ? "Music" : entry.service == .spotify ? "Spotify" : "Not a music link",
+                                             good: entry.service == .unknown ? false : nil)
+            // One width for every row's label, so the link fields line up.
+            service.widthAnchor.constraint(equalToConstant: 118).isActive = true
             let remove = SettingsKit.button("Remove") { [weak self] in
                 entries.remove(at: index)
                 store()
                 self?.select(.music)
             }
-            return SettingsKit.fieldRow([name, link, remove])
+            return SettingsKit.fieldRow([name, link, service, remove])
         }
-        rows.append(SettingsKit.row(entries.isEmpty ? "No playlists yet" : "Another playlist",
-                                    control: SettingsKit.button("Add playlist") { [weak self] in
-            entries.append(("", ""))
-            UserDefaults.standard.set(entries.map { "\($0.name)|\($0.link)" }, forKey: PlaylistsPaneView.defaultsKey)
+        let addLink = SettingsKit.button("Add link") { [weak self] in
+            entries.append(.init(name: "", link: ""))
+            UserDefaults.standard.set(entries.map { "\($0.name)|\($0.link)" }, forKey: PinnedPlaylists.defaultsKey)
             self?.select(.music)
-        }))
+        }
+        let addFromMusic = SettingsKit.button("Add from Music…") { [weak self] in
+            self?.showMusicLibraryMenu()
+        }
+        addFromMusic.identifier = NSUserInterfaceItemIdentifier("addFromMusic")
+        rows.append(SettingsKit.row(entries.isEmpty ? "No playlists yet" : "Another one",
+                                    detail: "Or share a Spotify or Apple Music link and choose NotchHover",
+                                    control: SettingsKit.group([addFromMusic, addLink])))
         return rows
+    }
+
+    /// Your Music playlists, in a menu under the button; picking one pins it.
+    private func showMusicLibraryMenu() {
+        func find(_ view: NSView) -> NSView? {
+            if view.identifier?.rawValue == "addFromMusic" { return view }
+            for child in view.subviews { if let found = find(child) { return found } }
+            return nil
+        }
+        guard let root = window?.contentView, let button = find(root) else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let playlists = PinnedPlaylists.musicLibraryPlaylists()
+            DispatchQueue.main.async {
+                let menu = NSMenu()
+                if playlists.isEmpty {
+                    menu.addItem(withTitle: "No playlists in your Music library", action: nil, keyEquivalent: "")
+                }
+                for playlist in playlists {
+                    menu.addItem(ClosureMenuItem(playlist.name) {
+                        var all = PinnedPlaylists.entries
+                        guard all.contains(where: { $0.link == playlist.link }) == false else { return }
+                        all.append(playlist)
+                        PinnedPlaylists.entries = all
+                        self?.saved()
+                        self?.select(.music)
+                    })
+                }
+                menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+            }
+        }
     }
 
     /// The launcher's apps, each with its icon, and a picker to add one.

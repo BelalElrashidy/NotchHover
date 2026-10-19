@@ -10,6 +10,23 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.6] — 2026-10-20
+
+Playlists from Apple Music too, and from the Share menu.
+
+### Fixed
+- **Playlists aren't Spotify-only any more.** The Playlists card plays Spotify links
+  and playlists from your Music library — Settings → Music → Playlists → Add from Music…
+  lists them. Apple Music links can be pinned too, and open in Music: Music can't be told
+  to play a catalogue link, only shown it.
+- **Share a link to NotchHover.** NotchHover is in the Share menu. Share a Spotify or
+  Apple Music playlist, album or song — from a browser, Music, Messages, anywhere — and
+  it's pinned with its name, and the notch opens on Playlists to show it. The extension
+  only sees what you share with it, runs sandboxed, and hands the link to NotchHover on
+  your Mac. If it isn't in the menu, turn it on under the Share menu's Edit Extensions… or
+  System Settings → General → Login Items & Extensions → Sharing.
+- Each pinned item in Settings says where it plays, and the link fields line up.
+
 ## [0.14.5] — 2026-10-20
 
 Browsers, checked one by one.
@@ -414,7 +431,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...HEAD
+[0.14.6]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...v0.14.3

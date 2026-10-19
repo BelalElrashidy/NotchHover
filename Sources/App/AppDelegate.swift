@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var volumeMonitor: VolumeMonitor?
     private var batteryMonitor: BatteryMonitor?
     private var brightnessMonitor: BrightnessMonitor?
+    private var activityCenter: ActivityCenter?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Accessory apps get no menu bar, and without an Edit menu the standard
@@ -22,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 
         let activityCenter = ActivityCenter()
+        self.activityCenter = activityCenter
         notchController = NotchController(
             mediaController: mediaController,
             poller: poller,
@@ -143,6 +145,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Opening the app again — from Finder, Spotlight or Launchpad — while it is already
     /// running shows Settings. With no icon anywhere, that is the way back in.
+    /// `notchhover://add-playlist?url=…&title=…`, from the Share menu's NotchHover.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "notchhover" {
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            guard url.host == "add-playlist", let link = items.first(where: { $0.name == "url" })?.value else { continue }
+            let title = items.first { $0.name == "title" }?.value
+            if let entry = PinnedPlaylists.add(link: link, title: title) {
+                Log.media.notice("Pinned from Share: \(entry.name, privacy: .public)")
+                // Shown where it now lives, so you see it land.
+                notchController?.open(.playlists)
+            } else {
+                activityCenter?.post(.status(symbol: "exclamationmark.triangle.fill", text: "Not a music link"))
+            }
+        }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings()
         return true

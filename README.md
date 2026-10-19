@@ -41,7 +41,10 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - TV, QuickTime Player and VLC, with play, pause and seek
 - Anything else that plays sound is shown too — a video in a browser that hasn't allowed
   it appears as the site it's on, and an app as its own icon
-- Pinned playlists you can start from the notch
+- **Pinned playlists** you can start from the notch: Spotify links, playlists from your
+  Music library, and Apple Music links (those open in Music, which can't be told to play
+  a link). Share any Spotify or Apple Music link and choose **NotchHover** in the Share
+  menu, and it's pinned and shown in the notch
 - **Next in playlist** for Apple Music — the next three tracks beside the player, click
   one to play it (Spotify keeps its queue online, so it can't be shown)
 - **A live visualizer**, if you switch it on — the bars beside the notch move with the
