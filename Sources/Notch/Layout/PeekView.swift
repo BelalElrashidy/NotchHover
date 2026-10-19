@@ -7,7 +7,7 @@ struct PeekTrack {
     var subtitle: String
     var icon: NSImage?
     var isPlaying: Bool
-    /// Only Spotify and Music can be controlled; a browser video can only be shown.
+    /// False for something only heard, not read: a browser that won't run our script.
     var isControllable: Bool
     var position: Double = 0
     var duration: Double = 0

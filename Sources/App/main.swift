@@ -30,6 +30,13 @@ if CommandLine.arguments.contains("--safari-selftest") {
     exit(0)
 }
 
+// Now playing: every installed player's scripts compile, browser titles clean up, and
+// what each running one says right now. Reads only: --media-selftest [js-dir]
+if let index = CommandLine.arguments.firstIndex(of: "--media-selftest") {
+    app.setActivationPolicy(.prohibited)
+    MediaSelfTest.run(writeScriptsTo: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
 // Meeting links found in invitation text: --calendar-selftest
 if CommandLine.arguments.contains("--calendar-selftest") {
     app.setActivationPolicy(.prohibited)

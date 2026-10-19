@@ -189,6 +189,9 @@ final class MediaDetailView: NSView {
             setControlsEnabled(true)
             playPauseButton.image = Style.symbolImage(track.isPlaying ? "pause.fill" : "play.fill", pointSize: 17)
             shuffleButton.contentTintColor = track.isShuffling ? Style.accent : Style.tertiaryText
+            // A video has no shuffle to turn on.
+            shuffleButton.isEnabled = track.supportsShuffle
+            shuffleButton.alphaValue = track.supportsShuffle ? 1 : 0.3
 
             trackDuration = track.duration
             progressBar.fraction = track.duration > 0 ? min(1, track.position / track.duration) : 0

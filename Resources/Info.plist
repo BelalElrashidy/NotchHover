@@ -19,9 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.13.2</string>
+	<string>0.14.0</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>16</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -29,7 +29,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>NotchHover controls playback in Spotify and Music, and asks Safari which page is playing so the notch can name it.</string>
+	<string>NotchHover reads and controls what Spotify, Music, TV, QuickTime, VLC and your browser tabs are playing, so the notch can show it. Nothing is sent anywhere.</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>NotchHover listens to the app that is playing only to move the level meter with the music. Nothing is recorded or kept, and nothing leaves your Mac.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>

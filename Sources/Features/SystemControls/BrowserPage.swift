@@ -27,12 +27,12 @@ struct BrowserPage: Equatable {
 /// not TCC-protected — and the favicon arrives inside it as a `data:` URI. It is written
 /// every few seconds, which is close enough for something playing.
 ///
-/// Safari is asked over AppleScript, which means a one-time Automation prompt. It
-/// gives back titles and addresses but no icons: Safari's favicon cache sits behind
-/// Full Disk Access, so a Safari page shows Safari's own icon.
+/// Safari and the Chrome family are asked over AppleScript, which means a one-time
+/// Automation prompt. They give back titles and addresses but no icons: their favicon
+/// caches sit behind Full Disk Access, so their pages show the browser's own icon.
 ///
-/// Chrome would need AppleScript for the tab plus its own favicon database, and is not
-/// handled yet.
+/// This is the fallback. When the browser allows JavaScript from Apple Events,
+/// `BrowserMediaProvider` reads the track itself, with artwork and controls.
 final class BrowserPageReader {
     static let shared = BrowserPageReader()
 
@@ -65,11 +65,21 @@ final class BrowserPageReader {
         "com.apple.SafariTechnologyPreview"
     ]
 
+    /// Browsers with Chrome's scripting dictionary: `active tab`, and `title` for a
+    /// tab's name.
+    private static let chromiumIdentifiers: Set<String> = Set(
+        BrowserMediaProvider.all.filter { $0.family == .chromium }.map(\.bundleIdentifier)
+    )
+
+    private static func isScripted(_ bundleIdentifier: String) -> Bool {
+        safariIdentifiers.contains(bundleIdentifier) || chromiumIdentifiers.contains(bundleIdentifier)
+    }
+
     /// Safari is asked rather than read, so it is asked no more often than this.
     private static let safariInterval: TimeInterval = 4
 
     static func handles(_ bundleIdentifier: String) -> Bool {
-        profileFolders[bundleIdentifier] != nil || safariIdentifiers.contains(bundleIdentifier)
+        profileFolders[bundleIdentifier] != nil || isScripted(bundleIdentifier)
     }
 
     private let queue = DispatchQueue(label: "com.notchhover.browserpage", qos: .utility)
@@ -117,7 +127,7 @@ final class BrowserPageReader {
             self.lock.unlock()
 
             let page: BrowserPage?
-            if Self.safariIdentifiers.contains(bundleIdentifier) {
+            if Self.isScripted(bundleIdentifier) {
                 // No file to watch, so the cache is kept by age instead.
                 if let cached, Date().timeIntervalSince(cached.modified) < Self.safariInterval {
                     page = cached.page
@@ -167,26 +177,34 @@ final class BrowserPageReader {
     }
 
     private static func safariScript(_ bundleIdentifier: String) -> String {
-        """
+        let isSafari = safariIdentifiers.contains(bundleIdentifier)
+        let frontTab = isSafari ? "current tab" : "active tab"
+        let tabName = isSafari ? "name" : "title"
+        // `tab` inside a browser's tell block is its tab class, not the tab character —
+        // which once left every line without its separator, and Safari with no pages.
+        return """
         if application id "\(bundleIdentifier)" is not running then return ""
-        tell application id "\(bundleIdentifier)"
-            -- Outside any try: if Safari refuses to answer, that has to surface as an
-            -- error, not pass for a Safari with nothing open.
-            if (count of windows) is 0 then return "\(noWindowsMarker)"
-            set frontAddress to ""
-            try
-                set frontAddress to URL of current tab of front window
-            end try
-            set output to frontAddress & linefeed
-            repeat with aWindow in windows
-                repeat with aTab in tabs of aWindow
-                    try
-                        set output to output & (URL of aTab) & tab & (name of aTab) & linefeed
-                    end try
+        set sep to character id 9
+        with timeout of 4 seconds
+            tell application id "\(bundleIdentifier)"
+                -- Outside any try: if the browser refuses to answer, that has to surface
+                -- as an error, not pass for a browser with nothing open.
+                if (count of windows) is 0 then return "\(noWindowsMarker)"
+                set frontAddress to ""
+                try
+                    set frontAddress to URL of \(frontTab) of front window
+                end try
+                set output to frontAddress & linefeed
+                repeat with aWindow in windows
+                    repeat with aTab in tabs of aWindow
+                        try
+                            set output to output & (URL of aTab) & sep & (\(tabName) of aTab) & linefeed
+                        end try
+                    end repeat
                 end repeat
-            end repeat
-            return output
-        end tell
+                return output
+            end tell
+        end timeout
         """
     }
 
@@ -201,7 +219,7 @@ final class BrowserPageReader {
         if let error {
             // Automation declined, most likely: the browser's own icon will do, and with
             // nothing known about its tabs it is not ruled out as playing.
-            Log.system.notice("Safari tabs unavailable: \(error[NSAppleScript.errorNumber] as? Int ?? 0, privacy: .public)")
+            Log.system.notice("\(bundleIdentifier, privacy: .public) tabs unavailable: \(error[NSAppleScript.errorNumber] as? Int ?? 0, privacy: .public)")
             setHasOpenTabs(true, for: bundleIdentifier)
             return nil
         }
@@ -210,7 +228,7 @@ final class BrowserPageReader {
         let hasWindows = reply != Self.noWindowsMarker
         setHasOpenTabs(hasWindows, for: bundleIdentifier)
         guard hasWindows else {
-            Log.system.notice("Safari: no windows open")
+            Log.system.notice("\(bundleIdentifier, privacy: .public): no windows open")
             return nil
         }
 
@@ -229,7 +247,7 @@ final class BrowserPageReader {
         let media = tabs.filter { Self.isMediaHost($0.host) }
         let page = media.first { $0.host == frontHost } ?? media.first ?? tabs.first { $0.host == frontHost }
         // Hosts and counts only — enough to see why a page was or wasn't chosen.
-        Log.system.notice("Safari: \(tabs.count, privacy: .public) tab(s), \(media.count, privacy: .public) on media sites, front \(frontHost ?? "none", privacy: .public) → \(page?.host ?? "no page", privacy: .public)")
+        Log.system.notice("\(bundleIdentifier, privacy: .public): \(tabs.count, privacy: .public) tab(s), \(media.count, privacy: .public) on media sites, front \(frontHost ?? "none", privacy: .public) → \(page?.host ?? "no page", privacy: .public)")
         return page
     }
 

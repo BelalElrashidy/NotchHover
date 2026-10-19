@@ -16,6 +16,8 @@ struct TrackInfo: Equatable {
     let isShuffling: Bool
     /// Only lyrics use it, to tell one recording of a song from another.
     var album = ""
+    /// Spotify and Music shuffle; a video in a browser or a player doesn't.
+    var supportsShuffle = true
 
     var menuBarText: String {
         artist.isEmpty ? name : "\(name) - \(artist)"
@@ -67,7 +69,7 @@ enum MediaError: LocalizedError {
     }
 }
 
-protocol MediaControlling {
+protocol MediaControlling: AnyObject {
     func fetchNowPlaying(completion: @escaping (Result<TrackInfo?, MediaError>) -> Void)
     func control(_ action: MediaAction, completion: @escaping (Result<Void, MediaError>) -> Void)
 }

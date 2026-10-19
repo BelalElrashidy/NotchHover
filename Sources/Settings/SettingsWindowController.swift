@@ -433,7 +433,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
 
     private func musicPane() -> NSView {
         page([
-            SettingsKit.header("Music", "Spotify and Apple Music, read and controlled on your Mac."),
+            SettingsKit.header("Music", "Spotify, Apple Music, TV, QuickTime, VLC and your browser's tabs, read and controlled on your Mac."),
             SettingsKit.section("Extras", rows: [
                 SettingsKit.toggle("Synced lyrics", detail: "The line being sung, in the peek and Now Playing. Each song's title, artist, album and length go to lrclib.net once; nothing else.",
                                    badge: .internet, isOn: LyricsService.isEnabled) { LyricsService.isEnabled = $0 },
@@ -444,8 +444,50 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
                                    : "Not available on this version of macOS.",
                                    isOn: LockScreenMusic.isEnabled) { LockScreenMusic.isEnabled = $0 }
             ]),
+            SettingsKit.section("Browsers", footer: "The browser runs a few lines of script in the playing tab and hands back the title, artist, artwork and position. Nothing is sent anywhere. Without it, the notch shows the tab's name only.",
+                                rows: browserRows()),
             SettingsKit.section("Playlists", footer: "Paste a Spotify link or URI. Pinned playlists play from the notch's Playlists card.", rows: playlistRows())
         ])
+    }
+
+    /// Each installed browser, whether it lets NotchHover read its tabs' media, and how
+    /// to let it.
+    private func browserRows() -> [NSView] {
+        var rows: [NSView] = BrowserMediaProvider.all.filter(\.isInstalled).map { browser in
+            let status: NSView
+            let detail: String
+            switch browser.access {
+            case .allowed:
+                status = SettingsKit.status("Allowed", good: true)
+                detail = "Song, artwork, play, pause, skip and seek from any tab."
+            case .blocked:
+                status = SettingsKit.status("Off", good: false)
+                detail = browser.allowInstructions
+            case .unknown:
+                status = SettingsKit.status("Not checked", good: nil)
+                detail = browser.allowInstructions
+            }
+            let check = SettingsKit.button("Check") { [weak self] in
+                guard browser.isRunning else {
+                    NSWorkspace.shared.urlForApplication(withBundleIdentifier: browser.bundleIdentifier).map { NSWorkspace.shared.open($0) }
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    browser.checkAccess()
+                    DispatchQueue.main.async { self?.select(.music) }
+                }
+            }
+            check.toolTip = browser.isRunning ? "Ask \(browser.appName) now" : "Open \(browser.appName) first"
+            return SettingsKit.row(browser.appName, detail: detail, control: SettingsKit.group([status, check]))
+        }
+        if NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.mozilla.firefox") != nil {
+            rows.append(SettingsKit.row("Firefox", detail: "The playing tab's name and icon. Firefox can't be asked for more.",
+                                        control: SettingsKit.status("Title only", good: nil)))
+        }
+        if rows.isEmpty {
+            rows.append(SettingsKit.row("No supported browser installed"))
+        }
+        return rows
     }
 
     // MARK: Calendar and calls

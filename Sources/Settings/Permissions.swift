@@ -24,7 +24,7 @@ enum Permission: CaseIterable {
     var reason: String {
         switch self {
         case .accessibility: return "Mirroring notification banners, pressing a call's mute and leave, pasting from the clipboard"
-        case .automation: return "Reading and controlling Spotify and Music; the page Safari or Chrome is playing; Google Meet's buttons"
+        case .automation: return "Reading and controlling Spotify, Music, TV, QuickTime and VLC; what a browser tab is playing; Google Meet's buttons"
         case .calendars: return "The schedule, the peek's next event, and Join buttons"
         case .bluetooth: return "AirPods and accessory batteries"
         case .screenRecording: return "Taking screenshots from the notch"

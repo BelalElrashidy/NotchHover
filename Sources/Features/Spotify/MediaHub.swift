@@ -3,26 +3,32 @@ import AppKit
 /// Picks whichever supported player is actually playing and routes commands to it,
 /// so the panel follows the music instead of being tied to one app.
 final class MediaHub: MediaControlling {
-    private let providers: [AppleScriptMediaProvider]
+    private let providers: [MediaProvider]
     private let queue = DispatchQueue(label: "com.notchhover.media.apple-script", qos: .userInitiated)
     /// Remembered so transport buttons keep addressing the app that was playing,
     /// even once it is paused and another player is also running.
-    private var lastActiveProvider: AppleScriptMediaProvider?
+    private var lastActiveProvider: MediaProvider?
 
-    init(providers: [AppleScriptMediaProvider] = MediaHub.defaultProviders) {
+    init(providers: [MediaProvider] = MediaHub.defaultProviders) {
         self.providers = providers
     }
 
-    static var defaultProviders: [AppleScriptMediaProvider] {
-        [
+    /// Music apps first, then video players, then browsers: when nothing is playing,
+    /// a paused song is a better thing to show than a paused video.
+    static var defaultProviders: [MediaProvider] {
+        let players: [MediaProvider] = [
             AppleScriptMediaProvider(
                 appName: "Spotify",
                 bundleIdentifier: "com.spotify.client",
                 supportsArtworkURL: true,
                 reportsDurationInMilliseconds: true
             ),
-            AppleScriptMediaProvider(appName: "Music", bundleIdentifier: "com.apple.Music", supportsArtworkURL: false)
+            AppleScriptMediaProvider(appName: "Music", bundleIdentifier: "com.apple.Music", supportsArtworkURL: false),
+            AppleScriptMediaProvider(appName: "TV", bundleIdentifier: "com.apple.TV", supportsArtworkURL: false),
+            VLCProvider(),
+            QuickTimeProvider()
         ]
+        return players + BrowserMediaProvider.all
     }
 
     func fetchNowPlaying(completion: @escaping (Result<TrackInfo?, MediaError>) -> Void) {
@@ -38,7 +44,9 @@ final class MediaHub: MediaControlling {
             guard let self else { return }
 
             let target = self.lastActiveProvider.flatMap { $0.isRunning ? $0 : nil }
-                ?? self.providers.first(where: \.isRunning)
+                // With nothing remembered, a music app: a browser only takes commands
+                // for a tab it has found playing.
+                ?? self.providers.first(where: { $0 is AppleScriptMediaProvider && $0.isRunning })
 
             guard let target else {
                 let outcome = self.noRunningPlayerError()
@@ -65,7 +73,7 @@ final class MediaHub: MediaControlling {
             return .failure(noRunningPlayerError())
         }
 
-        var firstTrack: (provider: AppleScriptMediaProvider, track: TrackInfo)?
+        var firstTrack: (provider: MediaProvider, track: TrackInfo)?
         var lastError: MediaError?
 
         for provider in running {
@@ -100,7 +108,7 @@ final class MediaHub: MediaControlling {
     }
 
     private func noRunningPlayerError() -> MediaError {
-        guard let installed = providers.first(where: \.isInstalled) else {
+        guard let installed = providers.first(where: { $0 is AppleScriptMediaProvider && $0.isInstalled }) else {
             return .noPlayerInstalled
         }
         return .noPlayerRunning(installed.appName)

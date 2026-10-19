@@ -34,8 +34,13 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 
 **Now playing**
 - Spotify and Apple Music with artwork, scrubbing, shuffle and volume
-- Anything else that plays sound is shown too — a video in your browser appears as the
-  site it's on, with that site's own icon
+- **Browser tabs** — YouTube, SoundCloud, Spotify's web player and anything else in
+  Safari, Chrome, Arc, Brave, Edge or Vivaldi, with the title, artist, artwork, play,
+  pause, skip and seek, once the browser allows JavaScript from Apple Events (Settings →
+  Music says how)
+- TV, QuickTime Player and VLC, with play, pause and seek
+- Anything else that plays sound is shown too — a video in a browser that hasn't allowed
+  it appears as the site it's on, and an app as its own icon
 - Pinned playlists you can start from the notch
 - **Next in playlist** for Apple Music — the next three tracks beside the player, click
   one to play it (Spotify keeps its queue online, so it can't be shown)
@@ -163,8 +168,8 @@ asks the first time that feature is used.
 
 | Permission | What it's for |
 |---|---|
-| Automation → Spotify, Music | Reading what's playing and controlling playback |
-| Automation → Safari | Naming the page Safari is playing |
+| Automation → Spotify, Music, TV, QuickTime, VLC | Reading what's playing and controlling playback |
+| Automation → your browser | Reading and controlling what a tab is playing |
 | Accessibility | Mirroring notification banners into the notch; pressing a call app's mute, camera and leave |
 | Calendars | Your next events, and the Join button for calls |
 | Bluetooth | Your accessories' battery levels |
@@ -172,8 +177,10 @@ asks the first time that feature is used.
 
 Seeing which app is playing needs no permission, and neither does naming the page in
 Firefox, Zen and other Firefox-based browsers — they keep their open tabs, favicons
-included, in a file NotchHover can read. Safari's favicons are locked away, so a Safari
-page shows Safari's icon.
+included, in a file NotchHover can read. Safari's and Chrome's favicons are locked away,
+so their pages show the browser's icon.
+
+Podcasts and IINA can't be asked what they're playing, so they appear by their icon only.
 
 ## Claude Code approvals
 
@@ -196,8 +203,9 @@ kept in `~/.claude/settings.json.notchhover-backup`.
 
 NotchHover makes no network requests of its own, with two exceptions:
 
-- Spotify only hands out artwork as a link, so album art for Spotify tracks is fetched
-  from Spotify's image server. No account information is sent with that request.
+- Spotify and web pages only hand out artwork as a link, so album art for a Spotify
+  track, or a playing tab's artwork, is fetched from the same image server the app or
+  page already uses. No account information or cookie is sent with that request.
 - **Synced lyrics, only if you turn them on** (Settings → Privacy and permissions, off by default). For
   each Spotify or Music song, its title, artist, album and length are sent once to
   [lrclib.net](https://lrclib.net), a free, open lyrics database — no account, cookie or

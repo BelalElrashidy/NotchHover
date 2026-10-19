@@ -10,6 +10,36 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-10-20
+
+What's playing, from far more places.
+
+### Added
+- **Browser tabs as real tracks.** Safari, Chrome, Arc, Brave, Edge and Vivaldi show what
+  a tab is playing — the title, artist or channel, artwork and position — with play,
+  pause, seek and volume, and next and previous on YouTube, YouTube Music, Spotify's web
+  player and SoundCloud. The browser runs a few lines of script in the tab and answers
+  NotchHover; nothing is sent anywhere. Each browser has to allow JavaScript from Apple
+  Events once, and Settings → Music → Browsers says where that switch is and whether it's
+  on.
+- **TV, QuickTime Player and VLC** are read and controlled too.
+- **Apple Music artwork.** Music's tracks show their own cover instead of the Music icon,
+  and a radio station shows the song that's on rather than the station's name.
+- `--media-selftest` checks that every installed player's and browser's scripts compile
+  and prints what each running one reports.
+
+### Fixed
+- **Safari pages weren't recognised at all.** Inside a script that talks to Safari, `tab`
+  means Safari's tab, not the tab character, so every line came back unsplit. Safari's
+  playing page is named again, even with JavaScript off.
+- Chrome-family browsers that haven't allowed JavaScript now show the playing tab's name
+  instead of only the browser.
+- The shuffle button is dimmed for things that can't shuffle.
+
+### Privacy
+- A playing tab's artwork is a link, like Spotify's, so it's fetched from the image
+  server the page already uses. No account information or cookie goes with it.
+
 ## [0.13.2] — 2026-10-20
 
 Roomier theme cards and menus.
@@ -306,6 +336,7 @@ The first public release.
 - A notch on every display, shown over full-screen apps.
 
 [Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...HEAD
+[0.14.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...v0.13.0
