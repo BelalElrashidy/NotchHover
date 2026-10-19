@@ -337,6 +337,13 @@ whatever language the file name is in. A new one pops from the notch as a transi
 Screenshots tab is the recent strip plus capture buttons, which collapse the panel and run
 `/usr/sbin/screencapture` (Screen Recording is asked for on first use).
 
+### Next in playlist
+
+`MusicQueue` asks Music, once per track, for the three tracks after the current one in
+its `current playlist`, and the Now Playing view lists them; a click plays that one.
+Music doesn't let scripts see its real Up Next queue, so with shuffle on nothing is
+shown. Spotify's queue lives on its servers and isn't readable offline.
+
 ### Live visualizer
 
 `AudioLevels` follows whichever app the bar says is playing. With the setting on, it

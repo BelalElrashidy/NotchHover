@@ -10,6 +10,20 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-19
+
+Next in playlist.
+
+### Added
+- **Next in playlist for Apple Music.** The Now Playing view lists the next three tracks
+  of the playlist or album Music is playing, beside the player; click one to play it now.
+  It's hidden while shuffle is on, when the order is Music's own. Spotify keeps its queue
+  on its servers, so it can't be read without the internet, and isn't shown.
+
+### Fixed
+- **Shuffle for Apple Music** never showed its real state, and the shuffle button did
+  nothing: Music names it differently from Spotify.
+
 ## [0.10.0] — 2026-10-19
 
 A visualizer that listens.
@@ -213,7 +227,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...v0.8.0

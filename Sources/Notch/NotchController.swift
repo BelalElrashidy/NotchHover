@@ -364,6 +364,8 @@ final class NotchController {
         lastState = state
         broadcast { $0.renderNowPlaying(state) }
 
+        if case .track(let track) = state { MusicQueue.shared.refresh(for: track) } else { MusicQueue.shared.refresh(for: nil) }
+
         // The meter follows whichever app is making the sound.
         switch state {
         case .track(let track) where track.isPlaying: AudioLevels.shared.follow(track.sourceBundleIdentifier)

@@ -27,6 +27,11 @@ final class AppleScriptMediaProvider {
 
     // MARK: - Scripts
 
+    /// Spotify calls it `shuffling`; Music calls it `shuffle enabled`.
+    private var shuffleProperty: String {
+        bundleIdentifier == "com.apple.Music" ? "shuffle enabled" : "shuffling"
+    }
+
     private var currentTrackScript: String {
         // "playing" on its own is a reserved player state constant, so the variable
         // holding the comparison result needs a different name.
@@ -58,7 +63,7 @@ final class AppleScriptMediaProvider {
             end try
             set shuf to "false"
             try
-                set shuf to (shuffling as text)
+                set shuf to (\(shuffleProperty) as text)
             end try
             set alb to ""
             try
@@ -78,7 +83,7 @@ final class AppleScriptMediaProvider {
         case .previousTrack:
             return "tell application \"\(appName)\" to previous track"
         case .toggleShuffle:
-            return "tell application \"\(appName)\" to set shuffling to not shuffling"
+            return "tell application \"\(appName)\" to set \(shuffleProperty) to not \(shuffleProperty)"
         case .setVolume(let percent):
             return "tell application \"\(appName)\" to set sound volume to \(max(0, min(100, percent)))"
         case .seek(let seconds):

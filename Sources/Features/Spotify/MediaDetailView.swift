@@ -16,6 +16,11 @@ final class MediaDetailView: NSView {
     /// The line being sung, when synced lyrics are on and the song has them.
     private let lyricLabel = Style.label(size: 12, weight: .medium)
     private var lyricsObserver: UUID?
+    private var queueObserver: UUID?
+    /// Next in the playlist, beside everything else — Apple Music only.
+    private let upNextStack = NSStackView()
+    private var mainTrailing: NSLayoutConstraint?
+    private var upNextTrailing: NSLayoutConstraint?
     private var artistText = ""
     private var showsTrack = false
     private lazy var previousButton = Style.symbolButton("backward.fill", pointSize: 13, target: self, action: #selector(handlePrevious))
@@ -37,6 +42,9 @@ final class MediaDetailView: NSView {
         super.init(frame: .zero)
         configure()
         lyricsObserver = LyricsService.shared.addObserver { [weak self] _ in self?.showLyric() }
+        if isCompact == false {
+            queueObserver = MusicQueue.shared.addObserver { [weak self] entries in self?.showUpNext(entries) }
+        }
     }
 
     deinit {
@@ -113,14 +121,47 @@ final class MediaDetailView: NSView {
             lyricLabel.widthAnchor.constraint(lessThanOrEqualTo: root.widthAnchor),
             progressRow.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             root.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            root.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             root.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+        mainTrailing = root.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
+        mainTrailing?.isActive = true
+
+        if isCompact == false {
+            upNextStack.orientation = .vertical
+            upNextStack.alignment = .leading
+            upNextStack.spacing = 4
+            upNextStack.translatesAutoresizingMaskIntoConstraints = false
+            upNextStack.isHidden = true
+            addSubview(upNextStack)
+            NSLayoutConstraint.activate([
+                upNextStack.widthAnchor.constraint(equalToConstant: 200),
+                upNextStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+                upNextStack.centerYAnchor.constraint(equalTo: centerYAnchor)
+            ])
+            upNextTrailing = root.trailingAnchor.constraint(equalTo: upNextStack.leadingAnchor, constant: -24)
+            showUpNext(MusicQueue.shared.upNext)
+        }
 
         artworkView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(handleOpenSource)))
         lyricLabel.lineBreakMode = .byTruncatingTail
         lyricLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         lyricLabel.isHidden = true
+    }
+
+    private func showUpNext(_ entries: [MusicQueue.Entry]) {
+        upNextStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let visible = entries.isEmpty == false && showsTrack
+        upNextStack.isHidden = visible == false
+        mainTrailing?.isActive = visible == false
+        upNextTrailing?.isActive = visible
+        guard visible else { return }
+
+        upNextStack.addArrangedSubview(Style.label("Next in playlist", size: 10, weight: .semibold, color: Style.secondaryText))
+        for entry in entries {
+            let row = UpNextRow(entry: entry)
+            upNextStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: upNextStack.widthAnchor).isActive = true
+        }
     }
 
     private func showLyric() {
@@ -142,6 +183,7 @@ final class MediaDetailView: NSView {
             titleLabel.stringValue = track.name
             artistText = track.artist.isEmpty ? track.sourceName : track.artist
             showsTrack = true
+            if isCompact == false { showUpNext(MusicQueue.shared.upNext) }
             artistLabel.stringValue = artistText
             showLyric()
             setControlsEnabled(true)
@@ -165,6 +207,7 @@ final class MediaDetailView: NSView {
             // for a browser that means the page rather than the browser.
             titleLabel.stringValue = source.displayName
             showsTrack = false
+            if isCompact == false { showUpNext([]) }
             showLyric()
             artistLabel.stringValue = source.detail
             setControlsEnabled(false)
@@ -180,6 +223,7 @@ final class MediaDetailView: NSView {
         case .message(let message):
             titleLabel.stringValue = message
             showsTrack = false
+            if isCompact == false { showUpNext([]) }
             showLyric()
             artistLabel.stringValue = ""
             setControlsEnabled(false)
@@ -306,5 +350,46 @@ final class ProgressBarView: NSView {
         guard bounds.width > 0 else { return }
         let point = convert(event.locationInWindow, from: nil)
         onScrub?(Double(max(0, min(1, point.x / bounds.width))))
+    }
+}
+
+/// One track coming up: click to play it now.
+private final class UpNextRow: NSView {
+    private let entry: MusicQueue.Entry
+
+    init(entry: MusicQueue.Entry) {
+        self.entry = entry
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        let title = Style.label(entry.title, size: 11, weight: .medium)
+        let artist = Style.label(entry.artist, size: 10, color: Style.secondaryText)
+        let stack = NSStackView(views: [title, artist])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -6),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 3),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3)
+        ])
+        toolTip = "Play \(entry.title) now"
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseEntered(with event: NSEvent) { layer?.backgroundColor = Style.controlFill.cgColor }
+    override func mouseExited(with event: NSEvent) { layer?.backgroundColor = NSColor.clear.cgColor }
+    override func mouseDown(with event: NSEvent) {
+        Haptics.tick()
+        MusicQueue.shared.play(entry)
     }
 }

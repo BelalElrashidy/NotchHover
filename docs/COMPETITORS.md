@@ -44,7 +44,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Names the browser page playing | ✅ | | | | | | | ✅ | | |
 | Visualiser | ✅ | ✅ | | | ✅ | | ✅ | | | ✅ |
 | Synced lyrics | ✅ opt-in | ✅ | | | | | ✅ | | ✅ | ✅ |
-| Up Next queue | | | | | | | | | ✅ | |
+| Up Next queue | 🟡 Music | | | | | | | | ✅ | |
 | **Files and text** | | | | | | | | | | |
 | File shelf + AirDrop | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | |
 | File actions (convert, compress, OCR) | ✅ | | | | | | | | ✅ | ✅ |

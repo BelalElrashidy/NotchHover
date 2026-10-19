@@ -273,6 +273,18 @@ enum PreviewRenderer {
 
         writeLockScreen(track: track, directory: directory)
 
+        // Apple Music's next tracks beside the player.
+        MusicQueue.shared.publishForPreview([
+            .init(index: 4, title: "Kid A", artist: "Radiohead"),
+            .init(index: 5, title: "The National Anthem", artist: "Radiohead"),
+            .init(index: 6, title: "How to Disappear Completely", artist: "Radiohead")
+        ])
+        write(named: "expanded-upnext", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.nowPlaying)
+        }
+        MusicQueue.shared.publishForPreview([])
+
         write(named: "expanded-page", directory: directory) { view in
             view.isAudioPlaying = true
             view.renderNowPlaying(.external(browser))
