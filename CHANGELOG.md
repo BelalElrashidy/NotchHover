@@ -10,6 +10,29 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-19
+
+Screenshots.
+
+### Added
+- **Screenshots pop out of the notch.** Take one however you like — ⇧⌘3, ⇧⌘4, the
+  Screenshot app — and it comes out of the notch, as macOS's own thumbnail does from the
+  corner: drag it straight into any app, or **Copy**, mark it up in Preview, put it on the
+  shelf, copy the text in it, or move it to the Trash. It stays six seconds, longer while
+  the pointer is on it.
+- **A Screenshots view** (⌘6, or its tab beside Notes) with the recent ones as a strip.
+  Hover one for copy, markup, copy-text and delete; click to copy; drag it out;
+  double-click to open it.
+- **Take screenshots from the notch** — an area, a window, the whole screen, or in five
+  seconds — with **⌃⌥4** for an area from anywhere. The panel gets out of the picture
+  first. This uses macOS's own `screencapture`, which asks for Screen Recording the first
+  time.
+
+### Notes
+- NotchHover doesn't replace macOS's screenshot keys; it watches the folder macOS saves
+  to and recognises screenshots by the marker macOS puts on them. If that folder is your
+  Desktop or Documents, macOS asks once for NotchHover to see it.
+
 ## [0.8.0] — 2026-10-19
 
 Clipboard boards.
@@ -175,7 +198,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...v0.6.0

@@ -51,7 +51,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | Clipboard history | ✅ | | ✅ | | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Clipboard OCR / pinned boards | ✅ | | | | | | | ✅ | | ✅ |
 | Quick notes | ✅ | | | ✅ | | ✅ | ✅ | | | |
-| Screenshots | | | | | | | | | ✅ | ✅ |
+| Screenshots | ✅ | | | | | | | | ✅ | ✅ |
 | **Time and work** | | | | | | | | | | |
 | Calendar | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | One-click meeting join | ✅ | | | | | ✅ | ✅ | ✅ | ✅ | |

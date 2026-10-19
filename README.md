@@ -70,6 +70,10 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - **Clipboard history** — every clip as a card, with coloured **boards** to keep the ones
   you reuse (drag a card onto a board); search, pin and paste back with
   <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd>
+- **Screenshots** — each one you take pops out of the notch to drag anywhere, copy, mark
+  up, shelve or delete; a **Screenshots** view keeps the recent ones and takes new ones —
+  an area, a window, the screen, or in five seconds (<kbd>⌃</kbd><kbd>⌥</kbd><kbd>4</kbd>
+  for an area)
 - **Quick notes** — <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> to start one, <kbd>⌘</kbd><kbd>↩</kbd> to keep it
 - **Controls** — output volume, microphone gain and mute, display brightness, keyboard backlight
 - **Schedule** — a week strip over a timeline of the day, with a red line at now, all-day
@@ -109,8 +113,8 @@ every shortcut.
 
 | Where | Keys |
 |---|---|
-| Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>M</kbd> mute the call you're on |
-| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
+| Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>M</kbd> mute the call you're on · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>4</kbd> screenshot an area |
+| In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>6</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
 | Playing | <kbd>Space</kbd> play or pause · <kbd>⌘</kbd><kbd>←</kbd> <kbd>⌘</kbd><kbd>→</kbd> previous, next · <kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd> volume · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> mute the microphone |
 | Clipboard | <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>↩</kbd> copy · <kbd>⌘</kbd><kbd>↩</kbd> paste into the front app · <kbd>⌘</kbd><kbd>P</kbd> pin · <kbd>⌘</kbd><kbd>⌫</kbd> delete |
 | Notes, Shelf | <kbd>⌘</kbd><kbd>↩</kbd> save · <kbd>⌘</kbd><kbd>N</kbd> new · <kbd>⌘</kbd><kbd>[</kbd> <kbd>⌘</kbd><kbd>]</kbd> other notes · <kbd>⌘</kbd><kbd>S</kbd> send the shelf · <kbd>⌘</kbd><kbd>R</kbd> show in Finder |

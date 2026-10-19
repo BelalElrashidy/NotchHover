@@ -50,6 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MeetingControls.shared.toggleMute()
         }
         MeetingControls.shared.start()
+        ScreenshotStore.shared.onNew = { [weak self] url in self?.notchController?.showScreenshot(url) }
+        ScreenshotStore.shared.start()
+        // ⌃⌥4 takes an area, like ⇧⌘4 but straight into the notch's flow.
+        HotKeys.shared.register(keyCode: kVK_ANSI_4, modifiers: controlKey | optionKey) { [weak self] in
+            self?.notchController?.capture(.area)
+        }
         FileActionRunner.onReport = { [weak activityCenter] symbol, text in
             activityCenter?.post(.status(symbol: symbol, text: text))
         }

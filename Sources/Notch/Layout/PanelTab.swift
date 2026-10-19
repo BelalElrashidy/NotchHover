@@ -21,9 +21,10 @@ enum PanelTab: Int, CaseIterable {
     case notifications
     case apps
     case mirror
+    case screenshots
 
     /// The ones that get a place in the header, in order.
-    static let headerTabs: [PanelTab] = [.home, .shelf, .notes]
+    static let headerTabs: [PanelTab] = [.home, .shelf, .notes, .screenshots]
 
     var symbol: String {
         switch self {
@@ -41,6 +42,7 @@ enum PanelTab: Int, CaseIterable {
         case .notifications: return "bell.fill"
         case .apps: return "square.grid.2x2.fill"
         case .mirror: return "video.fill"
+        case .screenshots: return "camera.viewfinder"
         }
     }
 
@@ -52,6 +54,7 @@ enum PanelTab: Int, CaseIterable {
         case .notes: return "⌘3"
         case .clipboard: return "⌘4"
         case .mirror: return "⌘5"
+        case .screenshots: return "⌘6"
         default: return nil
         }
     }
@@ -72,6 +75,7 @@ enum PanelTab: Int, CaseIterable {
         case .notifications: return "Notifications"
         case .apps: return "Apps"
         case .mirror: return "Mirror"
+        case .screenshots: return "Screenshots"
         }
     }
 }

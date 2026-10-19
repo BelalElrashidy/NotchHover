@@ -76,6 +76,12 @@ if CommandLine.arguments.contains("--fileactions-selftest") {
     FileActionsSelfTest.run()
 }
 
+// Screenshots told apart from other pictures: --screenshots-selftest
+if CommandLine.arguments.contains("--screenshots-selftest") {
+    app.setActivationPolicy(.prohibited)
+    ScreenshotsSelfTest.run()
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

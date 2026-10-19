@@ -437,6 +437,10 @@ final class NotchController {
             if peekArea(of: peeking).containsPointer(location) {
                 unpeekWorkItem?.cancel()
                 unpeekWorkItem = nil
+                // Once the pointer has been on a pop, it behaves like any peek.
+                transientUntil = nil
+            } else if let until = transientUntil, Date() < until {
+                // A pop that came by itself stays its time, wherever the pointer is.
             } else {
                 scheduleUnpeek()
             }
@@ -481,6 +485,7 @@ final class NotchController {
     private func unpeek() {
         unpeekWorkItem?.cancel()
         unpeekWorkItem = nil
+        transientUntil = nil
         guard peeking != nil else { return }
         peeking = nil
         settleToRestingState()
@@ -652,6 +657,44 @@ final class NotchController {
         let screen = NotchGeometry.activeScreen ?? NSScreen.main
         guard let display = screen.flatMap(display(for:)) ?? displays.values.first else { return }
         expand(display)
+    }
+
+    // MARK: - Screenshots
+
+    private var screenshotDismiss: DispatchWorkItem?
+    /// A peek that arrived by itself, not by hovering, holds until this time.
+    private var transientUntil: Date?
+
+    /// A screenshot just landed: it pops out of the notch, as macOS's floating
+    /// thumbnail does from the corner, for six seconds — longer while the pointer is on
+    /// it. An open panel is left alone; the Screenshots view has it already.
+    func showScreenshot(_ url: URL) {
+        guard isExpanded == false else { return }
+        if displays.isEmpty { syncDisplays() }
+        let screen = NotchGeometry.activeScreen ?? NSScreen.main
+        guard let display = screen.flatMap(display(for:)) ?? displays.values.first else { return }
+        display.content.setTransient(.screenshot(url))
+        peek(display)
+        transientUntil = Date().addingTimeInterval(6)
+        Haptics.tick()
+
+        screenshotDismiss?.cancel()
+        let work = DispatchWorkItem { [weak self, weak display] in
+            guard let self, let display, self.peeking === display else { return }
+            self.transientUntil = nil
+            if self.peekArea(of: display).containsPointer(NSEvent.mouseLocation) == false { self.unpeek() }
+        }
+        screenshotDismiss = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+    }
+
+    /// Takes a screenshot with the panel out of the picture.
+    func capture(_ kind: ScreenshotStore.Capture) {
+        if isExpanded { collapse() }
+        if peeking != nil { unpeek() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            ScreenshotStore.shared.capture(kind)
+        }
     }
 
     /// Opens the notch for a moment on the main display, then lets it settle — the
@@ -859,6 +902,7 @@ final class NotchController {
             self.expand(display)
         }
         contentView.onPasteClipboard = { [weak self] item in self?.pasteFromClipboard(item) }
+        contentView.onCapture = { [weak self] kind in self?.capture(kind) }
         contentView.onDismiss = { [weak self] in self?.dismiss() }
         contentView.onOpenSettings = { [weak self] in
             NotificationCenter.default.post(name: .notchHoverOpenSettings, object: nil)

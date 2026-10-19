@@ -51,6 +51,8 @@ enum PeekContent {
     case glance(next: PeekEvent?, hasCalendar: Bool)
     /// A call in progress: mute, camera, leave.
     case call(CallState)
+    /// A screenshot just taken: drag it out, or copy, mark up, shelve, delete.
+    case screenshot(URL)
 }
 
 /// The peek, laid out like the Dynamic Island's expanded view — the layout Crest and
@@ -125,6 +127,8 @@ final class PeekView: NSView {
     private lazy var cameraButton = Self.roundButton("video.fill", target: self, action: #selector(handleCamera))
     private lazy var leaveButton = Self.roundButton("phone.down.fill", target: self, action: #selector(handleLeave))
     private var clock: Timer?
+    /// Rebuilt for each screenshot: its thumbnail and its actions.
+    private let screenshotContainer = NSView()
 
     private enum Layout {
         static let edgeInset: CGFloat = 18
@@ -161,7 +165,7 @@ final class PeekView: NSView {
         callTimer.alignment = .right
         [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
          previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail,
-         callTimer, muteButton, cameraButton, leaveButton].forEach(addSubview)
+         callTimer, muteButton, cameraButton, leaveButton, screenshotContainer].forEach(addSubview)
         muteButton.toolTip = "Mute or unmute — ⌃⌥M"
         cameraButton.toolTip = "Camera on or off"
         leaveButton.toolTip = "Leave the call"
@@ -206,7 +210,7 @@ final class PeekView: NSView {
         self.content = content
         let allViews: [NSView] = [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
                                   previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail,
-                                  callTimer, muteButton, cameraButton, leaveButton]
+                                  callTimer, muteButton, cameraButton, leaveButton, screenshotContainer]
         var visible: [NSView] = []
         var layers: [CALayer] = []
 
@@ -271,6 +275,11 @@ final class PeekView: NSView {
             if call.hasCamera { visible += [cameraButton] }
             if call.canLeave { visible += [leaveButton] }
 
+        case .screenshot(let url):
+            meter.isRunning = false
+            buildScreenshot(url)
+            visible = [screenshotContainer]
+
         case let .glance(next, _):
             meter.isRunning = false
             visible = [bigLabel, subtitleLabel]
@@ -304,6 +313,8 @@ final class PeekView: NSView {
             body = Layout.topGap + Layout.iconSize + 10 + 30 + Layout.bottomInset
         case .call:
             body = Layout.topGap + Layout.iconSize + 10 + Self.roundSize + Layout.bottomInset
+        case .screenshot:
+            body = Layout.topGap + Self.screenshotHeight + Layout.bottomInset
         case .glance(let next, _):
             body = Layout.topGap + 46 + (next == nil ? 0 : 10 + 1 + 10 + 30) + Layout.bottomInset
         }
@@ -348,6 +359,9 @@ final class PeekView: NSView {
 
         case .call(let call):
             callTimer.stringValue = Self.time(now.timeIntervalSince(call.startedAt))
+
+        case .screenshot:
+            break
 
         case .glance(let next, let hasCalendar):
             bigLabel.stringValue = now.formatted(date: .omitted, time: .shortened)
@@ -402,6 +416,10 @@ final class PeekView: NSView {
         defer { CATransaction.commit() }
 
         switch content {
+        case .screenshot:
+            screenshotContainer.frame = CGRect(x: left, y: y - Self.screenshotHeight, width: right - left, height: Self.screenshotHeight)
+            layoutScreenshot()
+
         case .call:
             // Row 1: the app, the call's name and state, how long it has run.
             icon.frame = CGRect(x: left, y: y - Layout.iconSize, width: Layout.iconSize, height: Layout.iconSize)
@@ -502,6 +520,89 @@ final class PeekView: NSView {
     @objc private func handleLeave() { onLeave?() }
 
     static let roundSize: CGFloat = 34
+    static let screenshotHeight: CGFloat = 80
+
+    // MARK: - Screenshot
+
+    private var screenshotActions: [() -> Void] = []
+
+    /// macOS's floating thumbnail, moved to the notch: the picture on the left, to drag
+    /// anywhere, and what to do with it on the right.
+    private func buildScreenshot(_ url: URL) {
+        screenshotContainer.subviews.forEach { $0.removeFromSuperview() }
+        screenshotActions = []
+
+        let thumbnail = ScreenshotThumbnailView(url: url, side: 128)
+        thumbnail.onClick = { [weak self] in self?.onOpen?() }
+        thumbnail.identifier = NSUserInterfaceItemIdentifier("thumbnail")
+        screenshotContainer.addSubview(thumbnail)
+
+        let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()
+        let title = Style.label("Screenshot \(created.formatted(date: .omitted, time: .standard))", size: 13, weight: .semibold)
+        title.identifier = NSUserInterfaceItemIdentifier("title")
+        let hint = Style.label("Drag it anywhere, or", size: 11, color: Style.secondaryText)
+        hint.identifier = NSUserInterfaceItemIdentifier("hint")
+        [title, hint].forEach(screenshotContainer.addSubview)
+
+        // Laid out by hand: a stack sized icon-only buttons by their image, not the row.
+        let buttons = NSView()
+        buttons.identifier = NSUserInterfaceItemIdentifier("buttons")
+        // Copy is what you'll want most; the rest say what they are on hover.
+        let entries: [(String, String, String, () -> Void)] = [
+            ("Copy", "doc.on.doc", "Copy", { ScreenshotStore.copy(url) }),
+            ("", "pencil.tip", "Mark up in Preview", { ScreenshotStore.markup(url) }),
+            ("", "tray.and.arrow.down", "Put it on the shelf", { FileTray.shared.add([url]) }),
+            ("", "text.viewfinder", "Copy the text in it", { FileActionRunner.run(.copyText, on: [url]) }),
+            ("", "trash", "Move to Trash", { ScreenshotStore.shared.delete(url) })
+        ]
+        for (index, entry) in entries.enumerated() {
+            let button = ClickThroughButton(title: entry.0, target: self, action: #selector(handleScreenshotAction(_:)))
+            button.tag = index
+            button.isBordered = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 7
+            button.layer?.backgroundColor = Style.controlFill.cgColor
+            button.image = Style.symbolImage(entry.1, pointSize: 10)
+            button.imagePosition = entry.0.isEmpty ? .imageOnly : .imageLeading
+            button.imageHugsTitle = true
+            button.contentTintColor = Style.primaryText
+            button.attributedTitle = NSAttributedString(string: entry.0, attributes: [
+                .foregroundColor: Style.primaryText, .font: NSFont.systemFont(ofSize: Style.scaled(11), weight: .medium)
+            ])
+            button.toolTip = entry.2
+            let width = entry.0.isEmpty ? 30 : button.intrinsicContentSize.width + 16
+            button.frame = CGRect(x: buttons.subviews.last.map { $0.frame.maxX + 6 } ?? 0, y: 0, width: width, height: 24)
+            screenshotActions.append(entry.3)
+            buttons.addSubview(button)
+        }
+        screenshotContainer.addSubview(buttons)
+    }
+
+    private func layoutScreenshot() {
+        let bounds = screenshotContainer.bounds
+        func view(_ id: String) -> NSView? { screenshotContainer.subviews.first { $0.identifier?.rawValue == id } }
+        let thumbWidth = Self.screenshotHeight * 1.45
+        view("thumbnail")?.frame = CGRect(x: 0, y: 0, width: thumbWidth, height: Self.screenshotHeight)
+        let left = thumbWidth + 14
+        let width = bounds.width - left
+        if let title = view("title") {
+            let height = title.fittingSize.height
+            title.frame = CGRect(x: left, y: bounds.height - height - 4, width: width, height: height)
+            if let hint = view("hint") {
+                let hintHeight = hint.fittingSize.height
+                hint.frame = CGRect(x: left, y: title.frame.minY - hintHeight - 1, width: width, height: hintHeight)
+            }
+        }
+        if let buttons = view("buttons") {
+            buttons.frame = CGRect(x: left, y: 4, width: width, height: 24)
+        }
+    }
+
+    @objc private func handleScreenshotAction(_ sender: NSButton) {
+        guard screenshotActions.indices.contains(sender.tag) else { return }
+        Haptics.tick()
+        screenshotActions[sender.tag]()
+    }
 
     /// A round call button, as the Dynamic Island and NotchBay draw them.
     private static func roundButton(_ symbol: String, target: AnyObject, action: Selector) -> NSButton {

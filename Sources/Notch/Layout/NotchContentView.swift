@@ -119,6 +119,14 @@ final class NotchContentView: NSView {
     private lazy var calendarPane = CalendarPaneView()
     private lazy var notificationsPane = NotificationsPaneView()
     private lazy var mirrorPane = MirrorPaneView()
+    private lazy var screenshotsPane: ScreenshotsPaneView = {
+        let pane = ScreenshotsPaneView()
+        pane.onCapture = { [weak self] kind in self?.onCapture?(kind) }
+        return pane
+    }()
+    /// A capture was asked for from the Screenshots view; the controller puts the panel
+    /// away first.
+    var onCapture: ((ScreenshotStore.Capture) -> Void)?
     private lazy var appDetail = AppDetailView()
     private lazy var permissionDetail = PermissionDetailView()
     private lazy var notesPane: NotesPaneView = {
@@ -369,6 +377,7 @@ final class NotchContentView: NSView {
         case .timer: install(timerPane)
         case .system: systemPane.startTracking(); install(systemPane)
         case .calendar: calendarPane.reload(); install(calendarPane)
+        case .screenshots: screenshotsPane.reload(); install(screenshotsPane)
         case .notifications: notificationsPane.reload(); install(notificationsPane)
         case .apps: appsPane.reload(); install(appsPane)
         case .mirror: install(mirrorPane)
@@ -478,8 +487,8 @@ final class NotchContentView: NSView {
         switch modifiers {
         case [.command]:
             switch key {
-            case "1", "2", "3", "4", "5":
-                let tabs: [PanelTab] = [.home, .shelf, .notes, .clipboard, .mirror]
+            case "1", "2", "3", "4", "5", "6":
+                let tabs: [PanelTab] = [.home, .shelf, .notes, .clipboard, .mirror, .screenshots]
                 let tab = tabs[Int(key)! - 1]
                 show(tab)
                 if tab == .clipboard { DispatchQueue.main.async { [weak self] in self?.clipboardPane.focus() } }
@@ -562,6 +571,13 @@ final class NotchContentView: NSView {
     func showPeekForPreview(_ content: PeekContent? = nil) {
         peekOverride = content
         present(.peek, animated: false)
+    }
+
+    /// Something that wants the peek for a moment — a screenshot just taken — in place
+    /// of what the peek would normally show. Cleared when the peek goes.
+    func setTransient(_ content: PeekContent) {
+        peekOverride = content
+        if presentation == .peek { refreshPeek() }
     }
 
     /// Preview hook.
@@ -876,6 +892,7 @@ final class NotchContentView: NSView {
     func present(_ presentation: Presentation, animated: Bool = true) {
         guard self.presentation != presentation else { return }
         self.presentation = presentation
+        if presentation != .peek { peekOverride = nil }
 
         let targetFrame: CGRect
         let cardAlpha: CGFloat

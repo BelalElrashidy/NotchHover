@@ -13,10 +13,11 @@ enum KeyboardShortcutList {
         Group(title: "Anywhere — again to close", entries: [
             ("⌃⌥H  ⌃⌥S", "Home, Shelf"),
             ("⌃⌥N  ⌃⌥V", "Notes, Clipboard"),
-            ("⌃⌥M", "Mute the call, or the mic")
+            ("⌃⌥M", "Mute the call, or the mic"),
+            ("⌃⌥4", "Screenshot an area")
         ]),
         Group(title: "In the panel", entries: [
-            ("⌘1 – ⌘5", "Switch views"),
+            ("⌘1 – ⌘6", "Switch views"),
             ("⌃⇥", "Next tab"),
             ("⎋  ⌘W", "Close"),
             ("⌘,  ⌘/", "Settings, these keys"),

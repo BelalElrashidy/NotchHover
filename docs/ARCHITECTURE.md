@@ -327,6 +327,16 @@ they never squeeze), over a strip of `ClipboardCardView`s. A card drags out with
 clip itself plus an internal `com.notchhover.clipboard-item` id, which a board chip
 accepts. The Home card keeps the compact list.
 
+### Screenshots
+
+`ScreenshotStore` watches the folder macOS saves screenshots to (`com.apple.screencapture`
+`location`, else the Desktop) with a `DispatchSource` on the directory, and recognises a
+screenshot by the `kMDItemIsScreenCapture` extended attribute macOS writes — so it works
+whatever language the file name is in. A new one pops from the notch as a transient peek
+(`PeekContent.screenshot`) that holds for six seconds unless the pointer visits it; the
+Screenshots tab is the recent strip plus capture buttons, which collapse the panel and run
+`/usr/sbin/screencapture` (Screen Recording is asked for on first use).
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to
@@ -655,6 +665,7 @@ greyed-out row, or a feature that never fires — rather than crashing:
 | Keyboard backlight | `KeyboardBrightnessClient` via the Objective-C runtime |
 | Notification banners | Accessibility API against `com.apple.notificationcenterui` |
 | Meeting controls | Accessibility on the call app's menus and buttons; AppleScript + JavaScript in a Meet tab |
+| Screenshots | Screen Recording for the capture buttons; access to the screenshots folder if it's Desktop or Documents |
 | Music on the lock screen | `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`, `SLSRemoveWindowsFromSpaces` from SkyLight via `dlopen` — the technique Boring Notch uses through the MIT-licensed SkyLightWindow package |
 
 The Notification Center database (`group.com.apple.usernoted`) was the alternative for
@@ -697,6 +708,7 @@ The app cannot screenshot itself, so it renders itself instead:
 ./build/NotchHover.app/Contents/MacOS/NotchHover --lockscreen-selftest    # an invisible window onto the lock screen space
 ./build/NotchHover.app/Contents/MacOS/NotchHover --meeting-selftest       # who has the mic; the Meet script compiles per browser
 ./build/NotchHover.app/Contents/MacOS/NotchHover --fileactions-selftest   # every file action on a made-up image
+./build/NotchHover.app/Contents/MacOS/NotchHover --screenshots-selftest   # screenshots told apart from other pictures
 ```
 
 `--animation-selftest` puts a real panel on screen, runs hidden → resting bar → panel →

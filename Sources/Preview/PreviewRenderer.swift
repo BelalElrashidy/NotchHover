@@ -128,6 +128,17 @@ enum PreviewRenderer {
                                                     startedAt: Date().addingTimeInterval(-754))))
         }
 
+        // A screenshot popping from the notch, and the Screenshots view.
+        let shots = ["Mac Blue.heic", "Radial Sky Blue.heic", "Mac Pink.heic"]
+            .map { URL(fileURLWithPath: "/System/Library/Desktop Pictures/\($0)") }
+        write(named: "peek-screenshot", directory: directory) { view in
+            view.showPeekForPreview(.screenshot(shots[0]))
+        }
+        ScreenshotStore.shared.loadForPreview(shots)
+        write(named: "expanded-screenshots", directory: directory) { view in
+            view.selectTabForPreview(.screenshots)
+        }
+
         write(named: "peek-meeting", directory: directory) { view in
             view.renderNowPlaying(.message("Nothing playing"))
             view.showPeekForPreview(.meeting(title: "Design review", service: "Zoom", start: Date().addingTimeInterval(232)))
