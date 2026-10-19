@@ -197,6 +197,11 @@ enum PreviewRenderer {
             sample("call.mute", "Mute the call, or the mic", "Calls", "mic.slash.fill", .controlOption(46, "M"), panel: "⌘⇧M"),
             sample("screenshot.area", "Screenshot an area", "Screenshots", "crop", .controlOption(21, "4"))
         ])
+        write(named: "expanded-quicksettings", directory: directory) { view in
+            view.renderNowPlaying(.track(track))
+            view.selectTabForPreview(.home)
+            view.setQuickSettingsVisible(true)
+        }
         write(named: "expanded-shortcuts", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             view.selectTabForPreview(.home)

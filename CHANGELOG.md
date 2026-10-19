@@ -10,6 +10,21 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-10-19
+
+Quick settings in the notch.
+
+### Added
+- **The gear opens quick settings inside the notch**, so you see each change happen:
+  - Look: theme, what hovering does, the resting bar, the hover delay
+  - Playing: the live visualizer, synced lyrics, music on the lock screen
+  - Privacy: clipboard history and clearing it, spoken notifications
+  - Keys: trackpad gestures and haptics, plus ⌘K and your hotkeys
+
+  **All settings →** opens the full window, and each **Edit…** opens it on the right
+  pane. Picking a theme rebuilds the panel and brings you straight back to quick
+  settings. Esc closes them; right-clicking the gear still offers Settings… and Quit.
+
 ## [0.12.0] — 2026-10-19
 
 New Settings, and shortcuts you can change and make.
@@ -256,7 +271,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.9.0...v0.10.0

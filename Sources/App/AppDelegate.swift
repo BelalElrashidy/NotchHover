@@ -67,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // ⌘E in the ⌘K list names an action: open Shortcuts on it.
             if let id = note.object as? String {
                 self?.showSettings(focusingAction: id)
+            } else if let pane = (note.object as? NSNumber)?.intValue, let category = SettingsWindowController.Category(rawValue: pane) {
+                // "All settings" and "Edit…" in quick settings land on the right pane.
+                self?.showSettings()
+                self?.settingsController?.select(category)
             } else {
                 self?.showSettings()
             }

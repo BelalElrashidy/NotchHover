@@ -130,6 +130,8 @@ final class HeaderActionsView: NSView {
     var onClipboard: (() -> Void)?
     var onMirror: (() -> Void)?
     var onSettings: (() -> Void)?
+    /// The gear: quick settings in the panel. Right-click still has the old menu.
+    var onQuickSettings: (() -> Void)?
 
     /// True while the gear's menu is open, so the panel doesn't close underneath it.
     private(set) var isShowingMenu = false
@@ -265,6 +267,10 @@ final class HeaderActionsView: NSView {
     @objc private func handleMirror() { onMirror?() }
 
     @objc private func handleGear() {
+        if let onQuickSettings, NSApp.currentEvent?.type != .rightMouseDown {
+            onQuickSettings()
+            return
+        }
         let menu = NSMenu()
         let settings = NSMenuItem(title: "Settings…", action: #selector(handleSettings), keyEquivalent: ",")
         settings.target = self

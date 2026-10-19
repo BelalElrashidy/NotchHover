@@ -96,6 +96,9 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
   prompts or code.
 
 **Yours to shape**
+- **Quick settings in the notch** — the gear turns the panel into its settings: theme,
+  hover, visualizer, lyrics, clipboard, gestures. Everything else is in the Settings
+  window, a searchable sidebar with a live picture of your notch
 - Six themes, from solid graphite to Liquid Glass
 - Rearrange the widgets, resize the panel and the resting bar, adjust corner radius and flare
 

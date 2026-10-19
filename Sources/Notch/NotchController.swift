@@ -1014,6 +1014,8 @@ final class NotchController {
         guard pendingRequests.isEmpty else { return }
 
         let themeChanged = displays.values.contains { $0.content.themeID != ThemeStore.selected.id }
+        // A theme picked in quick settings rebuilds the panel; it comes back on them.
+        let reopenQuickSettings = isExpanded && active?.content.isShowingQuickSettings == true
 
         Log.ui.notice("Settings applied; rebuild needed: \(themeChanged, privacy: .public)")
 
@@ -1025,6 +1027,12 @@ final class NotchController {
             active = nil
             isExpanded = false
             syncDisplays()
+            if reopenQuickSettings {
+                ensureExpanded()
+                active?.content.setQuickSettingsVisible(true)
+                poller.refresh()
+                return
+            }
         } else {
             broadcast { $0.reloadLists() }
         }

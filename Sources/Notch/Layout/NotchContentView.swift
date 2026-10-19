@@ -191,6 +191,18 @@ final class NotchContentView: NSView {
         return palette
     }()
     private let dropZones = DropZonesView()
+    private lazy var quickSettings: QuickSettingsView = {
+        let view = QuickSettingsView()
+        view.onChange = { NotificationCenter.default.post(name: .notchHoverSettingsChanged, object: nil) }
+        view.onAllSettings = { category in
+            NotificationCenter.default.post(name: .notchHoverOpenSettings, object: category.map { NSNumber(value: $0.rawValue) })
+        }
+        view.onShowActions = { [weak self] in
+            self?.setQuickSettingsVisible(false)
+            self?.setShortcutSheetVisible(true)
+        }
+        return view
+    }()
     /// Which view the panel is showing.
     private(set) var selectedTab: PanelTab = .home
 
@@ -311,6 +323,10 @@ final class NotchContentView: NSView {
         headerActions.onClipboard = { [weak self] in self?.toggle(.clipboard) }
         headerActions.onMirror = { [weak self] in self?.toggle(.mirror) }
         headerActions.onSettings = { [weak self] in self?.onOpenSettings?() }
+        headerActions.onQuickSettings = { [weak self] in
+            guard let self else { return }
+            self.setQuickSettingsVisible(self.quickSettings.superview == nil)
+        }
         rightWing.addSubview(headerActions)
 
         NSLayoutConstraint.activate([
@@ -380,6 +396,7 @@ final class NotchContentView: NSView {
         mode = .media
         selectedTab = tab
         setShortcutSheetVisible(false)
+        setQuickSettingsVisible(false)
         // Views that aren't tabs leave no tab highlighted; picking one goes back.
         headerTabs.select(tab, notify: false)
         headerActions.setOpen(tab)
@@ -503,6 +520,10 @@ final class NotchContentView: NSView {
         }
         let code = Key(rawValue: event.keyCode)
 
+        if code == .escape, quickSettings.superview != nil {
+            setQuickSettingsVisible(false)
+            return true
+        }
         // The ⌘K list is the one thing Esc closes before the panel.
         if code == .escape, palette.superview != nil {
             setShortcutSheetVisible(false)
@@ -633,6 +654,23 @@ final class NotchContentView: NSView {
         let current = SystemControls.isMuted() ? 0 : (SystemControls.volume() ?? 0)
         SystemControls.setVolume(min(1, max(0, current + Double(direction) / 16)))
         if direction > 0, SystemControls.isMuted() { SystemControls.setMuted(false) }
+    }
+
+    var isShowingQuickSettings: Bool { quickSettings.superview != nil }
+
+    /// The gear: quick settings over the panel's content.
+    func setQuickSettingsVisible(_ visible: Bool) {
+        guard visible != (quickSettings.superview != nil) else { return }
+        if visible {
+            setShortcutSheetVisible(false)
+            quickSettings.reload()
+            quickSettings.frame = detailContainer.frame
+            quickSettings.autoresizingMask = [.width, .height]
+            expandedContent.addSubview(quickSettings)
+        } else {
+            quickSettings.removeFromSuperview()
+        }
+        paneContainer.isHidden = visible
     }
 
     /// ⌘K and ⌘/: the list of actions over the panel's content.

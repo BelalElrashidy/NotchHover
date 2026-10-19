@@ -653,6 +653,15 @@ the theme, not stock AppKit, so Frost gets a light window and Midnight a dark on
 
 `--settings 7` opens the window on a given pane, for checking one on screen.
 
+### Quick settings in the notch
+
+The gear opens `QuickSettingsView` over the panel's content, NotchDrop-style: four tabs
+(Look, Playing, Privacy, Keys) of compact rows in two columns, each writing straight to
+defaults and posting `notchHoverSettingsChanged`. A theme change rebuilds the panels; the
+controller reopens the panel on quick settings afterwards. "All settings →" and the
+"Edit…" links post `notchHoverOpenSettings` with a pane number, so the window opens on
+that pane. Right-clicking the gear still shows Settings… and Quit.
+
 ### Actions and shortcuts
 
 `ActionRegistry` holds every `NotchAction`: the built-ins the app registers at launch

@@ -101,9 +101,10 @@ enum TypingSelfTest {
         /// Every button the user can see must be the thing a click at its centre lands
         /// on. A container with no height still draws its buttons, but hit-testing stops
         /// at the container — which is how the whole right side of the header went dead.
-        func checkButtons(on tab: PanelTab?, peek: PeekContent? = nil, label: String = "the peek") {
+        func checkButtons(on tab: PanelTab?, peek: PeekContent? = nil, label: String = "the peek", quickSettings: Bool = false) {
             if let tab {
                 content.selectTabForPreview(tab)
+                content.setQuickSettingsVisible(quickSettings)
             } else {
                 content.present(.idle, animated: false)
                 content.showPeekForPreview(peek ?? .playing(PeekTrack(title: "Test", subtitle: "Test", icon: nil, isPlaying: true,
@@ -124,7 +125,7 @@ enum TypingSelfTest {
                 let name = button.toolTip ?? button.title
                 dead.append("\(name.isEmpty ? "untitled" : name) → \(hit.map { String(describing: Swift.type(of: $0)) } ?? "nothing")")
             }
-            report("buttons on \(tab?.title ?? label): \(total - dead.count)/\(total) clickable" + (dead.isEmpty ? "" : " — dead: " + dead.joined(separator: "; ")))
+            report("buttons on \(quickSettings ? label : (tab?.title ?? label)): \(total - dead.count)/\(total) clickable" + (dead.isEmpty ? "" : " — dead: " + dead.joined(separator: "; ")))
         }
 
         /// Sends a key the way AppKit does: as a key equivalent first, then as a key-down
@@ -190,6 +191,8 @@ enum TypingSelfTest {
                                                         isMuted: false, isCameraOff: false, startedAt: Date())),
                          label: "the call peek")
             for tab in PanelTab.headerTabs + [.clipboard] { checkButtons(on: tab) }
+            checkButtons(on: .home, label: "quick settings", quickSettings: true)
+            content.setQuickSettingsVisible(false)
             checkKeyboard()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { check(.notes, label: "notes") {
                 check(.clipboard, label: "clipboard search") {
