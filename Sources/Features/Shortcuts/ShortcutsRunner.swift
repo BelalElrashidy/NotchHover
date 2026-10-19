@@ -23,6 +23,17 @@ enum ShortcutsRunner {
         }
     }
 
+    /// Every Shortcut in the Shortcuts app, for picking from in Settings.
+    static func allNames(completion: @escaping ([String]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let names = run(arguments: ["list"])?
+                .split(separator: "\n")
+                .map(String.init)
+                .filter { $0.isEmpty == false } ?? []
+            DispatchQueue.main.async { completion(names) }
+        }
+    }
+
     static func run(named name: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             _ = run(arguments: ["run", name])

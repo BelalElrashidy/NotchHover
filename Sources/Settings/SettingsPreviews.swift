@@ -5,8 +5,9 @@ import AppKit
 /// on every change, and switches between resting, peek and open.
 final class NotchStageView: NSView {
     private let imageView = NSImageView()
-    private let picker = SegmentedRow(labels: ["Resting", "Peek", "Open"])
+    private let picker = StagePicker(titles: ["Resting", "Peek", "Open"])
     private var presentation: NotchContentView.Presentation = .expanded
+    private var imageHeight: NSLayoutConstraint?
     var theme: Theme = ThemeStore.selected
 
     static let height: CGFloat = 176
@@ -15,9 +16,8 @@ final class NotchStageView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         clipsToBounds = true
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignTop
-        picker.select(2, notify: false)
+        imageView.imageScaling = .scaleAxesIndependently
+        picker.selected = 2
         picker.onSelect = { [weak self] index in
             self?.presentation = [.idle, .peek, .expanded][index]
             self?.refresh()
@@ -26,13 +26,16 @@ final class NotchStageView: NSView {
             $0.translatesAutoresizingMaskIntoConstraints = false
             addSubview($0)
         }
+        // Edge to edge and hung from the top, like the real notch; what runs past the
+        // bottom is clipped.
+        imageHeight = imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.3)
         NSLayoutConstraint.activate([
             imageView.topAnchor.constraint(equalTo: topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            imageView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor),
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageHeight!,
             picker.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            picker.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10)
+            picker.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
         ])
     }
 
@@ -55,9 +58,10 @@ final class NotchStageView: NSView {
         // A wide margin of desktop, so the notch sits in a scene rather than filling it.
         let image = PreviewRenderer.snapshot(theme: theme, width: 760, presentation: presentation, margin: 90)
         imageView.image = image
-        // The picture is the stage: the desktop fills it edge to edge.
-        if let image, image.size.height > 0 {
-            imageView.widthAnchor.constraint(equalTo: imageView.heightAnchor, multiplier: image.size.width / image.size.height).isActive = true
+        if let image, image.size.width > 0 {
+            imageHeight?.isActive = false
+            imageHeight = imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: image.size.height / image.size.width)
+            imageHeight?.isActive = true
         }
     }
 }
@@ -98,7 +102,9 @@ final class PanelCanvasView: NSView {
         needsDisplay = true
     }
 
-    private var slab: CGRect { bounds.insetBy(dx: 24, dy: 0).offsetBy(dx: 0, dy: -1).insetBy(dx: 0, dy: 1) }
+    /// The panel, hanging from the top of a desktop that spans the page like every card
+    /// under it.
+    private var slab: CGRect { CGRect(x: 16, y: 0, width: bounds.width - 32, height: bounds.height - 16) }
 
     /// How much room a widget takes, as the panel's flex layout would give it; an empty
     /// slot — where a dragged-in widget will land — is a middling one.
@@ -107,7 +113,7 @@ final class PanelCanvasView: NSView {
     }
 
     private func frames(for list: [PanelWidget?]) -> [CGRect] {
-        let area = CGRect(x: slab.minX + 16, y: 30, width: slab.width - 32, height: bounds.height - 44)
+        let area = CGRect(x: slab.minX + 12, y: 26, width: slab.width - 24, height: slab.height - 38)
         let gap: CGFloat = 8
         let total = list.reduce(0) { $0 + Self.weight($1) }
         let available = area.width - gap * CGFloat(max(0, list.count - 1))
@@ -122,7 +128,12 @@ final class PanelCanvasView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let theme = SettingsKit.theme
         // The panel's slab, hanging from the top like the real one.
-        let path = NSBezierPath(roundedRect: CGRect(x: slab.minX, y: -20, width: slab.width, height: bounds.height + 20), xRadius: 22, yRadius: 22)
+        // The desktop: the stage's colours, in a card the width of the page.
+        let desktop = NSBezierPath(roundedRect: bounds, xRadius: 10, yRadius: 10)
+        NSGradient(colors: [NSColor(calibratedRed: 0.16, green: 0.20, blue: 0.30, alpha: 1),
+                            NSColor(calibratedRed: 0.36, green: 0.30, blue: 0.42, alpha: 1)])?.draw(in: desktop, angle: -20)
+        // The panel itself, flush with the top edge and rounded below, as it hangs from the notch.
+        let path = NSBezierPath(roundedRect: CGRect(x: slab.minX, y: slab.minY - 20, width: slab.width, height: slab.height + 20), xRadius: 18, yRadius: 18)
         if case .solid(let color) = theme.surface { color.setFill() } else { NSColor.black.setFill() }
         path.fill()
 
@@ -303,11 +314,9 @@ final class WidgetGalleryTile: NSView, NSDraggingSource {
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 92),
-            heightAnchor.constraint(equalToConstant: 58),
             stack.centerXAnchor.constraint(equalTo: centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            title.widthAnchor.constraint(lessThanOrEqualToConstant: 84)
+            title.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -12)
         ])
         toolTip = "Drag into the panel, or click to add it at the end"
     }
@@ -343,4 +352,64 @@ final class WidgetGalleryTile: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
+}
+
+/// Resting · Peek · Open, small and translucent so it sits on the stage's desktop
+/// without competing with the notch.
+final class StagePicker: NSView {
+    var onSelect: ((Int) -> Void)?
+    var selected = 0 { didSet { refresh() } }
+    private var buttons: [ClosureButton] = []
+    private let titles: [String]
+
+    init(titles: [String]) {
+        self.titles = titles
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.4).cgColor
+        let stack = NSStackView()
+        stack.spacing = 2
+        stack.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
+        for (index, title) in titles.enumerated() {
+            let button = ClosureButton(title: title) { [weak self] in
+                self?.selected = index
+                self?.onSelect?(index)
+            }
+            button.isBordered = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 6
+            button.heightAnchor.constraint(equalToConstant: 20).isActive = true
+            // Sized for the bold title, so choosing one doesn't shift the others.
+            let bold = NSAttributedString(string: title, attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold)])
+            button.widthAnchor.constraint(equalToConstant: ceil(bold.size().width) + 16).isActive = true
+            buttons.append(button)
+            stack.addArrangedSubview(button)
+        }
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        refresh()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func refresh() {
+        for (index, button) in buttons.enumerated() {
+            let isOn = index == selected
+            button.layer?.backgroundColor = isOn ? NSColor.white.withAlphaComponent(0.25).cgColor : NSColor.clear.cgColor
+            button.attributedTitle = NSAttributedString(string: titles[index], attributes: [
+                .foregroundColor: NSColor.white.withAlphaComponent(isOn ? 1 : 0.7),
+                .font: NSFont.systemFont(ofSize: 11, weight: isOn ? .semibold : .regular)
+            ])
+        }
+    }
 }

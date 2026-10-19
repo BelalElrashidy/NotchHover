@@ -10,6 +10,28 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-10-19
+
+Settings, spaced properly.
+
+### Fixed
+- **One set of margins everywhere.** Every pane now keeps a 28pt page margin, 18pt
+  between blocks, 6pt from a heading to its card, and 14pt inside each row; the search
+  field and the sidebar rows share the same edges.
+- **Theme cards** fit three to a row across the page instead of running off its edge,
+  and each preview fills its card without black bands.
+- **The notch stage** fills its width with no seams, and its Resting · Peek · Open switch
+  is smaller and sits on the desktop instead of on the panel.
+- **Layout** draws the panel hanging from a desktop the width of the page, and the
+  widget gallery fills the width in even columns.
+- **Playlists, launcher apps and pinned Shortcuts** are rows like every other setting
+  rather than old-style boxes with their own headings; Shortcuts are picked from the ones
+  you have instead of typed by name.
+- **The Shortcuts table** is a card per group, its columns aligned with the rows.
+- **The shortcut editor** uses the same cards and rows, labels each step's kind, lines
+  every field up, and sizes itself to its steps.
+- Text in Settings fields is centred with room at the sides.
+
 ## [0.13.0] — 2026-10-19
 
 Quick settings in the notch.
@@ -271,7 +293,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.10.0...v0.11.0

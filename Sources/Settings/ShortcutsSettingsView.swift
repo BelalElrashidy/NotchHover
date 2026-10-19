@@ -85,7 +85,8 @@ final class ShortcutsSettingsView: NSView, NSSearchFieldDelegate {
                                         column("In panel", width: 60), column("On", width: 30)])
         stack.spacing = 8
         stack.distribution = .fill
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        // The same insets as the rows in the cards below, so the columns line up.
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
         // The action column takes the slack, so every other column lines up.
         stack.arrangedSubviews.first?.setContentHuggingPriority(.init(1), for: .horizontal)
         stack.arrangedSubviews.first?.setContentCompressionResistancePriority(.init(1), for: .horizontal)
@@ -126,24 +127,25 @@ final class ShortcutsSettingsView: NSView, NSSearchFieldDelegate {
         }
 
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        var lastGroup: String?
+        rows.spacing = 18
         var focusRow: ShortcutRow?
+        // One card per group, like every other pane: Panel, Media, Calls, Yours…
+        var groups: [(String, [NSView])] = []
         for action in actions {
-            if action.group != lastGroup {
-                lastGroup = action.group
-                let label = NSTextField(labelWithString: action.group)
-                label.font = .systemFont(ofSize: 11, weight: .semibold)
-                label.textColor = SettingsKit.theme.secondaryText
-                let wrapper = NSStackView(views: [label])
-                wrapper.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 3, right: 0)
-                rows.addArrangedSubview(wrapper)
-            }
             let custom = CustomActionStore.shared.items.first { "custom.\($0.id.uuidString)" == action.id }
             let row = ShortcutRow(action: action, clashesWith: clashes.contains(action.id) ? clashName(for: action) : nil, custom: custom)
             row.onEdit = { [weak self] in self?.onEditCustom?(custom) }
-            rows.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
             if action.id == focusID { focusRow = row }
+            if groups.last?.0 == action.group {
+                groups[groups.count - 1].1.append(row)
+            } else {
+                groups.append((action.group, [row]))
+            }
+        }
+        for (title, groupRows) in groups {
+            let section = SettingsKit.section(title, rows: groupRows)
+            rows.addArrangedSubview(section)
+            section.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
         }
         if actions.isEmpty {
             let empty = NSTextField(labelWithString: "Nothing matches")
@@ -224,11 +226,11 @@ private final class ShortcutRow: NSView {
         stack.spacing = 8
         stack.distribution = .fill
         stack.alignment = .centerY
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 32),
+            heightAnchor.constraint(equalToConstant: 36),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor)
@@ -383,27 +385,27 @@ final class HotkeyRecorder: NSView {
     }
 }
 
-/// Make or change a shortcut of yours: a name, an icon, and its steps in order.
+/// Make or change a shortcut of yours: a name, an icon, and its steps in order. Built
+/// from the same cards and rows as the rest of Settings, and sized to what it holds.
 final class CustomActionEditor: NSWindowController, NSWindowDelegate {
     var onSave: ((CustomAction) -> Void)?
 
     private var action: CustomAction
-    private let nameField = NSTextField()
-    private let iconPicker: MenuButton
-    private let stepsStack = NSStackView()
-    private var stepFields: [NSTextField?] = []
+    private let isNew: Bool
+    private let content = NSView()
 
     private static let symbols = ["bolt.fill", "magnifyingglass", "link", "briefcase.fill", "terminal", "app", "music.note",
                                   "globe", "doc.text", "star.fill", "hammer.fill", "paperplane.fill"]
 
     init(action: CustomAction?) {
+        isNew = action == nil
         self.action = action ?? CustomAction(id: UUID(), name: "", symbol: "bolt.fill", steps: [.openURL("https://")])
-        iconPicker = MenuButton(titles: Self.symbols)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 420), styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = action == nil ? "New shortcut" : "Edit shortcut"
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
+        window.title = isNew ? "New shortcut" : "Edit shortcut"
         super.init(window: window)
         window.delegate = self
-        build()
+        window.contentView = content
+        rebuild()
     }
 
     @available(*, unavailable)
@@ -411,28 +413,28 @@ final class CustomActionEditor: NSWindowController, NSWindowDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func build() {
+    private func rebuild() {
         let theme = SettingsKit.theme
         window?.appearance = theme.appearance
         window?.backgroundColor = theme.windowBackground
+        content.subviews.forEach { $0.removeFromSuperview() }
 
-        nameField.stringValue = action.name
-        nameField.placeholderString = "Search GitHub"
-        iconPicker.select(Self.symbols.firstIndex(of: action.symbol) ?? 0, notify: false)
+        let name = SettingsKit.field(action.name, placeholder: "Search GitHub", width: 280) { [weak self] in self?.action.name = $0 }
+        let icon = MenuButton(titles: Self.symbols)
+        icon.select(Self.symbols.firstIndex(of: action.symbol) ?? 0, notify: false)
+        icon.onSelect = { [weak self] in self?.action.symbol = Self.symbols[$0] }
 
-        let nameRow = SettingsKit.row("Name", control: { nameField.widthAnchor.constraint(equalToConstant: 260).isActive = true; return nameField }())
-        let iconRow = SettingsKit.row("Icon", detail: "An SF Symbol", control: iconPicker)
+        let details = SettingsKit.section(nil, rows: [
+            SettingsKit.row("Name", control: name),
+            SettingsKit.row("Icon", detail: "An SF Symbol, shown in ⌘K and the shortcuts list", control: icon)
+        ])
 
-        stepsStack.orientation = .vertical
-        stepsStack.alignment = .leading
-        stepsStack.spacing = 6
-        rebuildSteps()
-
-        let addStep = MenuButton(titles: ["+ Add a step", "Open a link", "Open an app…", "Run a Shortcut", "Shell command", "AppleScript", "Type text", "Wait"])
-        addStep.onSelect = { [weak self] index in
-            guard let self, index > 0 else { return }
-            self.commitFields()
-            switch index {
+        var stepRows: [NSView] = action.steps.enumerated().map { index, step in stepRow(step, at: index) }
+        let addStep = MenuButton(titles: ["Add a step", "Open a link", "Open an app…", "Run a Shortcut", "Shell command", "AppleScript", "Type text", "Wait"])
+        addStep.onSelect = { [weak self] choice in
+            guard let self, choice > 0 else { return }
+            self.window?.makeFirstResponder(nil)
+            switch choice {
             case 1: self.action.steps.append(.openURL("https://"))
             case 2: self.pickApp()
             case 3: self.action.steps.append(.runShortcut(""))
@@ -441,82 +443,84 @@ final class CustomActionEditor: NSWindowController, NSWindowDelegate {
             case 6: self.action.steps.append(.typeText(""))
             default: self.action.steps.append(.wait(1))
             }
-            addStep.select(0, notify: false)
-            self.rebuildSteps()
+            self.rebuild()
         }
-
-        let help = NSTextField(wrappingLabelWithString: "Steps run in order. In a link, {query} asks for a word when you run it from ⌘K (a hotkey uses what's copied), and {clipboard} is what's copied. Shell commands run with your login shell's PATH.")
-        help.font = .systemFont(ofSize: 11)
-        help.textColor = theme.tertiaryText
+        stepRows.append(SettingsKit.row(action.steps.isEmpty ? "No steps yet" : "Then…", control: addStep))
+        let steps = SettingsKit.section("Steps", footer: "They run in order. In a link, {query} asks for a word when you run it from ⌘K — a hotkey uses what's copied — and {clipboard} is what's copied. Shell commands see your login shell's PATH.", rows: stepRows)
 
         let cancel = SettingsKit.button("Cancel") { [weak self] in self?.close(saving: false) }
-        let save = SettingsKit.button("Save", prominent: true) { [weak self] in self?.close(saving: true) }
-        let buttons = NSStackView(views: [NSView(), cancel, save])
+        let save = SettingsKit.button(isNew ? "Add shortcut" : "Save", prominent: true) { [weak self] in self?.close(saving: true) }
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let buttons = NSStackView(views: [spacer, cancel, save])
+        buttons.spacing = 8
 
-        let stepsTitle = NSTextField(labelWithString: "Steps")
-        stepsTitle.font = .systemFont(ofSize: 12, weight: .semibold)
-        stepsTitle.textColor = theme.secondaryText
-
-        let stack = NSStackView(views: [SettingsKit.section(nil, rows: [nameRow, iconRow]), stepsTitle, stepsStack, addStep, help, buttons])
+        let stack = NSStackView(views: [details, steps, buttons])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 18, right: 20)
+        stack.spacing = 18
         stack.translatesAutoresizingMaskIntoConstraints = false
-        let content = NSView()
+        [details, steps, buttons].forEach { $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
         content.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: content.topAnchor),
-            buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40),
-            help.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40)
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 22),
+            stack.widthAnchor.constraint(equalToConstant: 552)
         ])
-        window?.contentView = content
+        // The sheet is as tall as what it holds.
+        content.layoutSubtreeIfNeeded()
+        let height = stack.fittingSize.height + 22 + 22
+        window?.setContentSize(NSSize(width: 600, height: height))
     }
 
-    private func rebuildSteps() {
-        stepsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        stepFields = []
-        for (index, step) in action.steps.enumerated() {
-            let icon = NSImageView(image: NSImage(systemSymbolName: step.symbol, accessibilityDescription: nil) ?? NSImage())
-            icon.contentTintColor = SettingsKit.theme.secondaryText
-            let kind = NSTextField(labelWithString: step.kind)
-            kind.font = .systemFont(ofSize: 11)
-            kind.textColor = SettingsKit.theme.secondaryText
-            kind.widthAnchor.constraint(equalToConstant: 84).isActive = true
+    /// A step: its icon and kind, what it does, and a way to take it out.
+    private func stepRow(_ step: CustomAction.Step, at index: Int) -> NSView {
+        let icon = NSImageView(image: NSImage(systemSymbolName: step.symbol, accessibilityDescription: nil) ?? NSImage())
+        icon.contentTintColor = SettingsKit.theme.secondaryText
+        icon.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        let kind = NSTextField(labelWithString: step.kind)
+        kind.font = .systemFont(ofSize: 12)
+        kind.textColor = SettingsKit.theme.secondaryText
+        kind.widthAnchor.constraint(equalToConstant: 92).isActive = true
 
-            var field: NSTextField?
-            var views: [NSView] = [icon, kind]
-            switch step {
-            case .openApp(let path):
-                views.append(NSTextField(labelWithString: URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent))
-            case .wait(let seconds):
-                let input = NSTextField(string: String(seconds))
-                input.widthAnchor.constraint(equalToConstant: 60).isActive = true
-                field = input
-                views.append(input)
-                views.append(NSTextField(labelWithString: "seconds"))
-            default:
-                let input = NSTextField(string: Self.text(of: step))
-                input.placeholderString = Self.placeholder(for: step)
-                input.font = step.kind == "Shell" || step.kind == "AppleScript" ? .monospacedSystemFont(ofSize: 11, weight: .regular) : .systemFont(ofSize: 12)
-                input.widthAnchor.constraint(equalToConstant: 330).isActive = true
-                field = input
-                views.append(input)
+        let value: NSView
+        switch step {
+        case .openApp(let path):
+            let label = NSTextField(labelWithString: URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent)
+            label.font = .systemFont(ofSize: 13)
+            label.textColor = SettingsKit.theme.primaryText
+            value = label
+        case .wait(let seconds):
+            value = SettingsKit.field(String(seconds), placeholder: "1", width: nil) { [weak self] text in
+                self?.action.steps[index] = .wait(Double(text) ?? 1)
             }
-            stepFields.append(field)
-            let remove = SettingsKit.button("×") { [weak self] in
-                guard let self else { return }
-                self.commitFields()
-                self.action.steps.remove(at: index)
-                self.rebuildSteps()
+        default:
+            let field = SettingsKit.field(Self.text(of: step), placeholder: Self.placeholder(for: step), width: nil) { [weak self] text in
+                self?.update(index, with: text)
             }
-            views.append(remove)
-            let row = NSStackView(views: views)
-            row.spacing = 8
-            row.alignment = .centerY
-            stepsStack.addArrangedSubview(row)
+            if case .shell = step { field.font = .monospacedSystemFont(ofSize: 11, weight: .regular) }
+            if case .appleScript = step { field.font = .monospacedSystemFont(ofSize: 11, weight: .regular) }
+            value = field
+        }
+        let remove = SettingsKit.button("Remove") { [weak self] in
+            guard let self else { return }
+            self.window?.makeFirstResponder(nil)
+            self.action.steps.remove(at: index)
+            self.rebuild()
+        }
+        return SettingsKit.fieldRow([icon, kind, value, remove])
+    }
+
+    private func update(_ index: Int, with text: String) {
+        guard action.steps.indices.contains(index) else { return }
+        switch action.steps[index] {
+        case .openURL: action.steps[index] = .openURL(text)
+        case .runShortcut: action.steps[index] = .runShortcut(text)
+        case .shell: action.steps[index] = .shell(text)
+        case .appleScript: action.steps[index] = .appleScript(text)
+        case .typeText: action.steps[index] = .typeText(text)
+        case .wait, .openApp: break
         }
     }
 
@@ -539,43 +543,23 @@ final class CustomActionEditor: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// Text fields hold edits until a step is added, removed, or the shortcut saved.
-    private func commitFields() {
-        for (index, field) in stepFields.enumerated() {
-            guard let field, action.steps.indices.contains(index) else { continue }
-            let value = field.stringValue
-            switch action.steps[index] {
-            case .openURL: action.steps[index] = .openURL(value)
-            case .runShortcut: action.steps[index] = .runShortcut(value)
-            case .shell: action.steps[index] = .shell(value)
-            case .appleScript: action.steps[index] = .appleScript(value)
-            case .typeText: action.steps[index] = .typeText(value)
-            case .wait: action.steps[index] = .wait(Double(value) ?? 1)
-            case .openApp: break
-            }
-        }
-    }
-
     private func pickApp() {
         let panel = NSOpenPanel()
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowedContentTypes = [.application]
         if panel.runModal() == .OK, let url = panel.url {
             action.steps.append(.openApp(url.path))
-            if action.name.isEmpty, nameField.stringValue.isEmpty {
-                nameField.stringValue = "Open " + url.deletingPathExtension().lastPathComponent
-            }
+            if action.name.isEmpty { action.name = "Open " + url.deletingPathExtension().lastPathComponent }
         }
     }
 
     private func close(saving: Bool) {
+        // Ending editing saves the field still being typed in.
+        window?.makeFirstResponder(nil)
         if saving {
-            commitFields()
-            action.name = nameField.stringValue.trimmingCharacters(in: .whitespaces)
-            action.symbol = Self.symbols[max(0, iconPicker.selectedIndex)]
+            action.name = action.name.trimmingCharacters(in: .whitespaces)
             guard action.name.isEmpty == false else {
                 NSSound.beep()
-                window?.makeFirstResponder(nameField)
                 return
             }
             onSave?(action)

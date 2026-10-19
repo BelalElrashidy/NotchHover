@@ -110,19 +110,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     private var shortcutsView: ShortcutsSettingsView?
     private var editor: CustomActionEditor?
 
-    // The sections that edit lists keep their own state between visits.
-    private let playlistsSection = KeyValueSection(
-        title: "Spotify playlists",
-        hint: "Paste a Spotify link or URI — either works",
-        keyPlaceholder: "Name",
-        valuePlaceholder: "https://open.spotify.com/playlist/…"
-    )
-    private let shortcutsSection = SingleFieldSection(
-        title: "macOS Shortcuts",
-        hint: "Names must match the Shortcuts app exactly",
-        placeholder: "Shortcut name"
-    )
-    private let appsSection = AppListSection()
+    /// Every Shortcut in the Shortcuts app, read once, for the Launchers pane's picker.
+    private var installedShortcuts: [String] = []
 
     convenience init() {
         let window = NSWindow(
@@ -203,8 +192,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             sidebar.widthAnchor.constraint(equalToConstant: 224),
             // Room for the traffic lights above the search field.
             search.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: 44),
-            search.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 12),
-            search.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -12),
+            // The same edges as the rows under it.
+            search.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 10),
+            search.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -10),
             sidebarStack.topAnchor.constraint(equalTo: search.bottomAnchor, constant: 12),
             sidebarStack.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 10),
             sidebarStack.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -10),
@@ -337,25 +327,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     // MARK: Appearance
 
     private func appearancePane() -> NSView {
-        let cards = NSStackView()
-        cards.spacing = 10
-        for candidate in Theme.all {
+        let cards = Theme.all.map { candidate -> NSView in
             let card = ThemeCard(theme: candidate, isSelected: candidate.id == theme.id)
             card.onPick = { [weak self] in
                 UserDefaults.standard.set(candidate.id, forKey: ThemeStore.defaultsKey)
                 self?.saved()
                 self?.applyTheme()
             }
-            cards.addArrangedSubview(card)
+            return card
         }
-        let themes = NSScrollView()
-        themes.documentView = cards
-        themes.drawsBackground = false
-        themes.hasHorizontalScroller = false
-        cards.translatesAutoresizingMaskIntoConstraints = false
-        cards.topAnchor.constraint(equalTo: themes.contentView.topAnchor).isActive = true
-        cards.leadingAnchor.constraint(equalTo: themes.contentView.leadingAnchor).isActive = true
-        themes.heightAnchor.constraint(equalToConstant: 92).isActive = true
+        // Three to a row, filling the page: a picture the shape of the panel, and its name.
+        let themes = EqualGrid(items: cards, columns: 3, spacing: 12) { width in width * ThemeCard.aspect + 24 }
 
         let resting = ["always", "playing", "never"]
         let restingIndex = resting.firstIndex(of: UserDefaults.standard.string(forKey: "RestingBar") ?? "playing") ?? 1
@@ -410,22 +392,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             self?.select(.layout)
         }
 
-        let gallery = NSStackView()
-        gallery.spacing = 8
         let unused = PanelWidget.allCases.filter { PanelLayoutStore.widgets.contains($0) == false }
-        for widget in unused {
+        let tiles = unused.map { widget -> NSView in
             let tile = WidgetGalleryTile(widget: widget)
             tile.onAdd = { canvas.append(widget) }
-            gallery.addArrangedSubview(tile)
+            return tile
         }
-        let galleryScroll = NSScrollView()
-        galleryScroll.documentView = gallery
-        galleryScroll.drawsBackground = false
-        galleryScroll.hasHorizontalScroller = false
-        gallery.translatesAutoresizingMaskIntoConstraints = false
-        gallery.topAnchor.constraint(equalTo: galleryScroll.contentView.topAnchor).isActive = true
-        gallery.leadingAnchor.constraint(equalTo: galleryScroll.contentView.leadingAnchor).isActive = true
-        galleryScroll.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        let gallery = EqualGrid(items: tiles, minItemWidth: 100, spacing: 10) { _ in 60 }
 
         func size(_ title: String, _ detail: String?, key: String, value: CGFloat, range: ClosedRange<Double>, unit: String, scale: Double = 1) -> NSView {
             SettingsKit.row(title, detail: detail, control: SettingsKit.slider(value: Double(value) * scale, range: range, format: { "\(Int($0.rounded()))\(unit)" }) { [weak self] newValue in
@@ -438,7 +411,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         return page([
             SettingsKit.header("Layout", "Home's widgets, as they sit in the panel. Drag one sideways to move it, hover for × to take it out, drag one in from below."),
             canvas,
-            labelled(unused.isEmpty ? "Every widget is in the panel" : "More widgets", galleryScroll),
+            labelled(unused.isEmpty ? "Every widget is in the panel" : "More widgets", gallery),
             SettingsKit.section("Size", footer: "The panel fits its widgets unless the width is fixed.", rows: [
                 SettingsKit.popup("Panel width", options: ["Fits the widgets", "Fixed"], selected: PanelSizes.usesAutomaticWidth ? 0 : 1) { [weak self] index in
                     UserDefaults.standard.set(index == 0 ? "auto" : "fixed", forKey: PanelSizes.Key.widthMode)
@@ -471,14 +444,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
                                    : "Not available on this version of macOS.",
                                    isOn: LockScreenMusic.isEnabled) { LockScreenMusic.isEnabled = $0 }
             ]),
-            SettingsKit.section("Playlists", footer: "Pinned playlists play from the notch's Playlists card.", rows: [inset(playlistsSection)])
+            SettingsKit.section("Playlists", footer: "Paste a Spotify link or URI. Pinned playlists play from the notch's Playlists card.", rows: playlistRows())
         ])
-    }
-
-    private func inset(_ view: NSView) -> NSView {
-        let box = NSStackView(views: [view])
-        box.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
-        return box
     }
 
     // MARK: Calendar and calls
@@ -541,8 +508,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     private func launchersPane() -> NSView {
         page([
             SettingsKit.header("Launchers", "Apps and macOS Shortcuts one click away in the notch. For keys and your own actions, see Shortcuts."),
-            SettingsKit.section(nil, rows: [inset(appsSection)]),
-            SettingsKit.section(nil, rows: [inset(shortcutsSection)])
+            SettingsKit.section("Apps", footer: "Up to eight, in this order.", rows: appRows()),
+            SettingsKit.section("macOS Shortcuts", footer: "Run from the notch's Shortcuts card.", rows: shortcutRows())
         ])
     }
 
@@ -569,7 +536,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
 
     private func gesturesPane() -> NSView {
         page([
-            SettingsKit.header("Gestures and haptics", nil),
+            SettingsKit.header("Gestures and haptics", "Two fingers on the trackpad, and a tap back when something happens."),
             SettingsKit.section(nil, rows: [
                 SettingsKit.toggle("Trackpad gestures", detail: "Two fingers down on the notch to open it, up to close, sideways to change tab — or, on the resting bar, the track.",
                                    isOn: SwipeRecognizer.isEnabled) { UserDefaults.standard.set($0, forKey: "TrackpadGestures") },
@@ -663,34 +630,106 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     // MARK: - Saving
 
     private func load() {
-        playlistsSection.entries = (UserDefaults.standard.stringArray(forKey: PlaylistsPaneView.defaultsKey) ?? [])
+        applyTheme()
+        if installedShortcuts.isEmpty {
+            ShortcutsRunner.allNames { [weak self] names in
+                self?.installedShortcuts = names
+                if self?.selected == .launchers { self?.select(.launchers) }
+            }
+        }
+    }
+
+    // MARK: - Lists
+
+    /// Name and link for each pinned playlist, saved as you leave a field.
+    private func playlistRows() -> [NSView] {
+        var entries: [(name: String, link: String)] = (UserDefaults.standard.stringArray(forKey: PlaylistsPaneView.defaultsKey) ?? [])
             .compactMap { entry in
                 let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
                 return parts.count == 2 ? (parts[0], parts[1]) : nil
             }
-        playlistsSection.reloadRows()
-        playlistsSection.onChange = { [weak self] in self?.savePlaylists() }
-        shortcutsSection.entries = UserDefaults.standard.stringArray(forKey: ShortcutsRunner.defaultsKey) ?? []
-        shortcutsSection.reloadRows()
-        shortcutsSection.onChange = { [weak self] in self?.saveShortcuts() }
-        appsSection.reload()
-        appsSection.onChange = { [weak self] in self?.saved() }
-        applyTheme()
+        func store() {
+            let lines = entries.compactMap { entry -> String? in
+                guard entry.name.isEmpty == false, let uri = SpotifyURI.normalize(entry.link) else { return nil }
+                return "\(entry.name)|\(uri)"
+            }
+            UserDefaults.standard.set(lines, forKey: PlaylistsPaneView.defaultsKey)
+            saved()
+        }
+        var rows: [NSView] = entries.enumerated().map { index, entry in
+            let name = SettingsKit.field(entry.name, placeholder: "Name", width: 150) { entries[index].name = $0; store() }
+            let link = SettingsKit.field(entry.link, placeholder: "https://open.spotify.com/playlist/…", width: nil) { entries[index].link = $0; store() }
+            let remove = SettingsKit.button("Remove") { [weak self] in
+                entries.remove(at: index)
+                store()
+                self?.select(.music)
+            }
+            return SettingsKit.fieldRow([name, link, remove])
+        }
+        rows.append(SettingsKit.row(entries.isEmpty ? "No playlists yet" : "Another playlist",
+                                    control: SettingsKit.button("Add playlist") { [weak self] in
+            entries.append(("", ""))
+            UserDefaults.standard.set(entries.map { "\($0.name)|\($0.link)" }, forKey: PlaylistsPaneView.defaultsKey)
+            self?.select(.music)
+        }))
+        return rows
     }
 
-    private func savePlaylists() {
-        playlistsSection.commitEdits()
-        let playlists = playlistsSection.entries
-            .filter { $0.key.isEmpty == false && $0.value.isEmpty == false }
-            .compactMap { entry -> String? in SpotifyURI.normalize(entry.value).map { "\(entry.key)|\($0)" } }
-        UserDefaults.standard.set(playlists, forKey: PlaylistsPaneView.defaultsKey)
-        saved()
+    /// The launcher's apps, each with its icon, and a picker to add one.
+    private func appRows() -> [NSView] {
+        var identifiers = UserDefaults.standard.stringArray(forKey: AppShortcutStore.defaultsKey)
+            ?? AppShortcutStore.shortcuts().map(\.bundleIdentifier)
+        func store() {
+            UserDefaults.standard.set(identifiers, forKey: AppShortcutStore.defaultsKey)
+            saved()
+            select(.launchers)
+        }
+        var rows: [NSView] = identifiers.enumerated().map { index, identifier in
+            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier)
+            let name = url.map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? identifier
+            let remove = SettingsKit.button("Remove") {
+                identifiers.remove(at: index)
+                store()
+            }
+            return SettingsKit.iconRow(url.map { NSWorkspace.shared.icon(forFile: $0.path) }, title: name, control: remove)
+        }
+        rows.append(SettingsKit.row(identifiers.isEmpty ? "No apps yet" : "Another app", control: SettingsKit.button("Add app…") {
+            let panel = NSOpenPanel()
+            panel.directoryURL = URL(fileURLWithPath: "/Applications")
+            panel.allowedContentTypes = [.application]
+            guard panel.runModal() == .OK, let url = panel.url, let identifier = Bundle(url: url)?.bundleIdentifier,
+                  identifiers.contains(identifier) == false else { return }
+            identifiers.append(identifier)
+            store()
+        }))
+        return rows
     }
 
-    private func saveShortcuts() {
-        shortcutsSection.commitEdits()
-        UserDefaults.standard.set(shortcutsSection.entries.filter { $0.isEmpty == false }, forKey: ShortcutsRunner.defaultsKey)
-        saved()
+    /// Pinned macOS Shortcuts, chosen from the ones you have.
+    private func shortcutRows() -> [NSView] {
+        var names = UserDefaults.standard.stringArray(forKey: ShortcutsRunner.defaultsKey) ?? []
+        func store() {
+            UserDefaults.standard.set(names, forKey: ShortcutsRunner.defaultsKey)
+            saved()
+            select(.launchers)
+        }
+        var rows: [NSView] = names.enumerated().map { index, name in
+            SettingsKit.iconRow(NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil), title: name,
+                                control: SettingsKit.button("Remove") {
+                names.remove(at: index)
+                store()
+            })
+        }
+        let available = installedShortcuts.filter { names.contains($0) == false }
+        let picker = MenuButton(titles: ["Add a Shortcut"] + available)
+        picker.onSelect = { index in
+            guard index > 0 else { return }
+            names.append(available[index - 1])
+            store()
+        }
+        rows.append(SettingsKit.row(installedShortcuts.isEmpty ? "No Shortcuts found in the Shortcuts app" : "Pin one",
+                                    control: installedShortcuts.isEmpty ? nil : picker))
+        return rows
     }
 
     /// Every control calls this the moment it changes; there is no Save button.
@@ -699,9 +738,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     }
 
     func windowWillClose(_ notification: Notification) {
+        // Fields save as they lose focus; ending editing here saves the one in use.
         window?.makeFirstResponder(nil)
-        savePlaylists()
-        saveShortcuts()
         SettingsStyle.themeOverride = nil
     }
 
@@ -736,6 +774,30 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
                 report("wrote \(path)")
             }
         }
+        // The shortcut editor sheet, with a few steps in it.
+        let editor = CustomActionEditor(action: CustomAction(id: UUID(), name: "Start work", symbol: "briefcase.fill", steps: [
+            .openApp("/System/Applications/Notes.app"), .openURL("https://github.com/search?q={query}"), .shell("cd ~/Coding && git pull"), .wait(1)
+        ]))
+        if let content = editor.window?.contentView {
+            editor.window?.layoutIfNeeded()
+            content.layoutSubtreeIfNeeded()
+            if let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
+                let image = NSImage(size: content.bounds.size)
+                content.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    content.cacheDisplay(in: content.bounds, to: rep)
+                    image.lockFocus()
+                    theme.windowBackground.setFill()
+                    NSRect(origin: .zero, size: content.bounds.size).fill()
+                    rep.draw(in: NSRect(origin: .zero, size: content.bounds.size))
+                    image.unlockFocus()
+                }
+                if let tiff = image.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? png.write(to: URL(fileURLWithPath: NSTemporaryDirectory() + "notchhover-settings-editor.png"))
+                    report("wrote editor")
+                }
+            }
+        }
+
         search.stringValue = "lyrics"
         rebuildSidebar()
         report("search \"lyrics\" finds: \(sidebarRows.keys.map(\.title).sorted().joined(separator: ", "))")
@@ -806,11 +868,17 @@ private final class SidebarRow: NSView {
 private final class ThemeCard: NSView {
     var onPick: (() -> Void)?
 
+    /// Height over width of the pictures, so the frame fits them with no bands.
+    static let aspect: CGFloat = {
+        guard let sample = PreviewRenderer.snapshot(theme: Theme.all[0], width: 150), sample.size.width > 0 else { return 0.3 }
+        return sample.size.height / sample.size.width
+    }()
+
     init(theme candidate: Theme, isSelected: Bool) {
         super.init(frame: .zero)
         let theme = SettingsKit.theme
         let image = NSImageView(image: PreviewRenderer.snapshot(theme: candidate, width: 150) ?? NSImage())
-        image.imageScaling = .scaleProportionallyUpOrDown
+        image.imageScaling = .scaleAxesIndependently
         image.wantsLayer = true
         image.layer?.cornerRadius = 8
         image.layer?.masksToBounds = true
@@ -824,9 +892,10 @@ private final class ThemeCard: NSView {
         stack.spacing = 5
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        stack.alignment = .centerX
         NSLayoutConstraint.activate([
-            image.widthAnchor.constraint(equalToConstant: 128),
-            image.heightAnchor.constraint(equalToConstant: 64),
+            image.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            image.heightAnchor.constraint(equalTo: image.widthAnchor, multiplier: Self.aspect),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor),

@@ -158,6 +158,62 @@ enum SettingsKit {
         return stack
     }
 
+    /// A text field in the theme's colours that saves when you leave it or press ↩.
+    static func field(_ value: String, placeholder: String, width: CGFloat?, onCommit: @escaping (String) -> Void) -> NSTextField {
+        let field = CommitField(string: value)
+        field.onCommit = onCommit
+        field.placeholderString = placeholder
+        field.font = .systemFont(ofSize: 12)
+        field.textColor = theme.primaryText
+        // The fill is the layer's, so it covers the whole rounded field and not just the
+        // inset text area the centred cell draws in.
+        field.drawsBackground = false
+        field.isBordered = false
+        field.focusRingType = .none
+        field.wantsLayer = true
+        field.layer?.backgroundColor = theme.controlFill.cgColor
+        field.layer?.cornerRadius = 6
+        field.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        if let width { field.widthAnchor.constraint(equalToConstant: width).isActive = true }
+        return field
+    }
+
+    /// Fields side by side across a row, with the row's own padding; the one without a
+    /// fixed width takes the rest.
+    static func fieldRow(_ views: [NSView]) -> NSView {
+        let stack = NSStackView(views: views)
+        stack.spacing = 8
+        stack.alignment = .centerY
+        stack.distribution = .fill
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        for view in views where view.constraints.contains(where: { $0.firstAttribute == .width }) == false {
+            view.setContentHuggingPriority(.init(1), for: .horizontal)
+            view.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+        }
+        return stack
+    }
+
+    /// An item with its icon: an app, a Shortcut.
+    static func iconRow(_ icon: NSImage?, title: String, control: NSView?) -> NSView {
+        let image = NSImageView(image: icon ?? NSImage())
+        image.imageScaling = .scaleProportionallyUpOrDown
+        image.contentTintColor = theme.secondaryText
+        image.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        image.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = theme.primaryText
+        label.lineBreakMode = .byTruncatingTail
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let stack = NSStackView(views: [image, label, spacer] + (control.map { [$0] } ?? []))
+        stack.spacing = 10
+        stack.alignment = .centerY
+        stack.distribution = .fill
+        stack.edgeInsets = NSEdgeInsets(top: 8, left: 14, bottom: 8, right: 14)
+        return stack
+    }
+
     /// A status dot and a word: granted, off, not asked yet.
     static func status(_ text: String, good: Bool?) -> NSView {
         let dot = NSView()
@@ -334,5 +390,77 @@ final class SettingsRowView: NSView {
             needsUpdateConstraints = true
         }
         super.layout()
+    }
+}
+
+/// Items in equal columns that fill the width and wrap onto new rows — theme cards, the
+/// widget gallery. A stack of fixed-width items either overflowed the page or stopped
+/// short of its edge.
+final class EqualGrid: NSView {
+    private let items: [NSView]
+    private let columns: Int?
+    private let minItemWidth: CGFloat
+    private let spacing: CGFloat
+    private let itemHeight: (CGFloat) -> CGFloat
+    private lazy var height: NSLayoutConstraint = heightAnchor.constraint(equalToConstant: 0)
+
+    override var isFlipped: Bool { true }
+
+    /// `columns` fixes the count; otherwise as many as fit at `minItemWidth`.
+    /// `itemHeight` gets each item's width.
+    init(items: [NSView], columns: Int? = nil, minItemWidth: CGFloat = 100, spacing: CGFloat = 10,
+         itemHeight: @escaping (CGFloat) -> CGFloat) {
+        self.items = items
+        self.columns = columns
+        self.minItemWidth = minItemWidth
+        self.spacing = spacing
+        self.itemHeight = itemHeight
+        super.init(frame: .zero)
+        items.forEach(addSubview)
+        height.isActive = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        guard items.isEmpty == false, bounds.width > 0 else { return }
+        let count = columns ?? max(1, Int((bounds.width + spacing) / (minItemWidth + spacing)))
+        let width = (bounds.width - spacing * CGFloat(count - 1)) / CGFloat(count)
+        let rowHeight = itemHeight(width)
+        for (index, item) in items.enumerated() {
+            let row = index / count, column = index % count
+            item.frame = CGRect(x: CGFloat(column) * (width + spacing), y: CGFloat(row) * (rowHeight + spacing),
+                                width: width, height: rowHeight)
+        }
+        let rows = (items.count + count - 1) / count
+        let total = CGFloat(rows) * rowHeight + CGFloat(max(0, rows - 1)) * spacing
+        if abs(height.constant - total) > 0.5 { height.constant = total }
+    }
+}
+
+/// A text field that reports its value when editing ends.
+final class CommitField: NSTextField, NSTextFieldDelegate {
+    var onCommit: ((String) -> Void)?
+
+    /// Text centred in the field with room at the sides, not pinned to its top-left.
+    override class var cellClass: AnyClass? {
+        get { CenteredTextFieldCell.self }
+        set {}
+    }
+
+    convenience init(string: String) {
+        self.init(frame: .zero)
+        stringValue = string
+        delegate = self
+        cell?.wraps = false
+        cell?.isScrollable = true
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        onCommit?(stringValue)
     }
 }
