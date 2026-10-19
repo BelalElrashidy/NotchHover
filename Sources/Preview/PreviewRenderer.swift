@@ -181,6 +181,22 @@ enum PreviewRenderer {
         }
         CalendarPaneView.previewEvents = nil
 
+        // The ⌘K list, with a few built-ins and two of "yours".
+        func sample(_ id: String, _ title: String, _ group: String, _ symbol: String, _ key: KeyCombo?, panel: String? = nil) -> NotchAction {
+            NotchAction(id: id, title: title, group: group, symbol: symbol, defaultHotkey: key, panelKeys: panel,
+                        isCustom: false, argumentPrompt: nil, run: { _ in })
+        }
+        CustomActionStore.shared.loadSample([
+            CustomAction(id: UUID(), name: "Search GitHub", symbol: "magnifyingglass", steps: [.openURL("https://github.com/search?q={query}")]),
+            CustomAction(id: UUID(), name: "Start work", symbol: "briefcase.fill", steps: [.openApp("/Applications/Xcode.app"), .runShortcut("Work Focus")])
+        ])
+        ActionRegistry.shared.register([
+            sample("open.home", "Open Home", "Panel", "house.fill", .controlOption(4, "H"), panel: "⌘1"),
+            sample("open.clipboard", "Open Clipboard", "Panel", "doc.on.clipboard.fill", .controlOption(9, "V"), panel: "⌘4"),
+            sample("media.playPause", "Play or pause", "Media", "playpause.fill", nil, panel: "Space"),
+            sample("call.mute", "Mute the call, or the mic", "Calls", "mic.slash.fill", .controlOption(46, "M"), panel: "⌘⇧M"),
+            sample("screenshot.area", "Screenshot an area", "Screenshots", "crop", .controlOption(21, "4"))
+        ])
         write(named: "expanded-shortcuts", directory: directory) { view in
             view.renderNowPlaying(.track(track))
             view.selectTabForPreview(.home)

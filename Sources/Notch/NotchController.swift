@@ -1131,6 +1131,11 @@ final class NotchController {
         }
     }
 
+    /// Play, pause and skip from a shortcut, without the panel.
+    func performMedia(_ action: MediaAction) {
+        perform(action)
+    }
+
     private func perform(_ action: MediaAction) {
         mediaController.control(action) { [weak self] result in
             if case .failure(let error) = result {

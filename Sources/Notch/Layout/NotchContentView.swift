@@ -168,7 +168,28 @@ final class NotchContentView: NSView {
     )
     private let paneContainer = NSView()
     /// ⌘/ — every shortcut, over the pane.
-    private lazy var shortcutSheet = ShortcutSheetView()
+    private lazy var palette: CommandPaletteView = {
+        let palette = CommandPaletteView()
+        palette.onClose = { [weak self] in self?.setShortcutSheetVisible(false) }
+        palette.onEdit = { action in
+            NotificationCenter.default.post(name: .notchHoverOpenSettings, object: action.id)
+        }
+        palette.onRun = { [weak self] action, argument in
+            guard let self else { return }
+            self.setShortcutSheetVisible(false)
+            // Opening a view happens here; anything else waits for the panel to go, so
+            // a screenshot or typed text doesn't land on it.
+            if action.id.hasPrefix("open.") {
+                ActionRegistry.shared.run(action.id, argument: argument)
+            } else {
+                self.onDismiss?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    ActionRegistry.shared.run(action.id, argument: argument)
+                }
+            }
+        }
+        return palette
+    }()
     private let dropZones = DropZonesView()
     /// Which view the panel is showing.
     private(set) var selectedTab: PanelTab = .home
@@ -482,8 +503,8 @@ final class NotchContentView: NSView {
         }
         let code = Key(rawValue: event.keyCode)
 
-        // The sheet is the one thing Esc closes before the panel.
-        if code == .escape, shortcutSheet.superview != nil {
+        // The ⌘K list is the one thing Esc closes before the panel.
+        if code == .escape, palette.superview != nil {
             setShortcutSheetVisible(false)
             return true
         }
@@ -497,8 +518,11 @@ final class NotchContentView: NSView {
                 show(tab)
                 if tab == .clipboard { DispatchQueue.main.async { [weak self] in self?.clipboardPane.focus() } }
                 return true
-            case "/":
-                setShortcutSheetVisible(shortcutSheet.superview == nil)
+            case "/", "k":
+                setShortcutSheetVisible(palette.superview == nil)
+                return true
+            case "e" where palette.superview != nil:
+                palette.editSelected()
                 return true
             case "w":
                 onDismiss?()
@@ -568,7 +592,7 @@ final class NotchContentView: NSView {
         }
     }
 
-    var isShowingShortcuts: Bool { shortcutSheet.superview != nil }
+    var isShowingShortcuts: Bool { palette.superview != nil }
 
     /// Preview hook: the peek, optionally with content the preview can't get from the
     /// calendar or a player.
@@ -611,16 +635,20 @@ final class NotchContentView: NSView {
         if direction > 0, SystemControls.isMuted() { SystemControls.setMuted(false) }
     }
 
+    /// ⌘K and ⌘/: the list of actions over the panel's content.
     private func setShortcutSheetVisible(_ visible: Bool) {
-        guard visible != (shortcutSheet.superview != nil) else { return }
+        guard visible != (palette.superview != nil) else { return }
         // The pane underneath is hidden rather than covered: nothing reads through.
         paneContainer.isHidden = visible
         if visible {
-            shortcutSheet.frame = detailContainer.frame
-            shortcutSheet.autoresizingMask = [.width, .height]
-            expandedContent.addSubview(shortcutSheet)
+            palette.frame = detailContainer.frame
+            palette.autoresizingMask = [.width, .height]
+            expandedContent.addSubview(palette)
+            // Rows are built for the width they'll have.
+            palette.layoutSubtreeIfNeeded()
+            palette.begin()
         } else {
-            shortcutSheet.removeFromSuperview()
+            palette.removeFromSuperview()
         }
     }
 

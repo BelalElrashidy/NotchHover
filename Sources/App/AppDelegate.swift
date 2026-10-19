@@ -33,29 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         ClipboardHistory.shared.start()
 
-        // ⌃⌥ is NotchHover's prefix everywhere: H for Home, S the Shelf, N a note,
-        // V the clipboard. Each opens its view or, pressed again, closes the panel.
-        // ⌃⌥V rather than ⌥⌘V, which Finder uses to move files; nothing on ⌃⌥Space,
-        // which macOS gives to switching input sources.
-        let hotKeys: [(Int, PanelTab)] = [
-            (kVK_ANSI_H, .home), (kVK_ANSI_S, .shelf), (kVK_ANSI_N, .notes), (kVK_ANSI_V, .clipboard)
-        ]
-        for (keyCode, tab) in hotKeys {
-            HotKeys.shared.register(keyCode: keyCode, modifiers: controlKey | optionKey) { [weak self] in
-                self?.notchController?.toggle(tab)
-            }
-        }
-        // ⌃⌥M mutes the call you're on — or, with no call, the Mac's microphone.
-        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: controlKey | optionKey) {
-            MeetingControls.shared.toggleMute()
-        }
+        registerActions()
         MeetingControls.shared.start()
         ScreenshotStore.shared.onNew = { [weak self] url in self?.notchController?.showScreenshot(url) }
         ScreenshotStore.shared.start()
-        // ⌃⌥4 takes an area, like ⇧⌘4 but straight into the notch's flow.
-        HotKeys.shared.register(keyCode: kVK_ANSI_4, modifiers: controlKey | optionKey) { [weak self] in
-            self?.notchController?.capture(.area)
-        }
         FileActionRunner.onReport = { [weak activityCenter] symbol, text in
             activityCenter?.post(.status(symbol: symbol, text: text))
         }
@@ -162,6 +143,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsController = SettingsWindowController()
         }
         settingsController?.show()
+    }
+
+    /// Everything NotchHover can do by name — for the ⌘K list, the shortcuts table in
+    /// Settings, and global hotkeys. ⌃⌥ is NotchHover's prefix: H Home, S the Shelf, N a
+    /// note, V the clipboard, M mute, 4 a screenshot. ⌃⌥V rather than ⌥⌘V, which Finder
+    /// uses to move files; nothing on ⌃⌥Space, which macOS gives to input sources.
+    private func registerActions() {
+        func open(_ tab: PanelTab, _ key: Int, _ letter: String, panel: String?) -> NotchAction {
+            NotchAction(id: "open.\(tab)", title: "Open \(tab.title)", group: "Panel", symbol: tab.symbol,
+                        defaultHotkey: key < 0 ? nil : .controlOption(key, letter), panelKeys: panel, isCustom: false,
+                        argumentPrompt: nil, run: { [weak self] _ in self?.notchController?.toggle(tab) })
+        }
+        func action(_ id: String, _ title: String, _ group: String, _ symbol: String, hotkey: KeyCombo? = nil,
+                    panel: String? = nil, _ run: @escaping () -> Void) -> NotchAction {
+            NotchAction(id: id, title: title, group: group, symbol: symbol, defaultHotkey: hotkey, panelKeys: panel,
+                        isCustom: false, argumentPrompt: nil, run: { _ in run() })
+        }
+        ActionRegistry.shared.register([
+            open(.home, kVK_ANSI_H, "H", panel: "⌘1"),
+            open(.shelf, kVK_ANSI_S, "S", panel: "⌘2"),
+            open(.notes, kVK_ANSI_N, "N", panel: "⌘3"),
+            open(.clipboard, kVK_ANSI_V, "V", panel: "⌘4"),
+            open(.screenshots, -1, "", panel: "⌘6"),
+            open(.calendar, -1, "", panel: nil),
+            open(.mirror, -1, "", panel: "⌘5"),
+            action("media.playPause", "Play or pause", "Media", "playpause.fill", panel: "Space") { [weak self] in
+                self?.notchController?.performMedia(.playPause)
+            },
+            action("media.next", "Next track", "Media", "forward.fill", panel: "⌘→") { [weak self] in
+                self?.notchController?.performMedia(.nextTrack)
+            },
+            action("media.previous", "Previous track", "Media", "backward.fill", panel: "⌘←") { [weak self] in
+                self?.notchController?.performMedia(.previousTrack)
+            },
+            action("call.mute", "Mute the call, or the mic", "Calls", "mic.slash.fill",
+                   hotkey: .controlOption(kVK_ANSI_M, "M"), panel: "⌘⇧M") {
+                MeetingControls.shared.toggleMute()
+            },
+            action("call.camera", "Camera on or off", "Calls", "video.slash.fill") { MeetingControls.shared.toggleCamera() },
+            action("call.join", "Join the next call", "Calls", "video.fill", panel: "⌘J") {
+                CalendarService.shared.joinableMeeting()?.link.open()
+            },
+            action("screenshot.area", "Screenshot an area", "Screenshots", "crop", hotkey: .controlOption(kVK_ANSI_4, "4")) { [weak self] in
+                self?.notchController?.capture(.area)
+            },
+            action("screenshot.window", "Screenshot a window", "Screenshots", "macwindow") { [weak self] in
+                self?.notchController?.capture(.window)
+            },
+            action("screenshot.screen", "Screenshot the screen", "Screenshots", "display") { [weak self] in
+                self?.notchController?.capture(.screen)
+            },
+            action("clipboard.clear", "Clear clipboard history", "Clipboard", "trash") { ClipboardHistory.shared.clear() },
+            action("app.settings", "Open Settings", "NotchHover", "gearshape", panel: "⌘,") {
+                NotificationCenter.default.post(name: .notchHoverOpenSettings, object: nil)
+            }
+        ])
     }
 
     func applicationWillTerminate(_ notification: Notification) {
