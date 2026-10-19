@@ -10,6 +10,17 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.2] — 2026-10-20
+
+A Settings window you can read.
+
+### Fixed
+- **Settings opens much bigger** — about three quarters of the screen, up to
+  1240 × 900 — instead of a fixed 880 × 620, so most panes fit without scrolling.
+- **It remembers its size and place.** Resize or move it and it opens that way next time.
+- On a very wide window, the settings stay a readable width, centred, instead of
+  stretching each switch a whole screen away from its name.
+
 ## [0.14.1] — 2026-10-20
 
 A meter worth looking at.
@@ -353,7 +364,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...v0.13.2

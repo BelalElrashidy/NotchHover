@@ -113,9 +113,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
     /// Every Shortcut in the Shortcuts app, read once, for the Launchers pane's picker.
     private var installedShortcuts: [String] = []
 
+    /// Room to read a pane without scrolling for most of them: most of the screen,
+    /// short of filling it, and no smaller than the panes were laid out for.
+    private static var defaultSize: NSSize {
+        let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
+        return NSSize(width: min(1240, max(960, visible.width * 0.72)),
+                      height: min(900, max(680, visible.height * 0.86)))
+    }
+
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 880, height: 620),
+            contentRect: NSRect(origin: .zero, size: Self.defaultSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -123,12 +131,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         window.title = "NotchHover Settings"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 760, height: 520)
+        window.minSize = NSSize(width: 860, height: 600)
         window.isReleasedWhenClosed = false
         self.init(window: window)
         window.delegate = self
         window.contentView = makeContent()
         window.center()
+        // However you last left it, it opens that way again.
+        window.setFrameAutosaveName("NotchHoverSettings")
         load()
     }
 
@@ -290,13 +300,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         pane.translatesAutoresizingMaskIntoConstraints = false
         paneDocument.addSubview(pane)
         NSLayoutConstraint.activate([
-            pane.leadingAnchor.constraint(equalTo: paneDocument.leadingAnchor, constant: 28),
-            pane.trailingAnchor.constraint(equalTo: paneDocument.trailingAnchor, constant: -28),
+            // A wide window keeps rows a readable width, centred, rather than stretching a
+            // switch a whole screen away from its label.
+            pane.leadingAnchor.constraint(greaterThanOrEqualTo: paneDocument.leadingAnchor, constant: 28),
+            pane.centerXAnchor.constraint(equalTo: paneDocument.centerXAnchor),
+            pane.widthAnchor.constraint(lessThanOrEqualToConstant: Self.maxPaneWidth),
+            {
+                let fill = pane.leadingAnchor.constraint(equalTo: paneDocument.leadingAnchor, constant: 28)
+                fill.priority = .defaultHigh
+                return fill
+            }(),
             pane.topAnchor.constraint(equalTo: paneDocument.topAnchor, constant: category.hasStage ? 18 : 44),
             pane.bottomAnchor.constraint(equalTo: paneDocument.bottomAnchor, constant: -28)
         ])
         paneScroll.contentView.scroll(to: .zero)
     }
+
+    private static let maxPaneWidth: CGFloat = 900
 
     private func page(_ views: [NSView]) -> NSView {
         let stack = NSStackView(views: views)
