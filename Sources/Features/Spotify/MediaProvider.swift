@@ -12,8 +12,11 @@ protocol MediaProvider: AnyObject {
 }
 
 extension MediaProvider {
+    /// Installed where apps are installed. An updater's own copy in Application
+    /// Support — Microsoft's keeps a whole Edge there — doesn't count.
     var isInstalled: Bool {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) != nil
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else { return false }
+        return url.path.contains("/Application Support/") == false
     }
 
     var isRunning: Bool {

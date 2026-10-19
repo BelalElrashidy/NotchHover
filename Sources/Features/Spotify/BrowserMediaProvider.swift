@@ -233,26 +233,25 @@ final class BrowserMediaProvider: MediaProvider {
         try AppleScript.run(tabScript(javascript, in: reference)).stringValue
     }
 
-    private func tabScript(_ javascript: String, in reference: TabReference) -> String {
+    /// `timeout` is short on purpose: a tab the browser has put to sleep doesn't refuse
+    /// a script, it waits — Arc's did, for as long as it was given.
+    private func tabScript(_ javascript: String, in reference: TabReference, timeout: Int = 2) -> String {
         let tabSpecifier: String
-        let addressProperty: String
         let runCommand: String
         switch family {
         case .safari:
             tabSpecifier = "tab \(reference.tab) of window id \(reference.window)"
-            addressProperty = "URL of theTab"
             runCommand = "do JavaScript \(AppleScript.quoted(javascript)) in theTab"
         case .chromium:
             tabSpecifier = "tab id \(Self.literal(reference.tab)) of window id \(Self.literal(reference.window))"
-            addressProperty = "URL of theTab"
             runCommand = "execute theTab javascript \(AppleScript.quoted(javascript))"
         }
         return """
         if application id "\(bundleIdentifier)" is not running then return ""
-        with timeout of 3 seconds
+        with timeout of \(timeout) seconds
             tell application id "\(bundleIdentifier)"
                 set theTab to \(tabSpecifier)
-                if (\(addressProperty)) is not \(AppleScript.quoted(reference.address)) then return ""
+                if (URL of theTab) is not \(AppleScript.quoted(reference.address)) then return ""
                 set reply to \(runCommand)
                 if reply is missing value then return ""
                 return reply
@@ -261,94 +260,123 @@ final class BrowserMediaProvider: MediaProvider {
         """
     }
 
-    /// Every tab, in one script: front tabs first, since that's usually where the sound
-    /// is. The first command runs outside any `try` so a browser that refuses
-    /// JavaScript says so instead of looking like a browser with nothing playing.
-    private var scanScript: String {
-        let javascript = AppleScript.quoted(Self.readScript)
-        let probe: String
-        let loop: String
-        switch family {
-        case .safari:
-            probe = "do JavaScript \"1\" in current tab of front window"
-            loop = """
-                repeat with aWindow in windows
-                    set windowID to id of aWindow
-                    set tabIndex to 0
-                    repeat with aTab in tabs of aWindow
-                        set tabIndex to tabIndex + 1
-                        try
-                            set reply to do JavaScript \(javascript) in aTab
-                            if reply is not missing value and reply is not "" then
-                                set output to output & windowID & sep & tabIndex & sep & (URL of aTab) & sep & reply & linefeed
-                            end if
-                        end try
-                    end repeat
-                end repeat
-            """
-        case .chromium:
-            probe = "execute active tab of front window javascript \"1\""
-            loop = """
-                repeat with aWindow in windows
-                    set windowID to id of aWindow
-                    repeat with aTab in tabs of aWindow
-                        try
-                            set reply to execute aTab javascript \(javascript)
-                            if reply is not missing value and reply is not "" then
-                                set output to output & windowID & sep & (id of aTab) & sep & (URL of aTab) & sep & reply & linefeed
-                            end if
-                        end try
-                    end repeat
-                end repeat
-            """
-        }
-
+    /// Every tab's place and address, and whether it's the one in front of its window.
+    /// No page script, so it's quick and never waits on a sleeping tab. Arc can have no
+    /// tab in front at all, so that's asked inside a `try`.
+    private var listScript: String {
+        let isSafari = family == .safari
+        let frontTab = isSafari ? "current tab" : "active tab"
+        let tabKey = isSafari ? "tabIndex" : "(id of aTab)"
         // `tab` inside a browser's tell block is its tab class, not the character.
         return """
         if application id "\(bundleIdentifier)" is not running then return ""
         set sep to character id 9
         set output to ""
-        with timeout of 8 seconds
+        with timeout of 4 seconds
             tell application id "\(bundleIdentifier)"
-                if (count of windows) is 0 then return ""
-                \(probe)
-        \(loop)
+                repeat with aWindow in windows
+                    set windowID to id of aWindow
+                    set frontAddress to ""
+                    try
+                        set frontAddress to URL of \(frontTab) of aWindow
+                    end try
+                    set tabIndex to 0
+                    repeat with aTab in tabs of aWindow
+                        set tabIndex to tabIndex + 1
+                        try
+                            set tabAddress to URL of aTab
+                            set output to output & windowID & sep & \(tabKey) & sep & ((tabAddress is frontAddress) as text) & sep & tabAddress & linefeed
+                        end try
+                    end repeat
+                end repeat
             end tell
         end timeout
         return output
         """
     }
 
+    /// Tabs that didn't answer — asleep — skipped for a while rather than waited on again.
+    private var unresponsive: [String: Date] = [:]
+    private static let maxProbes = 12
+    private static let scanBudget: TimeInterval = 4
+
+    /// Finds the tab making the sound: media sites first, then each window's front tab,
+    /// then — in browsers that don't leave tabs asleep — the rest. Stops at the first one
+    /// playing; failing that, the first with something paused part way.
     private func scan() throws -> (TabReference, PageState)? {
-        let source = scanScript
-        let reply: String
+        let listing: String
         do {
-            reply = try AppleScript.runReportingFailure(source).stringValue ?? ""
-            setAccess(.allowed)
+            listing = try AppleScript.runReportingFailure(listScript).stringValue ?? ""
         } catch let failure as AppleScript.Failure {
-            if failure.message.localizedCaseInsensitiveContains("JavaScript") {
-                lastRefusal = Date()
-                setAccess(.blocked)
-                return nil
-            }
             // -1743: Automation refused. Nothing to read, and nothing to say twice.
             Log.media.error("\(self.appName, privacy: .public) tabs: \(failure.number, privacy: .public) \(failure.message, privacy: .public)")
             return nil
         }
 
-        let found: [(TabReference, PageState)] = reply.components(separatedBy: "\n").compactMap { line in
-            let parts = line.components(separatedBy: "\t")
-            guard parts.count >= 4, let state = decode(parts[3...].joined(separator: "\t")) else { return nil }
-            return (TabReference(window: parts[0], tab: parts[1], address: parts[2]), state)
+        struct Candidate {
+            let reference: TabReference
+            let isFront: Bool
+            let isMedia: Bool
+            var key: String { reference.window + "/" + reference.tab }
         }
-        Log.media.notice("\(self.appName, privacy: .public): \(found.count, privacy: .public) tab(s) with media, \(found.filter { $0.1.isPlaying }.count, privacy: .public) playing")
-        return found.first { $0.1.isPlaying } ?? found.first
+        let candidates: [Candidate] = listing.components(separatedBy: "\n").compactMap { line in
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 4 else { return nil }
+            let address = parts[3...].joined(separator: "\t")
+            let host = URL(string: address)?.host ?? ""
+            return Candidate(reference: TabReference(window: parts[0], tab: parts[1], address: address),
+                             isFront: parts[2] == "true", isMedia: BrowserPageReader.isMediaHost(host))
+        }
+
+        let now = Date()
+        unresponsive = unresponsive.filter { now.timeIntervalSince($0.value) < 5 * 60 }
+        let media = candidates.filter(\.isMedia)
+        let front = candidates.filter { $0.isFront && $0.isMedia == false }
+        // Arc keeps background tabs asleep, and a sleeping tab only times out.
+        let rest = bundleIdentifier == "company.thebrowser.Browser" ? [] : candidates.filter { $0.isFront == false && $0.isMedia == false }
+        let ordered = (media + front + rest).filter { unresponsive[$0.key] == nil }.prefix(Self.maxProbes)
+
+        var paused: (TabReference, PageState)?
+        var probed = 0
+        for candidate in ordered {
+            guard Date().timeIntervalSince(now) < Self.scanBudget else { break }
+            probed += 1
+            do {
+                let reply = try AppleScript.runReportingFailure(tabScript(Self.readScript, in: candidate.reference, timeout: 1)).stringValue
+                setAccess(.allowed)
+                guard let state = decode(reply) else { continue }
+                if state.isPlaying {
+                    Log.media.notice("\(self.appName, privacy: .public): playing tab found after \(probed, privacy: .public) of \(candidates.count, privacy: .public)")
+                    return (candidate.reference, state)
+                }
+                if paused == nil { paused = (candidate.reference, state) }
+            } catch let failure as AppleScript.Failure {
+                if failure.message.localizedCaseInsensitiveContains("JavaScript") {
+                    lastRefusal = Date()
+                    setAccess(.blocked)
+                    return nil
+                }
+                if failure.number == -1712 { unresponsive[candidate.key] = Date() }
+                if failure.number == -1743 { return nil }
+            }
+        }
+        Log.media.notice("\(self.appName, privacy: .public): \(probed, privacy: .public) of \(candidates.count, privacy: .public) tab(s) asked, none playing")
+        return paused
+    }
+
+    /// A scan whether or not anything is playing, timed — for --media-selftest.
+    func scanForSelfTest() -> String {
+        let start = Date()
+        let found = try? scan()
+        let took = String(format: "%.1fs", Date().timeIntervalSince(start))
+        guard let (_, state) = found else { return "nothing found in \(took), JavaScript \(access)" }
+        return "\(state.isPlaying ? "playing" : "paused") on \(state.h) in \(took)"
     }
 
     /// Every script this provider runs, for --media-selftest to compile.
     var selfTestScripts: [String] {
         let reference = TabReference(window: "1", tab: family == .safari ? "1" : "7", address: "https://example.com/")
-        return [scanScript, tabScript(Self.readScript, in: reference), tabScript(Self.controlScript("toggle"), in: reference)]
+        return [listScript, tabScript(Self.readScript, in: reference), tabScript(Self.controlScript("toggle"), in: reference)]
     }
 
     /// Chrome's ids are numbers, Arc's are text.
@@ -404,13 +432,17 @@ final class BrowserMediaProvider: MediaProvider {
     /// allowed — from Settings, so the switch can be checked without playing anything.
     func checkAccess() {
         guard isRunning else { return }
-        let probe = family == .safari
-            ? "do JavaScript \"1\" in current tab of front window"
-            : "execute active tab of front window javascript \"1\""
+        let frontTab = family == .safari ? "current tab" : "active tab"
+        let probe = family == .safari ? "do JavaScript \"1\" in theTab" : "execute theTab javascript \"1\""
         let source = """
         with timeout of 3 seconds
             tell application id "\(bundleIdentifier)"
                 if (count of windows) is 0 then return ""
+                try
+                    set theTab to \(frontTab) of front window
+                on error
+                    set theTab to tab 1 of front window
+                end try
                 \(probe)
             end tell
         end timeout

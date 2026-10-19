@@ -588,8 +588,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             check.toolTip = browser.isRunning ? "Ask \(browser.appName) now" : "Open \(browser.appName) first"
             return SettingsKit.row(browser.appName, detail: detail, control: SettingsKit.group([status, check]))
         }
-        if NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.mozilla.firefox") != nil {
-            rows.append(SettingsKit.row("Firefox", detail: "The playing tab's name and icon. Firefox can't be asked for more.",
+        // Firefox and the browsers built on it can't be scripted at all; their open tabs
+        // are read from the file they keep on disk.
+        let firefoxFamily = [("Firefox", "org.mozilla.firefox"), ("Zen", "app.zen-browser.zen"), ("LibreWolf", "io.gitlab.librewolf"),
+                             ("Waterfox", "net.waterfox.waterfox"), ("Floorp", "one.ablaze.floorp")]
+        for (name, identifier) in firefoxFamily {
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier),
+                  url.path.contains("/Application Support/") == false else { continue }
+            rows.append(SettingsKit.row(name, detail: "The most likely playing tab's name and icon, from the tabs \(name) keeps on disk. \(name) can't be asked for more, or controlled.",
                                         control: SettingsKit.status("Title only", good: nil)))
         }
         if rows.isEmpty {

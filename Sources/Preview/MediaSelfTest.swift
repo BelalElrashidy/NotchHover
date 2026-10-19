@@ -59,8 +59,13 @@ enum MediaSelfTest {
                 lines.append("  now: error \(error.localizedDescription)")
             }
             if let browser = provider as? BrowserMediaProvider {
-                lines.append("  JavaScript from Apple Events: \(browser.access)")
+                lines.append("  scan: \(browser.scanForSelfTest())")
             }
+        }
+
+        for (name, identifier) in [("Firefox", "org.mozilla.firefox"), ("Zen", "app.zen-browser.zen"), ("LibreWolf", "io.gitlab.librewolf")]
+        where NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) != nil {
+            lines.append("\(name) session: \(BrowserPageReader.diagnoseSessionFile(identifier))")
         }
 
         FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))

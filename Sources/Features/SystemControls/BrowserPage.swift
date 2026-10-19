@@ -251,6 +251,18 @@ final class BrowserPageReader {
         return page
     }
 
+    /// What the session file says right now, for --media-selftest: how many tabs, and
+    /// which page would be shown. Hosts only.
+    static func diagnoseSessionFile(_ bundleIdentifier: String) -> String {
+        guard let url = sessionFile(for: bundleIdentifier) else { return "no session file" }
+        guard let json = readSessionStore(at: url), let windows = json["windows"] as? [[String: Any]] else {
+            return "session file \(url.lastPathComponent) didn't parse"
+        }
+        let tabs = windows.flatMap { $0["tabs"] as? [[String: Any]] ?? [] }
+        let read = playingPage(in: url)
+        return "\(windows.count) window(s), \(tabs.count) tab(s), \(tabs.compactMap(tab(from:)).count) readable → \(read.page?.shortHost ?? "no page")"
+    }
+
     /// The newest session file among that browser's profiles — people have more than
     /// one, and only one of them is the window you are looking at.
     private static func sessionFile(for bundleIdentifier: String) -> URL? {
@@ -325,7 +337,7 @@ final class BrowserPageReader {
         return Data(base64Encoded: String(image[image.index(after: comma)...]))
     }
 
-    private static func isMediaHost(_ host: String) -> Bool {
+    static func isMediaHost(_ host: String) -> Bool {
         mediaHosts.contains { host == $0 || host.hasSuffix(".\($0)") }
     }
 

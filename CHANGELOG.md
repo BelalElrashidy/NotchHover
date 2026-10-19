@@ -10,6 +10,27 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.5] — 2026-10-20
+
+Browsers, checked one by one.
+
+### Fixed
+- **Arc was never read.** Arc can have no tab in front, and the scan started by asking
+  for that tab, so it failed every time. Arc's tabs are now listed first and asked one
+  by one.
+- **A sleeping tab could freeze playback detection.** Arc doesn't refuse a script sent
+  to a tab it has put to sleep — it waits. The scan now asks media sites first, then each
+  window's front tab, gives each one a second, skips tabs that didn't answer for five
+  minutes, stops at the first one playing, and never takes more than about four seconds.
+  Arc's background tabs are left alone.
+- **Microsoft Edge showed up in Settings without being installed** — Microsoft's
+  updater keeps its own copy in Application Support. Copies there no longer count.
+- **Zen, LibreWolf, Waterfox and Floorp** are listed in Settings → Music → Browsers
+  beside Firefox, as title only: none of them can be scripted, so the playing tab is
+  read from the file they keep on disk.
+- `--media-selftest` scans each running browser and reports how long it took and what it
+  found, and checks Firefox-family session files.
+
 ## [0.14.4] — 2026-10-20
 
 Adjust each theme.
@@ -393,7 +414,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...HEAD
+[0.14.5]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...v0.14.2
