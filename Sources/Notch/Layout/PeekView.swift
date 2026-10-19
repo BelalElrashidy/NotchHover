@@ -49,6 +49,8 @@ enum PeekContent {
     case meeting(title: String, service: String, start: Date)
     /// Nothing happening: the time, the date, and what's next today.
     case glance(next: PeekEvent?, hasCalendar: Bool)
+    /// A call in progress: mute, camera, leave.
+    case call(CallState)
 }
 
 /// The peek, laid out like the Dynamic Island's expanded view — the layout Crest and
@@ -64,6 +66,9 @@ final class PeekView: NSView {
     var onNext: (() -> Void)?
     var onPrevious: (() -> Void)?
     var onJoin: (() -> Void)?
+    var onMute: (() -> Void)?
+    var onCamera: (() -> Void)?
+    var onLeave: (() -> Void)?
     /// The content changed height; the card has to follow.
     var onHeightChange: (() -> Void)?
 
@@ -115,6 +120,10 @@ final class PeekView: NSView {
     private let eventBar = CALayer()
     private let eventTitle = Style.label("", size: 12, weight: .semibold)
     private let eventDetail = Style.label("", size: 11, color: Style.secondaryText)
+    private let callTimer = Style.label("", size: 12, color: Style.secondaryText)
+    private lazy var muteButton = Self.roundButton("mic.fill", target: self, action: #selector(handleMute))
+    private lazy var cameraButton = Self.roundButton("video.fill", target: self, action: #selector(handleCamera))
+    private lazy var leaveButton = Self.roundButton("phone.down.fill", target: self, action: #selector(handleLeave))
     private var clock: Timer?
 
     private enum Layout {
@@ -148,8 +157,15 @@ final class PeekView: NSView {
         eventBar.cornerRadius = 1.5
         [progressTrack, progressFill, rule, eventBar].forEach { layer?.addSublayer($0) }
 
+        callTimer.font = .monospacedDigitSystemFont(ofSize: Style.scaled(12), weight: .regular)
+        callTimer.alignment = .right
         [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
-         previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail].forEach(addSubview)
+         previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail,
+         callTimer, muteButton, cameraButton, leaveButton].forEach(addSubview)
+        muteButton.toolTip = "Mute or unmute — ⌃⌥M"
+        cameraButton.toolTip = "Camera on or off"
+        leaveButton.toolTip = "Leave the call"
+        leaveButton.layer?.backgroundColor = NSColor(srgbRed: 1, green: 0.27, blue: 0.23, alpha: 1).cgColor
 
         previousButton.toolTip = "Previous — ⌘←"
         playButton.toolTip = "Play or pause — Space"
@@ -186,7 +202,8 @@ final class PeekView: NSView {
         let oldHeight = preferredHeight
         self.content = content
         let allViews: [NSView] = [icon, meter, titleLabel, subtitleLabel, elapsedLabel, remainingLabel,
-                                  previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail]
+                                  previousButton, playButton, nextButton, joinButton, bigLabel, eventTitle, eventDetail,
+                                  callTimer, muteButton, cameraButton, leaveButton]
         var visible: [NSView] = []
         var layers: [CALayer] = []
 
@@ -219,6 +236,38 @@ final class PeekView: NSView {
             meter.isRunning = false
             visible = [icon, titleLabel, subtitleLabel, bigLabel, joinButton]
 
+        case .call(let call):
+            // The app's own icon; failing that, the service's coloured tile.
+            if let appIcon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: call.bundleIdentifier)
+                .map({ NSWorkspace.shared.icon(forFile: $0.path) }) {
+                icon.image = appIcon
+                icon.contentTintColor = nil
+                icon.layer?.backgroundColor = NSColor.clear.cgColor
+            } else {
+                icon.image = Style.symbolImage("video.fill", pointSize: 17)
+                icon.contentTintColor = .white
+                icon.layer?.backgroundColor = Self.serviceColor(call.service).cgColor
+            }
+            titleLabel.stringValue = call.title ?? "\(call.service) call"
+            if call.needsBrowserSetting {
+                subtitleLabel.stringValue = "Allow JavaScript from Apple Events in \(call.appName) to control Meet"
+            } else {
+                var parts = [call.service]
+                if let muted = call.isMuted { parts.append(muted ? "muted" : "mic on") }
+                if call.isCameraOff == true { parts.append("camera off") }
+                subtitleLabel.stringValue = parts.joined(separator: " · ")
+            }
+            meter.isRunning = false
+            let muted = call.isMuted == true
+            muteButton.image = Style.symbolImage(muted ? "mic.slash.fill" : "mic.fill", pointSize: 14)
+            muteButton.contentTintColor = muted ? .black : .white
+            muteButton.layer?.backgroundColor = (muted ? NSColor.white : NSColor.white.withAlphaComponent(0.16)).cgColor
+            let cameraOff = call.isCameraOff == true
+            cameraButton.image = Style.symbolImage(cameraOff ? "video.slash.fill" : "video.fill", pointSize: 14)
+            visible = [icon, titleLabel, subtitleLabel, callTimer, muteButton]
+            if call.hasCamera { visible += [cameraButton] }
+            if call.canLeave { visible += [leaveButton] }
+
         case let .glance(next, _):
             meter.isRunning = false
             visible = [bigLabel, subtitleLabel]
@@ -250,6 +299,8 @@ final class PeekView: NSView {
             body = height + Layout.bottomInset
         case .meeting:
             body = Layout.topGap + Layout.iconSize + 10 + 30 + Layout.bottomInset
+        case .call:
+            body = Layout.topGap + Layout.iconSize + 10 + Self.roundSize + Layout.bottomInset
         case .glance(let next, _):
             body = Layout.topGap + 46 + (next == nil ? 0 : 10 + 1 + 10 + 30) + Layout.bottomInset
         }
@@ -291,6 +342,9 @@ final class PeekView: NSView {
                 let minutes = -seconds / 60
                 bigLabel.stringValue = minutes == 0 ? "Now" : "\(minutes) min in"
             }
+
+        case .call(let call):
+            callTimer.stringValue = Self.time(now.timeIntervalSince(call.startedAt))
 
         case .glance(let next, let hasCalendar):
             bigLabel.stringValue = now.formatted(date: .omitted, time: .shortened)
@@ -345,6 +399,29 @@ final class PeekView: NSView {
         defer { CATransaction.commit() }
 
         switch content {
+        case .call:
+            // Row 1: the app, the call's name and state, how long it has run.
+            icon.frame = CGRect(x: left, y: y - Layout.iconSize, width: Layout.iconSize, height: Layout.iconSize)
+            let timerWidth: CGFloat = 60
+            let timerHeight = callTimer.fittingSize.height
+            let rowMid = y - Layout.iconSize / 2
+            callTimer.frame = CGRect(x: right - timerWidth, y: rowMid - timerHeight / 2, width: timerWidth, height: timerHeight)
+            let textLeft = icon.frame.maxX + 10, textRight = callTimer.frame.minX - 8
+            let titleHeight = titleLabel.fittingSize.height, subtitleHeight = subtitleLabel.fittingSize.height
+            titleLabel.frame = CGRect(x: textLeft, y: rowMid + (titleHeight + subtitleHeight) / 2 - titleHeight, width: textRight - textLeft, height: titleHeight)
+            subtitleLabel.frame = CGRect(x: textLeft, y: titleLabel.frame.minY - subtitleHeight, width: textRight - textLeft, height: subtitleHeight)
+            y -= Layout.iconSize + 10
+
+            // Row 2: the round buttons, centred — mute, camera, and leave in red.
+            let buttons = [muteButton, cameraButton, leaveButton].filter { $0.isHidden == false }
+            let gap: CGFloat = 22
+            let total = CGFloat(buttons.count) * Self.roundSize + CGFloat(buttons.count - 1) * gap
+            var x = (left + right) / 2 - total / 2
+            for button in buttons {
+                button.frame = CGRect(x: x, y: y - Self.roundSize, width: Self.roundSize, height: Self.roundSize)
+                x += Self.roundSize + gap
+            }
+
         case .playing, .meeting:
             // Row 1: artwork (or the call's tile), title and subtitle, the meter.
             let rowMid = y - Layout.iconSize / 2
@@ -417,4 +494,21 @@ final class PeekView: NSView {
     @objc private func handleNext() { onNext?() }
     @objc private func handlePrevious() { onPrevious?() }
     @objc private func handleJoin() { onJoin?() }
+    @objc private func handleMute() { onMute?() }
+    @objc private func handleCamera() { onCamera?() }
+    @objc private func handleLeave() { onLeave?() }
+
+    static let roundSize: CGFloat = 34
+
+    /// A round call button, as the Dynamic Island and NotchBay draw them.
+    private static func roundButton(_ symbol: String, target: AnyObject, action: Selector) -> NSButton {
+        let button = ClickThroughButton(image: Style.symbolImage(symbol, pointSize: 14) ?? NSImage(), target: target, action: action)
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.cornerRadius = roundSize / 2
+        button.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.16).cgColor
+        button.contentTintColor = .white
+        button.imagePosition = .imageOnly
+        return button
+    }
 }

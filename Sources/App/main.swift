@@ -56,6 +56,20 @@ if CommandLine.arguments.contains("--lockscreen-selftest") {
     exit(available && added ? 0 : 1)
 }
 
+// Meeting controls: what call is on right now, and whether the Meet script compiles
+// for each installed browser. Reads only; presses nothing.
+if CommandLine.arguments.contains("--meeting-selftest") {
+    app.setActivationPolicy(.prohibited)
+    let recording = AudioSourceProbe.recordingApplications().compactMap(\.localizedName)
+    var lines = ["microphone in use by: " + (recording.isEmpty ? "nothing" : recording.joined(separator: ", "))]
+    for browser in MeetingControls.browsers.sorted() {
+        guard let compiles = MeetingControls.meetScriptCompiles(browser: browser) else { continue }
+        lines.append("Meet script for \(browser): \(compiles ? "compiles" : "does NOT compile")")
+    }
+    FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    exit(lines.contains { $0.contains("NOT") } ? 1 : 0)
+}
+
 // Claude Code sessions and usage from this Mac's transcripts — metadata only.
 if CommandLine.arguments.contains("--claude-selftest") {
     app.setActivationPolicy(.prohibited)

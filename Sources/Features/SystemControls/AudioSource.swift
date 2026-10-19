@@ -78,9 +78,24 @@ enum AudioSourceProbe {
         return nil
     }
 
+    /// Apps using the microphone right now — a call, in practice — each once.
+    static func recordingApplications() -> [NSRunningApplication] {
+        guard #available(macOS 14.4, *) else { return [] }
+        var seen = Set<pid_t>()
+        return processIdentifiers(running: kAudioProcessPropertyIsRunningInput)
+            .compactMap(owningApplication(of:))
+            .filter { seen.insert($0.processIdentifier).inserted }
+    }
+
     /// Every process CoreAudio says is running output right now.
     @available(macOS 14.4, *)
     private static func playingProcessIdentifiers() -> [pid_t] {
+        processIdentifiers(running: kAudioProcessPropertyIsRunningOutput)
+    }
+
+    /// Every process CoreAudio says is running input or output, by `selector`.
+    @available(macOS 14.4, *)
+    private static func processIdentifiers(running selector: AudioObjectPropertySelector) -> [pid_t] {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -96,7 +111,7 @@ enum AudioSourceProbe {
         }
 
         return objects.compactMap { object in
-            guard property(object, kAudioProcessPropertyIsRunningOutput, UInt32(0)) == 1 else { return nil }
+            guard property(object, selector, UInt32(0)) == 1 else { return nil }
             return property(object, kAudioProcessPropertyPID, pid_t(0))
         }
     }

@@ -12,7 +12,8 @@ enum KeyboardShortcutList {
     static let groups: [Group] = [
         Group(title: "Anywhere — again to close", entries: [
             ("⌃⌥H  ⌃⌥S", "Home, Shelf"),
-            ("⌃⌥N  ⌃⌥V", "Notes, Clipboard")
+            ("⌃⌥N  ⌃⌥V", "Notes, Clipboard"),
+            ("⌃⌥M", "Mute the call, or the mic")
         ]),
         Group(title: "In the panel", entries: [
             ("⌘1 – ⌘5", "Switch views"),

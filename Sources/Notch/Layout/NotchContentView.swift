@@ -383,6 +383,13 @@ final class NotchContentView: NSView {
         peekContent.onPrevious = { [weak self] in self?.onPreviousTrack?() }
         peekContent.onJoin = { [weak self] in self?.joinMeeting() }
         peekContent.onHeightChange = { [weak self] in self?.refitPeek() }
+        peekContent.onMute = { MeetingControls.shared.toggleMute() }
+        peekContent.onCamera = { MeetingControls.shared.toggleCamera() }
+        peekContent.onLeave = { MeetingControls.shared.leave() }
+        MeetingControls.shared.addObserver { [weak self] _ in
+            guard let self, self.presentation == .peek else { return }
+            self.refreshPeek()
+        }
         LyricsService.shared.addObserver { [weak self] _ in
             guard let self, case .track = self.lastNowPlaying else { return }
             self.refreshPeek()
@@ -396,6 +403,9 @@ final class NotchContentView: NSView {
     }
 
     private func currentPeekContent() -> PeekContent {
+        // A call outranks everything: it is what you'd reach for.
+        if let call = MeetingControls.shared.call { return .call(call) }
+
         switch lastNowPlaying {
         case .track(let track):
             return .playing(PeekTrack(track: track, icon: artwork, tint: meterTint, asOf: trackAsOf))
@@ -516,7 +526,8 @@ final class NotchContentView: NSView {
             }
 
         case [.command, .shift] where key == "m":
-            SystemControls.setInputMuted(SystemControls.isInputMuted() == false)
+            // In a call, the call's own mute; otherwise the Mac's microphone.
+            MeetingControls.shared.toggleMute()
             refreshPanes()
             return true
 

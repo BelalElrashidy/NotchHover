@@ -45,6 +45,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.notchController?.toggle(tab)
             }
         }
+        // ⌃⌥M mutes the call you're on — or, with no call, the Mac's microphone.
+        HotKeys.shared.register(keyCode: kVK_ANSI_M, modifiers: controlKey | optionKey) {
+            MeetingControls.shared.toggleMute()
+        }
+        MeetingControls.shared.start()
 
         NotificationWatcher.shared.configure(activityCenter: activityCenter)
         NotificationWatcher.shared.start()

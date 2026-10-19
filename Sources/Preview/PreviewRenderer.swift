@@ -114,6 +114,12 @@ enum PreviewRenderer {
             view.showPeekForPreview()
         }
 
+        write(named: "peek-call", directory: directory) { view in
+            view.showPeekForPreview(.call(CallState(provider: .zoom, appName: "Zoom", bundleIdentifier: "us.zoom.xos",
+                                                    title: "Design review", isMuted: true, isCameraOff: false,
+                                                    startedAt: Date().addingTimeInterval(-754))))
+        }
+
         write(named: "peek-meeting", directory: directory) { view in
             view.renderNowPlaying(.message("Nothing playing"))
             view.showPeekForPreview(.meeting(title: "Design review", service: "Zoom", start: Date().addingTimeInterval(232)))

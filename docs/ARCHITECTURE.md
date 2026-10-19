@@ -290,6 +290,19 @@ Both are off until switched on in Settings → Advanced.
   the lock screen's notifications live. On unlock the window is removed and thrown away.
   The notch's own panels never go to the lock screen.
 
+### Meeting controls
+
+`MeetingControls` looks every two seconds for a call: Zoom's **Meeting** menu (it exists
+only in a meeting, and its items read "Mute Audio"/"Unmute Audio"), or a known call app
+using the microphone (`AudioSourceProbe.recordingApplications`, CoreAudio process
+objects). Zoom is pressed through that menu; Teams through its call-bar buttons found by
+Accessibility label, falling back to ⇧⌘M/⇧⌘O/⇧⌘H posted to its process; Webex by its
+shortcuts; Google Meet by AppleScript running a line of JavaScript in the Meet tab, which
+clicks the `data-is-muted` buttons and reads their state — browsers ship that switched
+off ("Allow JavaScript from Apple Events"), and the peek says so. FaceTime, Slack and
+anything else get the Mac's own microphone mute. A call outranks everything in the peek;
+⌃⌥M and ⌘⇧M mute it.
+
 ### Keyboard and gestures
 
 Everything in the panel has a key. `NotchPanel` passes keys to
@@ -617,6 +630,7 @@ greyed-out row, or a feature that never fires — rather than crashing:
 | Display brightness | `DisplayServicesGetBrightness` / `SetBrightness` via `dlopen` |
 | Keyboard backlight | `KeyboardBrightnessClient` via the Objective-C runtime |
 | Notification banners | Accessibility API against `com.apple.notificationcenterui` |
+| Meeting controls | Accessibility on the call app's menus and buttons; AppleScript + JavaScript in a Meet tab |
 | Music on the lock screen | `SLSSpaceCreate`, `SLSSpaceSetAbsoluteLevel`, `SLSShowSpaces`, `SLSSpaceAddWindowsAndRemoveFromSpaces`, `SLSRemoveWindowsFromSpaces` from SkyLight via `dlopen` — the technique Boring Notch uses through the MIT-licensed SkyLightWindow package |
 
 The Notification Center database (`group.com.apple.usernoted`) was the alternative for

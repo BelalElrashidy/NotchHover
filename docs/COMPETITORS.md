@@ -55,7 +55,7 @@ A blank means the sources didn't mention it, not that the app definitely lacks i
 | **Time and work** | | | | | | | | | | |
 | Calendar | ✅ | ✅ | ✅ | ✅ | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | One-click meeting join | ✅ | | | | | ✅ | ✅ | ✅ | ✅ | |
-| Meeting controls (mute, camera, leave) | | | | | | | | ✅ | ✅ | |
+| Meeting controls (mute, camera, leave) | ✅ | | | | | | | ✅ | ✅ | |
 | Timer / Pomodoro | ✅ | ✅ | ✅ | | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **System** | | | | | | | | | | |
 | Volume and brightness HUD | ✅ | ✅ | | | ✅ | ✅ | | ✅ | ✅ | |

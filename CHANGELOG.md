@@ -10,6 +10,30 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-19
+
+Meeting controls.
+
+### Added
+- **Mute, camera and leave from the notch.** On a call, the peek shows the app, the
+  meeting, how long it has run, and three round buttons — mute, camera, and leave in red.
+  A call outranks everything else in the peek.
+- **Zoom**: pressed through its Meeting menu, which also tells NotchHover whether you're
+  muted and whether your camera is on. Leaving still asks Zoom's own "Leave meeting?".
+- **Microsoft Teams**: its call buttons, or its own shortcuts when they can't be found.
+- **Webex**: its own shortcuts.
+- **Google Meet in Chrome, Edge, Arc, Brave, Vivaldi or Safari**: a line of JavaScript in
+  the Meet tab presses the buttons and reads whether you're muted. Browsers ship this off;
+  turn on **Allow JavaScript from Apple Events** (Chrome: View → Developer; Safari:
+  Settings → Advanced, then Develop) — the peek tells you when it's needed.
+- **FaceTime, Slack huddles** and anything else: the Mac's microphone mute.
+- **⌃⌥M** mutes the call you're on from anywhere, or the Mac's microphone when there is no
+  call. ⌘⇧M in the panel does the same.
+
+### Notes
+- Everything happens on the Mac; no meeting service is contacted. Pressing a call app's
+  buttons uses the Accessibility permission NotchHover already asks for.
+
 ## [0.5.0] — 2026-10-19
 
 A new schedule.
@@ -105,7 +129,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.2.0...v0.3.0

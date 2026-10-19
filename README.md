@@ -56,6 +56,9 @@ Everything runs on your Mac. There are no accounts, no servers and no analytics.
 - **AirPods and Bluetooth accessories** pop with their charge when they connect, and again
   when one runs low
 - A call with a link pops two minutes before it starts
+- **Meeting controls** — on a Zoom, Teams, Webex or Google Meet call, the peek shows
+  mute, camera and leave, and how long the call has run; <kbd>⌃</kbd><kbd>⌥</kbd><kbd>M</kbd>
+  mutes from anywhere. Zoom and Meet also say whether you're muted
 - The resting bar takes a breath when something starts playing
 
 **Getting things done**
@@ -101,7 +104,7 @@ every shortcut.
 
 | Where | Keys |
 |---|---|
-| Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again |
+| Anywhere | <kbd>⌃</kbd><kbd>⌥</kbd><kbd>H</kbd> Home · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>S</kbd> Shelf · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>N</kbd> Notes · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>V</kbd> Clipboard — the same keys close it again · <kbd>⌃</kbd><kbd>⌥</kbd><kbd>M</kbd> mute the call you're on |
 | In the panel | <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> switch views · <kbd>⌃</kbd><kbd>⇥</kbd> next tab · <kbd>⌘</kbd><kbd>J</kbd> join the next call · <kbd>⎋</kbd> or <kbd>⌘</kbd><kbd>W</kbd> close · <kbd>⌘</kbd><kbd>,</kbd> Settings |
 | Playing | <kbd>Space</kbd> play or pause · <kbd>⌘</kbd><kbd>←</kbd> <kbd>⌘</kbd><kbd>→</kbd> previous, next · <kbd>⌘</kbd><kbd>↑</kbd> <kbd>⌘</kbd><kbd>↓</kbd> volume · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> mute the microphone |
 | Clipboard | <kbd>↑</kbd> <kbd>↓</kbd> choose · <kbd>↩</kbd> copy · <kbd>⌘</kbd><kbd>↩</kbd> paste into the front app · <kbd>⌘</kbd><kbd>P</kbd> pin · <kbd>⌘</kbd><kbd>⌫</kbd> delete |
@@ -144,7 +147,7 @@ asks the first time that feature is used.
 |---|---|
 | Automation → Spotify, Music | Reading what's playing and controlling playback |
 | Automation → Safari | Naming the page Safari is playing |
-| Accessibility | Mirroring notification banners into the notch |
+| Accessibility | Mirroring notification banners into the notch; pressing a call app's mute, camera and leave |
 | Calendars | Your next events, and the Join button for calls |
 | Bluetooth | Your accessories' battery levels |
 | Camera | The mirror |
