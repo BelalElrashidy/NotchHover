@@ -64,7 +64,7 @@ enum AnimationSelfTest {
                 levels.append(content.idleMeter.drawnLevels)
                 guard levels.count >= 20 else { return }
                 timer.invalidate()
-                let spread = (0..<3).map { bar in
+                let spread = (0..<(levels.first?.count ?? 0)).map { bar in
                     let column = levels.map { $0[bar] }
                     return (column.max() ?? 0) - (column.min() ?? 0)
                 }
@@ -95,8 +95,11 @@ enum AnimationSelfTest {
                                 sourceBundleIdentifier: "com.spotify.client", position: 10, duration: 200, volume: 50, isShuffling: false
                             )
                             content.renderNowPlaying(.track(paused))
-                            sampleMeter("paused") {
-                                startShapeTest()
+                            // The bars ease down to dots first; sample once they're there.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                sampleMeter("paused") {
+                                    startShapeTest()
+                                }
                             }
                         }
                     }

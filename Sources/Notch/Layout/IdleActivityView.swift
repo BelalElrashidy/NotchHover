@@ -284,8 +284,31 @@ final class IdleActivityView: NSView {
     }
 }
 
-/// Three bars that rise and fall while playback is running.
+/// Bars beside the notch that move while something plays — Boring Notch's and the
+/// Dynamic Island's way of saying "this is live": thin rounded bars, centred on the
+/// band, each easing to a new height several times a second. Paused, they rest as dots.
+///
+/// With the live visualizer on, `AudioLevels` drives them from the sound itself; the
+/// animation is what they do otherwise.
 final class LevelMeterView: NSView {
+    enum Kind {
+        /// Four bars in the artwork's colour.
+        case music
+        /// Five red bars that flicker like speech: an app has the microphone.
+        case recording
+
+        var barCount: Int { self == .music ? 4 : 5 }
+        /// Seconds between new heights. Speech moves faster than a song's beat.
+        var step: TimeInterval { self == .music ? 0.24 : 0.13 }
+    }
+
+    var kind: Kind = .music {
+        didSet {
+            guard kind != oldValue else { return }
+            rebuildBars()
+        }
+    }
+
     var isRunning = false {
         didSet {
             guard isRunning != oldValue else { return }
@@ -293,21 +316,29 @@ final class LevelMeterView: NSView {
         }
     }
 
-    private let bars: [CALayer] = (0..<3).map { _ in CALayer() }
+    private var bars: [CALayer] = []
 
-    /// The artwork's colour; nil for the theme's text colour.
+    /// The artwork's colour; nil for the theme's text colour. A recording is always red.
     var tint: NSColor? {
-        didSet { bars.forEach { $0.backgroundColor = (tint ?? Style.primaryText).cgColor } }
+        didSet { applyColour() }
+    }
+
+    /// A bar at rest: just its own width, so it reads as a dot.
+    private var restingScale: CGFloat {
+        guard bounds.height > 0 else { return 0.2 }
+        return min(1, barWidth / bounds.height)
+    }
+
+    private var barWidth: CGFloat {
+        let count = CGFloat(kind.barCount)
+        // Bars and gaps in the ratio 5:4, filling the width the meter was given.
+        return max(2, floor(bounds.width / (count + (count - 1) * 0.8) * 2) / 2)
     }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        bars.forEach {
-            $0.backgroundColor = Style.primaryText.cgColor
-            $0.cornerRadius = 1.5
-            layer?.addSublayer($0)
-        }
+        rebuildBars()
     }
 
     @available(*, unavailable)
@@ -315,15 +346,48 @@ final class LevelMeterView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private func rebuildBars() {
+        bars.forEach { $0.removeFromSuperlayer() }
+        bars = (0..<kind.barCount).map { _ in
+            let bar = CALayer()
+            // Centred, so a bar grows up and down at once, like the Dynamic Island's.
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            layer?.addSublayer(bar)
+            return bar
+        }
+        applyColour()
+        needsLayout = true
+        if isRunning { startAnimating() } else { rest(animated: false) }
+    }
+
+    private func applyColour() {
+        let colour = kind == .recording ? NSColor.systemRed : (tint ?? Style.primaryText)
+        bars.forEach { $0.backgroundColor = colour.cgColor }
+    }
+
     override func layout() {
         super.layout()
-        let barWidth: CGFloat = 3
-        let gap: CGFloat = 4
+        let width = barWidth
+        let count = CGFloat(bars.count)
+        let gap = count > 1 ? (bounds.width - width * count) / (count - 1) : 0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         for (index, bar) in bars.enumerated() {
-            let height = bounds.height * [0.55, 1, 0.75][index]
-            bar.frame = CGRect(x: CGFloat(index) * (barWidth + gap), y: 0, width: barWidth, height: height)
+            bar.bounds = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+            bar.position = CGPoint(x: width / 2 + CGFloat(index) * (width + gap), y: bounds.midY)
+            bar.cornerRadius = width / 2
         }
+        CATransaction.commit()
+        if isRunning == false { rest(animated: false) }
     }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // No window, nothing to draw: the timer stops rather than ticking for nobody.
+        if window == nil { timer?.invalidate(); timer = nil } else if isRunning { startAnimating() }
+    }
+
+    // MARK: - Live levels
 
     /// Real levels — low, middle, high — from `AudioLevels`. While they come, the bars
     /// follow the sound; nil hands them back to the animation.
@@ -336,36 +400,94 @@ final class LevelMeterView: NSView {
             if wasLive, isRunning { startAnimating() }
             return
         }
-        if wasLive == false { stopAnimating() }
+        if wasLive == false { timer?.invalidate(); timer = nil }
+        // Bass in the middle, where the bars are tallest; the edges carry the highs.
+        let spread: [Float] = bars.count == 4
+            ? [levels[1], levels[0], levels[0] * 0.85 + levels[1] * 0.15, levels[2]]
+            : [levels[2], levels[1], levels[0], levels[1], levels[2]]
         CATransaction.begin()
         CATransaction.setAnimationDuration(1.0 / 30)
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
-        // The middle bar is the tallest, so it carries the bass, which moves most.
-        for (bar, level) in zip(bars, [levels[1], levels[0], levels[2]]) {
-            bar.anchorPoint = CGPoint(x: 0.5, y: 0)
-            bar.transform = CATransform3DMakeScale(1, CGFloat(0.18 + 0.82 * (isRunning ? level : 0)), 1)
+        for (bar, level) in zip(bars, spread) {
+            bar.removeAnimation(forKey: "bounce")
+            bar.transform = CATransform3DMakeScale(1, scale(for: isRunning ? CGFloat(level) : 0), 1)
         }
         CATransaction.commit()
     }
 
+    // MARK: - Animation
+
+    private var timer: Timer?
+    /// A slow swell under the per-bar jitter, so the bars rise and fall together the
+    /// way music does, rather than each doing its own thing.
+    private var energy: CGFloat = 0.6
+
+    private func scale(for level: CGFloat) -> CGFloat {
+        restingScale + (1 - restingScale) * min(1, max(0, level))
+    }
+
     private func startAnimating() {
-        guard liveLevels == nil else { return }
-        bars.forEach { $0.transform = CATransform3DIdentity }
-        for (index, bar) in bars.enumerated() {
-            let animation = CABasicAnimation(keyPath: "transform.scale.y")
-            animation.fromValue = 0.35
-            animation.toValue = 1
-            animation.duration = 0.42 + Double(index) * 0.11
-            animation.autoreverses = true
-            animation.repeatCount = .infinity
-            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            bar.anchorPoint = CGPoint(x: 0.5, y: 0)
-            bar.add(animation, forKey: "bounce")
-        }
+        guard liveLevels == nil, window != nil else { return }
+        timer?.invalidate()
+        step()
+        let timer = Timer(timeInterval: kind.step, repeats: true) { [weak self] _ in self?.step() }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     private func stopAnimating() {
-        bars.forEach { $0.removeAnimation(forKey: "bounce") }
+        timer?.invalidate()
+        timer = nil
+        rest(animated: true)
+    }
+
+    /// Every bar to its dot.
+    private func rest(animated: Bool) {
+        for bar in bars {
+            move(bar, to: restingScale, duration: animated ? 0.35 : 0)
+        }
+    }
+
+    private func step() {
+        // Hidden or faded out: nothing to see, so nothing to compute.
+        guard isHiddenOrHasHiddenAncestor == false, alphaValue > 0.01 else { return }
+        energy = min(1, max(0.35, energy + CGFloat.random(in: -0.18...0.18)))
+        let count = bars.count
+        for (index, bar) in bars.enumerated() {
+            // Middle bars reach higher than the outer ones.
+            let fromCentre = abs(CGFloat(index) - CGFloat(count - 1) / 2) / (CGFloat(count) / 2)
+            let ceiling = 1 - fromCentre * 0.35
+            let level: CGFloat
+            switch kind {
+            case .music:
+                // Each bar anywhere from a quarter to full height; the swell lifts or
+                // lowers them all a little, so loud passages read as loud.
+                level = ceiling * (0.72 + 0.28 * energy) * CGFloat.random(in: 0.22...1)
+            case .recording:
+                // Speech: mostly low, with sudden peaks, and the odd silence.
+                level = Bool.random() && Int.random(in: 0..<5) == 0 ? 0.08 : ceiling * pow(CGFloat.random(in: 0.15...1), 1.6)
+            }
+            move(bar, to: scale(for: level), duration: kind.step * 1.15)
+        }
+    }
+
+    /// Eases from wherever the bar is drawn right now, so a new height never jumps.
+    private func move(_ bar: CALayer, to target: CGFloat, duration: TimeInterval) {
+        let current = (bar.presentation() ?? bar).transform.m22
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        bar.transform = CATransform3DMakeScale(1, target, 1)
+        CATransaction.commit()
+        guard duration > 0 else {
+            bar.removeAnimation(forKey: "bounce")
+            return
+        }
+        let animation = CABasicAnimation(keyPath: "transform.scale.y")
+        animation.fromValue = current
+        animation.toValue = target
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        bar.add(animation, forKey: "bounce")
     }
 
     /// Each bar's drawn height right now, as a fraction of its full height — for the
@@ -377,5 +499,5 @@ final class LevelMeterView: NSView {
         }
     }
 
-    var hasBounceAnimation: Bool { bars.allSatisfy { $0.animation(forKey: "bounce") != nil } }
+    var hasBounceAnimation: Bool { timer != nil || liveLevels != nil }
 }

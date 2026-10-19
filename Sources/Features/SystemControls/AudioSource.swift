@@ -12,12 +12,14 @@ struct AudioSource: Equatable {
     /// For a browser, the page it is playing — read from the browser's own session
     /// file, so a video reads as the site it is on rather than as the browser.
     var page: BrowserPage?
+    /// The app also has the microphone: dictation, a voice note, a call we don't know.
+    var isRecording = false
 
     /// What to call it: the page, when we know which one, otherwise the app.
     var displayName: String { page?.title ?? name }
 
     /// Where it is coming from, under the name — "youtube.com", or the app itself.
-    var detail: String { page?.shortHost ?? name }
+    var detail: String { isRecording && page == nil ? "Recording" : page?.shortHost ?? name }
 
     /// The site's own favicon when there is one, the app's icon otherwise.
     var displayIcon: NSImage? { page?.icon ?? icon }
@@ -72,7 +74,8 @@ enum AudioSourceProbe {
                 processIdentifier: app.processIdentifier,
                 // Filled in separately: reading it is file work, and this runs on the
                 // main thread every time the bar is asked what is playing.
-                page: BrowserPageReader.shared.cachedPage(for: bundleIdentifier)
+                page: BrowserPageReader.shared.cachedPage(for: bundleIdentifier),
+                isRecording: recordingApplications().contains { $0.bundleIdentifier == bundleIdentifier }
             )
         }
         return nil

@@ -10,6 +10,24 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-10-20
+
+A meter worth looking at.
+
+### Fixed
+- **The bars beside the notch** are four thin rounded bars centred on the band, each
+  easing to a new height several times a second and rising and falling together like
+  music does — the way Boring Notch and the Dynamic Island draw it. They used to sit on
+  the band's bottom edge, jump up by half their height when they started, and bounce on
+  a fixed loop. Paused, they ease down to dots.
+- **An app holding the microphone** (dictation, a voice note) shows as recording: the
+  peek says "Recording" under the app's name, and the bars turn into a red, speech-like
+  flicker in place of the music meter.
+
+### Added
+- `--meter-filmstrip <file.png>` draws the meter's motion frame by frame, to judge it by
+  eye.
+
 ## [0.14.0] — 2026-10-20
 
 What's playing, from far more places.
@@ -335,7 +353,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...v0.13.1

@@ -14,6 +14,8 @@ struct PeekTrack {
     var asOf = Date()
     /// The artwork's colour, for the level meter.
     var tint: NSColor?
+    /// Red speech bars instead of music's, for an app holding the microphone.
+    var meterKind: LevelMeterView.Kind = .music
 }
 
 extension PeekTrack {
@@ -221,6 +223,7 @@ final class PeekView: NSView {
             icon.layer?.backgroundColor = track.icon == nil ? Style.controlFill.cgColor : NSColor.clear.cgColor
             titleLabel.stringValue = track.title
             subtitleLabel.stringValue = track.subtitle
+            meter.kind = track.meterKind
             meter.tint = track.tint
             meter.isRunning = track.isPlaying
             meter.alphaValue = track.isPlaying ? 1 : 0.35

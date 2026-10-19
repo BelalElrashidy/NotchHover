@@ -256,6 +256,20 @@ enum PreviewRenderer {
         // All we have is the app it is coming from, so that is what is shown.
         let external = AudioSource(name: "Safari", bundleIdentifier: "com.apple.Safari", processIdentifier: 0)
 
+        // An app with the microphone that's also making sound: dictation, a voice note.
+        let recorder = AudioSource(name: "Claude", bundleIdentifier: "com.anthropic.claudefordesktop", processIdentifier: 0, isRecording: true)
+        write(named: "peek-recording", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(recorder))
+            view.present(.idle, animated: false)
+            view.showPeekForPreview()
+        }
+        write(named: "idle-recording", directory: directory) { view in
+            view.isAudioPlaying = true
+            view.renderNowPlaying(.external(recorder))
+            view.present(.idle, animated: false)
+        }
+
         write(named: "idle-audio", directory: directory) { view in
             view.isAudioPlaying = true
             view.renderNowPlaying(.external(external))

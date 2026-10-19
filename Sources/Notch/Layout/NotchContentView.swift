@@ -463,7 +463,8 @@ final class NotchContentView: NSView {
             return .playing(PeekTrack(track: track, icon: artwork, tint: meterTint, asOf: trackAsOf))
         case .external(let source):
             return .playing(PeekTrack(title: source.displayName, subtitle: source.detail, icon: source.displayIcon,
-                                      isPlaying: true, isControllable: false))
+                                      isPlaying: true, isControllable: false,
+                                      meterKind: source.isRecording ? .recording : .music))
         case .message:
             break
         }
@@ -1083,6 +1084,7 @@ final class NotchContentView: NSView {
         case .track(let track):
             hasTrack = true
             trackAsOf = Date()
+            idleContent.levelMeter.kind = .music
             loadArtwork(track)
             idleContent.update(artwork: artwork, isPlaying: track.isPlaying)
 
@@ -1092,6 +1094,7 @@ final class NotchContentView: NSView {
             hasTrack = false
             artworkKey = nil
             artwork = source.displayIcon
+            idleContent.levelMeter.kind = source.isRecording ? .recording : .music
             idleContent.update(artwork: artwork, isPlaying: true)
 
         case .message:

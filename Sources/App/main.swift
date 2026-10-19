@@ -37,6 +37,13 @@ if let index = CommandLine.arguments.firstIndex(of: "--media-selftest") {
     MediaSelfTest.run(writeScriptsTo: CommandLine.arguments.dropFirst(index + 1).first)
 }
 
+// The level meter's motion, as a filmstrip: --meter-filmstrip <file.png>
+if let index = CommandLine.arguments.firstIndex(of: "--meter-filmstrip"), CommandLine.arguments.count > index + 1 {
+    app.setActivationPolicy(.accessory)
+    MeterFilmstrip.run(to: CommandLine.arguments[index + 1])
+    app.run()
+}
+
 // Meeting links found in invitation text: --calendar-selftest
 if CommandLine.arguments.contains("--calendar-selftest") {
     app.setActivationPolicy(.prohibited)
