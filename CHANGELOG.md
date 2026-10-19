@@ -10,6 +10,18 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.13.2] — 2026-10-20
+
+Roomier theme cards and menus.
+
+### Fixed
+- **Theme cards** are drawn as small desktops with the panel hanging from the top, its
+  tabs and three widgets in the theme's own colours, so the cards no longer look packed.
+  The selection ring sits outside the card, and the name has room beneath it.
+- **Menu buttons** (Resting bar, On hover, Panel width and the rest) have padding around
+  their label and an up-down chevron, and size to their text.
+- **The notch stage's** Resting · Peek · Open switch is centred under the panel.
+
 ## [0.13.1] — 2026-10-19
 
 Settings, spaced properly.
@@ -294,6 +306,7 @@ The first public release.
 - A notch on every display, shown over full-screen apps.
 
 [Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...HEAD
+[0.13.2]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/BelalElrashidy/NotchHover/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/BelalElrashidy/NotchHover/compare/v0.11.0...v0.12.0

@@ -10,7 +10,7 @@ final class NotchStageView: NSView {
     private var imageHeight: NSLayoutConstraint?
     var theme: Theme = ThemeStore.selected
 
-    static let height: CGFloat = 176
+    static let height: CGFloat = 196
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -34,7 +34,8 @@ final class NotchStageView: NSView {
             imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
             imageHeight!,
-            picker.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            // Centred under the panel, on the desktop — never over the panel's edge.
+            picker.centerXAnchor.constraint(equalTo: centerXAnchor),
             picker.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
         ])
     }
@@ -56,7 +57,7 @@ final class NotchStageView: NSView {
 
     func refresh() {
         // A wide margin of desktop, so the notch sits in a scene rather than filling it.
-        let image = PreviewRenderer.snapshot(theme: theme, width: 760, presentation: presentation, margin: 90)
+        let image = PreviewRenderer.snapshot(theme: theme, width: 760, presentation: presentation, margin: 170)
         imageView.image = image
         if let image, image.size.width > 0 {
             imageHeight?.isActive = false
@@ -410,6 +411,68 @@ final class StagePicker: NSView {
                 .foregroundColor: NSColor.white.withAlphaComponent(isOn ? 1 : 0.7),
                 .font: NSFont.systemFont(ofSize: 11, weight: isOn ? .semibold : .regular)
             ])
+        }
+    }
+}
+
+/// A theme drawn plainly: a desktop, the panel hanging from the top in the theme's
+/// surface, a row of tabs, three widgets and an accent — enough to tell themes apart at a
+/// glance, without text too small to read.
+final class ThemeSwatchView: NSView {
+    private let theme: Theme
+
+    init(theme: Theme) {
+        self.theme = theme
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSGradient(colors: [NSColor(calibratedRed: 0.20, green: 0.25, blue: 0.38, alpha: 1),
+                            NSColor(calibratedRed: 0.42, green: 0.34, blue: 0.50, alpha: 1)])?.draw(in: bounds, angle: -25)
+
+        // The panel: three quarters of the width, hanging from the top.
+        let panel = CGRect(x: bounds.width * 0.12, y: -14, width: bounds.width * 0.76, height: bounds.height * 0.78 + 14)
+        let shape = NSBezierPath(roundedRect: panel, xRadius: 12, yRadius: 12)
+        switch theme.surface {
+        case .solid(let color): color.setFill()
+        case .glass: NSColor.white.withAlphaComponent(0.22).setFill()
+        }
+        shape.fill()
+
+        let inset: CGFloat = 8
+        let inner = CGRect(x: panel.minX + inset, y: 6, width: panel.width - inset * 2, height: panel.maxY - 6 - inset)
+        // Tabs along the top, the first one picked.
+        let tab = CGRect(x: inner.minX, y: inner.minY, width: inner.width * 0.18, height: 5)
+        theme.primaryText.withAlphaComponent(0.85).setFill()
+        NSBezierPath(roundedRect: tab, xRadius: 2.5, yRadius: 2.5).fill()
+        theme.primaryText.withAlphaComponent(0.3).setFill()
+        NSBezierPath(roundedRect: tab.offsetBy(dx: tab.width + 4, dy: 0).insetBy(dx: tab.width * 0.2, dy: 0), xRadius: 2.5, yRadius: 2.5).fill()
+
+        // Three widgets.
+        let top = inner.minY + 12
+        let height = inner.maxY - top
+        let gap: CGFloat = 5
+        let width = (inner.width - gap * 2) / 3
+        for index in 0..<3 {
+            let tile = CGRect(x: inner.minX + CGFloat(index) * (width + gap), y: top, width: width, height: height)
+            theme.controlFill.setFill()
+            NSBezierPath(roundedRect: tile, xRadius: 5, yRadius: 5).fill()
+            // A line of "text" in each, and the accent in the first.
+            theme.secondaryText.withAlphaComponent(0.7).setFill()
+            NSBezierPath(roundedRect: CGRect(x: tile.minX + 5, y: tile.minY + 6, width: tile.width * 0.55, height: 3), xRadius: 1.5, yRadius: 1.5).fill()
+            theme.secondaryText.withAlphaComponent(0.4).setFill()
+            NSBezierPath(roundedRect: CGRect(x: tile.minX + 5, y: tile.minY + 12, width: tile.width * 0.35, height: 3), xRadius: 1.5, yRadius: 1.5).fill()
+            if index == 0 {
+                theme.accent.setFill()
+                NSBezierPath(roundedRect: CGRect(x: tile.minX + 5, y: tile.maxY - 9, width: tile.width - 10, height: 4), xRadius: 2, yRadius: 2).fill()
+            }
         }
     }
 }

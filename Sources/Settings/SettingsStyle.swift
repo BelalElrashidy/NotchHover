@@ -206,6 +206,7 @@ final class MenuButton: NSView {
     private let button: NSButton
     private let titles: [String]
     private(set) var selectedIndex = 0
+    private var width: NSLayoutConstraint?
 
     init(titles: [String]) {
         self.titles = titles
@@ -225,8 +226,9 @@ final class MenuButton: NSView {
             button.trailingAnchor.constraint(equalTo: trailingAnchor),
             button.topAnchor.constraint(equalTo: topAnchor),
             button.bottomAnchor.constraint(equalTo: bottomAnchor),
-            button.heightAnchor.constraint(equalToConstant: 24)
+            button.heightAnchor.constraint(equalToConstant: 26)
         ])
+        button.layer?.cornerRadius = 7
 
         select(0, notify: false)
     }
@@ -242,12 +244,21 @@ final class MenuButton: NSView {
         let theme = SettingsStyle.theme
         button.layer?.backgroundColor = theme.controlFill.cgColor
         button.attributedTitle = NSAttributedString(
-            string: titles[index] + "  ⌄",
+            string: titles[index],
             attributes: [
                 .foregroundColor: theme.primaryText,
-                .font: NSFont.systemFont(ofSize: 12, weight: .medium)
+                .font: NSFont.systemFont(ofSize: 12)
             ]
         )
+        // The up-and-down chevron macOS's own pop-up menus use, with room around it.
+        button.image = NSImage(systemSymbolName: "chevron.up.chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold))
+        button.imagePosition = .imageTrailing
+        button.imageHugsTitle = true
+        button.contentTintColor = theme.secondaryText
+        width?.isActive = false
+        width = widthAnchor.constraint(equalToConstant: ceil(button.intrinsicContentSize.width) + 22)
+        width?.isActive = true
         if notify { onSelect?(index) }
     }
 

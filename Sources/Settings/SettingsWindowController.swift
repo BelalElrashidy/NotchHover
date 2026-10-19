@@ -337,7 +337,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             return card
         }
         // Three to a row, filling the page: a picture the shape of the panel, and its name.
-        let themes = EqualGrid(items: cards, columns: 3, spacing: 12) { width in width * ThemeCard.aspect + 24 }
+        let themes = EqualGrid(items: cards, columns: 3, spacing: 16) { width in width * ThemeCard.aspect + 30 }
 
         let resting = ["always", "playing", "never"]
         let restingIndex = resting.firstIndex(of: UserDefaults.standard.string(forKey: "RestingBar") ?? "playing") ?? 1
@@ -864,43 +864,53 @@ private final class SidebarRow: NSView {
     override func mouseDown(with event: NSEvent) { onSelect?() }
 }
 
-/// A theme as a picture of the panel in it, ringed when chosen — Linear's theme tiles.
+/// A theme as a simple picture of the panel in its colours — the way macOS's own
+/// Appearance tiles show Light and Dark rather than a shrunken screenshot — with room
+/// around it, its name below, and a ring set just outside when it's the one in use.
 private final class ThemeCard: NSView {
     var onPick: (() -> Void)?
 
-    /// Height over width of the pictures, so the frame fits them with no bands.
-    static let aspect: CGFloat = {
-        guard let sample = PreviewRenderer.snapshot(theme: Theme.all[0], width: 150), sample.size.width > 0 else { return 0.3 }
-        return sample.size.height / sample.size.width
-    }()
+    /// The tile's height for its width, so the grid can size rows before layout.
+    static let aspect: CGFloat = 0.42
 
     init(theme candidate: Theme, isSelected: Bool) {
         super.init(frame: .zero)
         let theme = SettingsKit.theme
-        let image = NSImageView(image: PreviewRenderer.snapshot(theme: candidate, width: 150) ?? NSImage())
-        image.imageScaling = .scaleAxesIndependently
-        image.wantsLayer = true
-        image.layer?.cornerRadius = 8
-        image.layer?.masksToBounds = true
-        image.layer?.borderWidth = isSelected ? 2.5 : 0.5
-        image.layer?.borderColor = (isSelected ? theme.accent : theme.primaryText.withAlphaComponent(0.15)).cgColor
+        let swatch = ThemeSwatchView(theme: candidate)
+        swatch.wantsLayer = true
+        swatch.layer?.cornerRadius = 10
+        swatch.layer?.masksToBounds = true
+
+        // The ring sits 3pt outside the tile, so the tile itself is never covered.
+        let ring = NSView()
+        ring.wantsLayer = true
+        ring.layer?.cornerRadius = 13
+        ring.layer?.borderWidth = isSelected ? 2.5 : 0
+        ring.layer?.borderColor = theme.accent.cgColor
+
         let name = NSTextField(labelWithString: candidate.name)
-        name.font = .systemFont(ofSize: 11, weight: isSelected ? .semibold : .regular)
-        name.textColor = theme.primaryText
-        let stack = NSStackView(views: [image, name])
-        stack.orientation = .vertical
-        stack.spacing = 5
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        stack.alignment = .centerX
+        name.font = .systemFont(ofSize: 12, weight: isSelected ? .semibold : .regular)
+        name.textColor = isSelected ? theme.primaryText : theme.secondaryText
+        name.alignment = .center
+
+        [ring, swatch, name].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            addSubview($0)
+        }
         NSLayoutConstraint.activate([
-            image.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            image.heightAnchor.constraint(equalTo: image.widthAnchor, multiplier: Self.aspect),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+            ring.topAnchor.constraint(equalTo: topAnchor),
+            ring.leadingAnchor.constraint(equalTo: leadingAnchor),
+            ring.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ring.heightAnchor.constraint(equalTo: ring.widthAnchor, multiplier: Self.aspect),
+            swatch.topAnchor.constraint(equalTo: ring.topAnchor, constant: 3),
+            swatch.leadingAnchor.constraint(equalTo: ring.leadingAnchor, constant: 3),
+            swatch.trailingAnchor.constraint(equalTo: ring.trailingAnchor, constant: -3),
+            swatch.bottomAnchor.constraint(equalTo: ring.bottomAnchor, constant: -3),
+            name.topAnchor.constraint(equalTo: ring.bottomAnchor, constant: 8),
+            name.leadingAnchor.constraint(equalTo: leadingAnchor),
+            name.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
+        toolTip = candidate.summary
     }
 
     @available(*, unavailable)
