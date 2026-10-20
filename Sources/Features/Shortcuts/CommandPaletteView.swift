@@ -33,7 +33,7 @@ final class CommandPaletteView: NSView, NSTextFieldDelegate {
         field.focusRingType = .none
         field.wantsLayer = true
         field.layer?.cornerRadius = 8
-        field.layer?.backgroundColor = Style.controlFill.cgColor
+        field.layer?.backgroundColor = Style.fieldFill.cgColor
         field.delegate = self
 
         promptChip.wantsLayer = true

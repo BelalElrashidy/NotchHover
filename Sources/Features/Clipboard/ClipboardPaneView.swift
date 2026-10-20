@@ -103,7 +103,7 @@ final class ClipboardPaneView: NSView, NSTextFieldDelegate {
         searchField.wantsLayer = true
         searchField.layer?.cornerRadius = 7
         searchField.layer?.cornerCurve = .continuous
-        searchField.layer?.backgroundColor = Style.controlFill.cgColor
+        searchField.layer?.backgroundColor = Style.fieldFill.cgColor
         searchField.delegate = self
 
         pauseButton.toolTip = "Pause recording"

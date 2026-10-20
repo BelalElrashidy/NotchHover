@@ -77,7 +77,7 @@ final class NotesPaneView: NSView, NSTextViewDelegate {
         editorScroll.drawsBackground = false
         editorScroll.wantsLayer = true
         editorScroll.layer?.cornerRadius = 8
-        editorScroll.layer?.backgroundColor = Style.controlFill.cgColor
+        editorScroll.layer?.backgroundColor = Style.fieldFill.cgColor
         editor.autoresizingMask = [.width]
         editor.isVerticallyResizable = true
         editor.textContainer?.widthTracksTextView = true

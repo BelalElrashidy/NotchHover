@@ -242,9 +242,13 @@ enum ThemeTweaks {
     }
 
     /// A dark wash over clear glass, 0 (none) to 0.85, so what's behind it can be
-    /// toned down until the panel reads.
+    /// toned down until the panel reads. Clear glass with none at all — what it used to
+    /// be — left white text unreadable over anything bright, so it starts at 40%.
+    static let defaultGlassTint: CGFloat = 0.4
+
     static var glassTint: CGFloat {
-        CGFloat(min(0.85, max(0, UserDefaults.standard.double(forKey: glassTintKey))))
+        let stored = UserDefaults.standard.object(forKey: glassTintKey) as? Double
+        return CGFloat(min(0.85, max(0, stored ?? Double(defaultGlassTint))))
     }
 
     /// Frosted blurs what's behind the glass; clear leaves it sharp.

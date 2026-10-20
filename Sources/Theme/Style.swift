@@ -11,6 +11,11 @@ enum Style {
     static var tertiaryText: NSColor { theme.tertiaryText }
     static var accent: NSColor { theme.accent }
     static var controlFill: NSColor { theme.controlFill }
+    /// Behind text you type. On glass a light fill over a bright desktop left white
+    /// text nearly invisible, so glass gets a dark one.
+    static var fieldFill: NSColor {
+        theme.surface == .glass ? NSColor.black.withAlphaComponent(0.34) : theme.controlFill
+    }
 
     static func scaled(_ size: CGFloat) -> CGFloat {
         (size * theme.typeScale * PanelSizes.typeScale).rounded()

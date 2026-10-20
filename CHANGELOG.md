@@ -10,6 +10,22 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.8] — 2026-10-21
+
+Notes you can read on glass.
+
+### Fixed
+- **Notes nearly vanished in Clear glass.** Clear glass had no darkening at all, so
+  white text over anything bright behind the notch — a video, a white page — washed
+  out, and the note's light text box made it worse. Clear glass now starts with a 40%
+  tint (Settings → Appearance → Adjust Clear glass changes it, down to none), and on
+  glass the places you type — the note, the clipboard search, the ⌘K list — sit on a
+  dark field instead of a light one.
+
+### Added
+- `--open-tab <view>` opens the panel on a view at launch, to check how it looks
+  without hovering.
+
 ## [0.14.7] — 2026-10-20
 
 Screenshots where you want them.
@@ -446,7 +462,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...HEAD
+[0.14.8]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.4...v0.14.5

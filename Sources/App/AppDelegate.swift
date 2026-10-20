@@ -36,6 +36,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardHistory.shared.start()
 
         registerActions()
+
+        // --open-tab notes: opens the panel on a view at launch, to look at it without
+        // a hover — for checking a pane's look by hand or by screenshot.
+        if let index = CommandLine.arguments.firstIndex(of: "--open-tab"), CommandLine.arguments.count > index + 1,
+           let tab = PanelTab.allCases.first(where: { "\($0)".lowercased() == CommandLine.arguments[index + 1].lowercased() }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.notchController?.open(tab) }
+        }
         MeetingControls.shared.start()
         ScreenshotStore.shared.onNew = { [weak self] url in self?.notchController?.showScreenshot(url) }
         ScreenshotStore.shared.start()
