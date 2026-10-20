@@ -60,6 +60,10 @@ final class GlassCardView: NSView {
     private let slabLayer = CAShapeLayer()
     private var backdropView: NSView?
     private let tintView = NSView()
+    /// The strip over the menu bar, solid. Anything see-through there shows the menu
+    /// bar's own titles behind the tabs — and the menu bar fills with them the moment
+    /// you type, because typing makes an app active — so it is painted over.
+    private let menuBarBand = NSView()
 
     /// The part of the card the slab currently occupies. The card itself always spans
     /// the whole panel; only this rect changes, so the shape can grow and shrink from
@@ -132,6 +136,10 @@ final class GlassCardView: NSView {
             addSubview(tintView)
         }
 
+        menuBarBand.wantsLayer = true
+        menuBarBand.isHidden = true
+        addSubview(menuBarBand)
+
         // Always a sibling on top of the backdrop, never owned by it.
         contentContainer.wantsLayer = true
         contentContainer.frame = bounds.insetBy(dx: NotchShape.flare(in: bounds), dy: 0)
@@ -145,8 +153,33 @@ final class GlassCardView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private var menuBarHeight: CGFloat = 0
+
+    /// How tall the strip over the menu bar is. Only a surface you can see through
+    /// needs it; an opaque one already hides the menu bar.
+    func setMenuBarBand(height: CGFloat) {
+        menuBarHeight = height
+        menuBarBand.frame = CGRect(x: 0, y: bounds.height - height, width: bounds.width, height: height)
+        menuBarBand.autoresizingMask = [.width, .minYMargin]
+        refreshMenuBarBand()
+    }
+
+    private func refreshMenuBarBand() {
+        let theme = ThemeStore.active
+        switch theme.surface {
+        case .glass:
+            // The colour of the notch itself.
+            menuBarBand.layer?.backgroundColor = NSColor.black.cgColor
+            menuBarBand.isHidden = menuBarHeight == 0
+        case .solid(let color):
+            menuBarBand.layer?.backgroundColor = color.withAlphaComponent(1).cgColor
+            menuBarBand.isHidden = menuBarHeight == 0 || color.alphaComponent >= 0.999
+        }
+    }
+
     /// Opacity, tint and blur changed in Settings, applied to the panel as it is.
     func applyTweaks() {
+        refreshMenuBarBand()
         let theme = ThemeStore.active
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.2)
@@ -167,6 +200,7 @@ final class GlassCardView: NSView {
         CATransaction.setAnimationDuration(0.35)
         // At the opacity you chose for the theme, whatever the artwork's colour.
         slabLayer.fillColor = color.withAlphaComponent(ThemeTweaks.opacity(for: ThemeStore.selected)).cgColor
+        if menuBarBand.isHidden == false { menuBarBand.layer?.backgroundColor = color.withAlphaComponent(1).cgColor }
         CATransaction.commit()
     }
 

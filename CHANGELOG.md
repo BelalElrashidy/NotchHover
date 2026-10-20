@@ -10,6 +10,18 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.9] — 2026-10-21
+
+The tab bar stays clean on see-through themes.
+
+### Fixed
+- **Typing scrambled the notch's tab bar.** Typing — a note, a clipboard search —
+  makes an app active, and the menu bar fills with its menus. On Clear glass, or any
+  theme below 100% opacity, those menu titles showed straight through the strip behind
+  the tabs, and stayed until the panel was closed. That strip, the part over the menu
+  bar, is now painted solid — black on glass, like the notch itself — so nothing behind
+  it shows through.
+
 ## [0.14.8] — 2026-10-21
 
 Notes you can read on glass.
@@ -462,7 +474,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.9...HEAD
+[0.14.9]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.5...v0.14.6

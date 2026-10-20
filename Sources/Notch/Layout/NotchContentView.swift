@@ -234,6 +234,7 @@ final class NotchContentView: NSView {
 
         let panelSize = Metrics.panelSize(notchWidth: notchWidth, notchHeight: notchHeight)
         card = GlassCardView(frame: CGRect(origin: .zero, size: panelSize))
+        card.setMenuBarBand(height: self.bandHeight)
 
         super.init(frame: CGRect(origin: .zero, size: panelSize))
         addSubview(card)
