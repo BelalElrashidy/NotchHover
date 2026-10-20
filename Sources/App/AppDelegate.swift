@@ -42,6 +42,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let index = CommandLine.arguments.firstIndex(of: "--open-tab"), CommandLine.arguments.count > index + 1,
            let tab = PanelTab.allCases.first(where: { "\($0)".lowercased() == CommandLine.arguments[index + 1].lowercased() }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.notchController?.open(tab) }
+            // --close-after <seconds>: and closes it again, back to the resting bar.
+            if let closeIndex = CommandLine.arguments.firstIndex(of: "--close-after"), CommandLine.arguments.count > closeIndex + 1,
+               let seconds = Double(CommandLine.arguments[closeIndex + 1]) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + seconds) { [weak self] in self?.notchController?.dismiss() }
+            }
         }
         MeetingControls.shared.start()
         ScreenshotStore.shared.onNew = { [weak self] url in self?.notchController?.showScreenshot(url) }

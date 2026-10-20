@@ -65,6 +65,21 @@ final class GlassCardView: NSView {
     /// you type, because typing makes an app active — so it is painted over.
     private let menuBarBand = NSView()
 
+    /// Liquid Glass draws one way in a window with keyboard focus — almost perfectly
+    /// clear — and another, blurred and dimmed, without. The panel takes focus the
+    /// moment you type in it, so the glass used to go see-through and stay that way
+    /// until the panel closed. It lives in a window of its own instead, one that can
+    /// never take focus, attached under the panel; it gets the same shape and the same
+    /// animations through `glassMask`.
+    private var glassWindow: GlassBackdropWindow?
+    private var glassHolder: NSView?
+    private let glassMask = CAShapeLayer()
+
+    /// Every layer that carries the shape: the card's mask and slab, and the glass's.
+    private var shapeLayers: [CAShapeLayer] {
+        glassHolder == nil ? [maskLayer, slabLayer] : [maskLayer, slabLayer, glassMask]
+    }
+
     /// The part of the card the slab currently occupies. The card itself always spans
     /// the whole panel; only this rect changes, so the shape can grow and shrink from
     /// its own centre instead of being dragged around by an animating frame.
@@ -101,9 +116,13 @@ final class GlassCardView: NSView {
                 // The mask supplies the shape, so the glass stays a plain rectangle.
                 glass.cornerRadius = 0
                 glass.style = ThemeTweaks.glassFrosted ? .regular : .clear
-                addSubview(glass)
+                let holder = NSView(frame: bounds)
+                holder.wantsLayer = true
+                holder.addSubview(glass)
+                holder.layer?.mask = glassMask
+                glassHolder = holder
                 backdropView = glass
-                Log.ui.notice("Surface: clear glass")
+                Log.ui.notice("Surface: clear glass, in its own window")
             } else {
                 let effect = NSVisualEffectView(frame: bounds)
                 effect.autoresizingMask = [.width, .height]
@@ -216,7 +235,7 @@ final class GlassCardView: NSView {
         transitionEndsAt = CACurrentMediaTime() + duration
         let target = NotchShape.path(in: rect, bottomRadius: radius)
 
-        for layer in [maskLayer, slabLayer] {
+        for layer in shapeLayers {
             // Start from what is on screen now, so reversing mid-animation never jumps.
             let current = layer.presentation()?.path ?? layer.path ?? target
 
@@ -268,7 +287,7 @@ final class GlassCardView: NSView {
             bottomRadius: radius
         )
 
-        for layer in [maskLayer, slabLayer] {
+        for layer in shapeLayers {
             let current = layer.presentation()?.path ?? layer.path ?? target
 
             CATransaction.begin()
@@ -340,7 +359,7 @@ final class GlassCardView: NSView {
             bottomRadius: bottomRadius
         )
 
-        for layer in [maskLayer, slabLayer] {
+        for layer in shapeLayers {
             let animation = CABasicAnimation(keyPath: "path")
             animation.fromValue = rest
             animation.toValue = full
@@ -361,7 +380,7 @@ final class GlassCardView: NSView {
     private func stopBreathing() {
         breathWorkItem?.cancel()
         breathWorkItem = nil
-        [maskLayer, slabLayer].forEach { $0.removeAnimation(forKey: "breath") }
+        shapeLayers.forEach { $0.removeAnimation(forKey: "breath") }
         onBreath?(0)
     }
 
@@ -382,13 +401,66 @@ final class GlassCardView: NSView {
         CATransaction.setDisableActions(true)
         maskLayer.frame = bounds
         slabLayer.frame = bounds
+        glassMask.frame = bounds
         if maskLayer.path == nil {
             let path = NotchShape.path(in: shapeRect, bottomRadius: bottomRadius)
             maskLayer.path = path
             slabLayer.path = path
+            glassMask.path = path
         }
-        backdropView?.frame = bounds
+        if glassHolder == nil { backdropView?.frame = bounds }
         contentContainer.frame = bounds.insetBy(dx: NotchShape.flare(in: bounds), dy: 0)
         CATransaction.commit()
+        syncGlassWindow()
     }
+
+    // MARK: - The glass's window
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let holder = glassHolder else { return }
+        if let glassWindow, let parent = glassWindow.parent { parent.removeChildWindow(glassWindow) }
+        guard let window else {
+            glassWindow?.orderOut(nil)
+            return
+        }
+        let backdrop = glassWindow ?? GlassBackdropWindow(content: holder)
+        glassWindow = backdrop
+        backdrop.level = window.level
+        backdrop.collectionBehavior = window.collectionBehavior
+        syncGlassWindow()
+        // Below the panel, moving and showing with it.
+        window.addChildWindow(backdrop, ordered: .below)
+    }
+
+    /// The glass's window covers exactly what the card covers. Moves come for free with
+    /// a child window; size changes don't.
+    private func syncGlassWindow() {
+        guard let glassWindow, let window else { return }
+        let frame = window.convertToScreen(convert(bounds, to: nil))
+        if glassWindow.frame != frame { glassWindow.setFrame(frame, display: false) }
+        glassHolder?.frame = CGRect(origin: .zero, size: frame.size)
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        syncGlassWindow()
+    }
+}
+
+/// The window the glass lives in: borderless, see-through, never key, never clicked.
+/// Because it never has focus, the glass in it always draws the same way.
+final class GlassBackdropWindow: NSPanel {
+    init(content: NSView) {
+        super.init(contentRect: content.bounds, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        ignoresMouseEvents = true
+        isReleasedWhenClosed = false
+        contentView = content
+    }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }

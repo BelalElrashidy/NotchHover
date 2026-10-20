@@ -741,7 +741,7 @@ final class NotchController {
         }
     }
 
-    private func dismiss() {
+    func dismiss() {
         // An unanswered approval keeps the panel up: closing would hide the question
         // while Claude Code waits on it. ⌘↩ and ⌘⌫ answer it.
         guard isPinned == false else { return }

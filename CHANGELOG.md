@@ -10,6 +10,23 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.10] — 2026-10-21
+
+Clear glass stays the same while you type.
+
+### Fixed
+- **Typing turned Clear glass see-through.** Liquid Glass draws one way in a window
+  with keyboard focus — almost perfectly clear — and another, blurred and dimmed,
+  without. Any text box (a note, the clipboard search, ⌘K) gives the panel focus, so
+  the glass went nearly invisible as soon as you typed, and stayed that way through
+  every tab until the panel closed. The glass now lives in a window of its own under the
+  panel, one that never takes focus, so it always draws the same. It follows the panel's
+  shape exactly — opening, closing, the pop and the breath.
+
+### Added
+- `--close-after <seconds>`, with `--open-tab`, closes the panel again — to check the
+  resting bar after a pane without touching the Mac.
+
 ## [0.14.9] — 2026-10-21
 
 The tab bar stays clean on see-through themes.
@@ -474,7 +491,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.9...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.10...HEAD
+[0.14.10]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.6...v0.14.7
