@@ -257,6 +257,18 @@ final class NotchController {
         }
         permissionBridge.start()
 
+        // A window on every Space still isn't always brought into a full-screen app's
+        // Space by itself — over full-screen Safari the notch simply wasn't there. So on
+        // every Space change, whatever is showing is put in front again, the way
+        // Boring Notch and Atoll do.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reassertOnActiveSpace()
+        }
+
         audioActivity.onChange = { [weak self] active in
             self?.applyAudioActivity(active)
         }
@@ -268,6 +280,14 @@ final class NotchController {
         meetingTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.announceUpcomingMeeting()
         }
+    }
+
+    private func reassertOnActiveSpace() {
+        for display in displays.values where display.panel.isVisible {
+            // The glass's own window is a child, ordered below it along with it.
+            display.panel.orderFrontRegardless()
+        }
+        Log.ui.info("Active Space changed; panels re-ordered")
     }
 
     private func announceUpcomingMeeting() {
