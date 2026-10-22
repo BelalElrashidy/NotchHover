@@ -10,6 +10,19 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.18] — 2026-10-23
+
+Swipe between views.
+
+### Fixed
+- **Swiping between views now follows your fingers.** Two fingers sideways pull the
+  view along with them; let go short and it springs back. When the swipe lands, the view
+  slides across to the next one, with a tap from the trackpad.
+
+### Added
+- `--swipe-demo`, with `--open-tab`, plays a swipe in the panel, to see the transition
+  without a trackpad. The gesture self-test checks the drag and the spring-back.
+
 ## [0.14.17] — 2026-10-23
 
 A second board, and Screenshots on the right.
@@ -558,7 +571,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.17...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.18...HEAD
+[0.14.18]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.17...v0.14.18
 [0.14.17]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.16...v0.14.17
 [0.14.16]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.15...v0.14.16
 [0.14.15]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...v0.14.15
