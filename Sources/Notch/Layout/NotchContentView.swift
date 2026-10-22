@@ -377,7 +377,7 @@ final class NotchContentView: NSView {
         permissionDetail.onApprove = { [weak self] in self?.onApprove?() }
         permissionDetail.onDeny = { [weak self] in self?.onDeny?() }
 
-        show(.home)
+        show(Self.lastTab, focusing: false)
     }
 
     private func install(_ view: NSView) {
@@ -392,9 +392,19 @@ final class NotchContentView: NSView {
         paneContainer.addSubview(view)
     }
 
-    private func show(_ tab: PanelTab) {
+    /// The view the panel was last left on; it opens there again, launches included.
+    static let lastTabKey = "LastPanelTab"
+
+    static var lastTab: PanelTab {
+        PanelTab(rawValue: UserDefaults.standard.integer(forKey: lastTabKey)) ?? .home
+    }
+
+    /// `focusing` is false when the panel is only coming back to a view — Notes then
+    /// waits for a click rather than taking the keyboard because the pointer passed by.
+    private func show(_ tab: PanelTab, focusing: Bool = true) {
         mode = .media
         selectedTab = tab
+        UserDefaults.standard.set(tab.rawValue, forKey: Self.lastTabKey)
         setShortcutSheetVisible(false)
         setQuickSettingsVisible(false)
         // Views that aren't tabs leave no tab highlighted; picking one goes back.
@@ -407,7 +417,7 @@ final class NotchContentView: NSView {
         case .notes:
             install(notesPane)
             // Choosing Notes means you are about to write one.
-            DispatchQueue.main.async { [weak self] in self?.notesPane.focus() }
+            if focusing { DispatchQueue.main.async { [weak self] in self?.notesPane.focus() } }
         case .nowPlaying: install(mediaDetail)
         case .playlists: playlistsPane.reload(); install(playlistsPane)
         case .tray: trayPane.reload(); install(trayPane)
@@ -1160,8 +1170,16 @@ final class NotchContentView: NSView {
         headerActions.setPendingCount(count)
     }
 
+    /// Back to the view you were on — after an app's details or an approval, and when
+    /// the panel closes, so it opens on the same view next time.
     func showMedia() {
-        show(.home)
+        show(Self.lastTab, focusing: false)
+    }
+
+    /// Opening: the last view, shown afresh — closing stopped whatever it was tracking,
+    /// and another display's panel may have been left on a different one.
+    func restoreLastTab() {
+        show(Self.lastTab, focusing: false)
     }
 
     /// The widget list changed in settings.

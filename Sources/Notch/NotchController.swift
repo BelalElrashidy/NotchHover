@@ -672,6 +672,7 @@ final class NotchController {
         // Only take clicks while open; the resting bar must not block the menu bar.
         panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()
+        display.content.restoreLastTab()
         display.content.present(.expanded)
 
         poller.interval = Constants.openInterval
@@ -797,8 +798,9 @@ final class NotchController {
         panel.makeFirstResponder(nil)
         isExpanded = false
         selectedShortcut = nil
-        contentView.stopCamera()
+        // Back to the last view first, then everything it started is stopped.
         contentView.showMedia()
+        contentView.stopCamera()
         contentView.present(wantsRestingBar ? .idle : .hidden, animated: false)
         panel.ignoresMouseEvents = true
         panel.orderOut(nil)
@@ -818,8 +820,8 @@ final class NotchController {
         openedByKeyboard = false
         selectedShortcut = nil
         releaseKeyFocus(after: 0.36)
-        contentView?.stopCamera()
         contentView?.showMedia()
+        contentView?.stopCamera()
         poller.interval = Constants.restingInterval
 
         settleToRestingState()
