@@ -115,6 +115,10 @@ enum PreviewRenderer {
             view.selectTabForPreview(.shelf)
         }
 
+        write(named: "expanded-mirror", directory: directory) { view in
+            view.selectTabForPreview(.mirror)
+        }
+
         // The peek: what resting on the notch brings up before a click opens the panel.
         write(named: "peek-playing", directory: directory) { view in
             view.renderNowPlaying(.track(track))
