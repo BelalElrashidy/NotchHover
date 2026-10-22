@@ -42,6 +42,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let index = CommandLine.arguments.firstIndex(of: "--open-tab"), CommandLine.arguments.count > index + 1,
            let tab = PanelTab.allCases.first(where: { "\($0)".lowercased() == CommandLine.arguments[index + 1].lowercased() }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.notchController?.open(tab) }
+            if CommandLine.arguments.contains("--swipe-demo") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.notchController?.playSwipeDemo() }
+            }
             // --close-after <seconds>: and closes it again, back to the resting bar.
             if let closeIndex = CommandLine.arguments.firstIndex(of: "--close-after"), CommandLine.arguments.count > closeIndex + 1,
                let seconds = Double(CommandLine.arguments[closeIndex + 1]) {

@@ -603,13 +603,20 @@ final class NotchController {
             dismiss()
             Haptics.step()
         case .left?:
-            contentView?.selectAdjacentTab(by: 1)
+            contentView?.slideToAdjacentTab(by: 1)
             Haptics.tick()
         case .right?:
-            contentView?.selectAdjacentTab(by: -1)
+            contentView?.slideToAdjacentTab(by: -1)
             Haptics.tick()
         default:
-            break
+            // Until it's a swipe, the view follows the fingers sideways; let go short
+            // of one and it springs back.
+            if panelSwipes.endedWithoutSwipe {
+                contentView?.settlePaneDrag()
+            } else if panelSwipes.isTracking, panelSwipes.hasFired == false,
+                      abs(panelSwipes.travel.dx) > abs(panelSwipes.travel.dy) {
+                contentView?.dragPane(by: panelSwipes.travel.dx)
+            }
         }
 
         // Nothing here scrolls sideways, and away from a list nothing scrolls at all, so
@@ -738,6 +745,20 @@ final class NotchController {
             let pointer = NSEvent.mouseLocation
             guard display.panel.frame.union(display.geometry.hoverRect).containsPointer(pointer) == false else { return }
             self.collapse()
+        }
+    }
+
+    /// --swipe-demo: the pane pulled by a finger's worth, then a swipe landing — for
+    /// filming the transition without a trackpad.
+    func playSwipeDemo() {
+        guard let contentView else { return }
+        let pulls: [CGFloat] = [-15, -35, -55, -75]
+        for (index, pull) in pulls.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.08) { contentView.dragPane(by: pull) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            contentView.slideToAdjacentTab(by: 1)
+            Haptics.tick()
         }
     }
 

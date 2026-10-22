@@ -17,8 +17,11 @@ enum GestureSelfTest {
 
         /// Deltas are in finger terms (+x right, +y down) and converted to what macOS
         /// reports with natural scrolling off, where content moves against the fingers.
+        var lastRecognizer = SwipeRecognizer()
+        var travelBeforeEnd: CGFloat = 0
         func gesture(_ steps: [(dx: Double, dy: Double)], precise: Bool = true, momentum: Bool = false) -> [SwipeRecognizer.Direction] {
             let recognizer = SwipeRecognizer()
+            lastRecognizer = recognizer
             var fired: [SwipeRecognizer.Direction] = []
             func send(_ dx: Double, _ dy: Double, phase: Phase?, momentumPhase: Int64 = 0) {
                 guard let event = CGEvent(
@@ -38,6 +41,7 @@ enum GestureSelfTest {
             for step in steps {
                 send(step.dx, step.dy, phase: momentum ? nil : .changed, momentumPhase: momentum ? 2 : 0)
             }
+            travelBeforeEnd = recognizer.travel.dx
             send(0, 0, phase: .ended)
             return fired
         }
@@ -49,6 +53,12 @@ enum GestureSelfTest {
         let right = Array(repeating: (dx: 10.0, dy: 0.0), count: 8)
         let diagonal = Array(repeating: (dx: 8.0, dy: 7.0), count: 10)
 
+        let nudge = Array(repeating: (dx: -6.0, dy: 0.0), count: 5)         // 30pt left
+        let nudged = gesture(nudge)
+        expect("a short sideways movement is followed (\(Int(travelBeforeEnd))pt)", nudged.isEmpty && travelBeforeEnd < -25)
+        expect("…and springs back when the fingers lift", lastRecognizer.endedWithoutSwipe)
+        _ = gesture(left)
+        expect("a swipe that landed doesn't spring back", lastRecognizer.endedWithoutSwipe == false)
         expect("down", gesture(down) == [.down])
         expect("up", gesture(up) == [.up])
         expect("left", gesture(left) == [.left])

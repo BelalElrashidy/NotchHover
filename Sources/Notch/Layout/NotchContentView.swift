@@ -679,6 +679,71 @@ final class NotchContentView: NSView {
         show(tabs[(current + step + tabs.count) % tabs.count])
     }
 
+    // MARK: - Swiping between views
+
+    /// How far a pane may be pulled before it's let go of: enough to feel it move with
+    /// the fingers, never so far it looks gone.
+    private static let dragLimit: CGFloat = 70
+
+    /// The pane, pulled sideways with the fingers while a swipe is still being made.
+    func dragPane(by fingerTravel: CGFloat) {
+        let pull = max(-Self.dragLimit, min(Self.dragLimit, fingerTravel * 0.6))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        paneContainer.frame.origin.x = pull
+        paneContainer.alphaValue = 1 - abs(pull) / Self.dragLimit * 0.35
+        CATransaction.commit()
+    }
+
+    /// Let go short of a swipe: back to where it was.
+    func settlePaneDrag() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.28
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1)
+            context.allowsImplicitAnimation = true
+            paneContainer.animator().frame.origin.x = 0
+            paneContainer.animator().alphaValue = 1
+        }
+    }
+
+    /// A swipe landed: the view you were on carries on the way the fingers went and
+    /// fades, and the next one slides in behind it from the other side.
+    func slideToAdjacentTab(by step: Int) {
+        let width = paneContainer.bounds.width
+        // A picture of the pane as it is, to slide out while the real one is replaced.
+        var outgoing: NSImageView?
+        if let snapshot = paneContainer.bitmapImageRepForCachingDisplay(in: paneContainer.bounds) {
+            paneContainer.cacheDisplay(in: paneContainer.bounds, to: snapshot)
+            let image = NSImage(size: paneContainer.bounds.size)
+            image.addRepresentation(snapshot)
+            let view = NSImageView(frame: paneContainer.frame)
+            view.image = image
+            view.imageScaling = .scaleNone
+            view.alphaValue = paneContainer.alphaValue
+            paneContainer.superview?.addSubview(view, positioned: .above, relativeTo: paneContainer)
+            outgoing = view
+        }
+
+        selectAdjacentTab(by: step)
+
+        // Fingers moving left bring the next view in from the right.
+        let direction: CGFloat = step > 0 ? -1 : 1
+        let travel = min(width * 0.35, 160)
+        paneContainer.frame.origin.x = -direction * travel
+        paneContainer.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.32
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1)
+            context.allowsImplicitAnimation = true
+            paneContainer.animator().frame.origin.x = 0
+            paneContainer.animator().alphaValue = 1
+            outgoing?.animator().frame.origin.x = (outgoing?.frame.origin.x ?? 0) + direction * travel
+            outgoing?.animator().alphaValue = 0
+        } completionHandler: {
+            outgoing?.removeFromSuperview()
+        }
+    }
+
     /// ⌘↑ and ⌘↓ step the output volume by a sixteenth, the size of a volume-key press.
     private func nudgeVolume(by direction: Int) {
         let current = SystemControls.isMuted() ? 0 : (SystemControls.volume() ?? 0)
@@ -1203,6 +1268,9 @@ final class NotchContentView: NSView {
     /// Opening: the last view, shown afresh — closing stopped whatever it was tracking,
     /// and another display's panel may have been left on a different one.
     func restoreLastTab() {
+        // A swipe cut short by the panel closing would otherwise leave the view pulled.
+        paneContainer.frame.origin.x = 0
+        paneContainer.alphaValue = 1
         show(Self.lastTab, focusing: false)
     }
 
