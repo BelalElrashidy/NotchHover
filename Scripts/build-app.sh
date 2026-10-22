@@ -45,6 +45,12 @@ xcrun actool "$PROJECT_ROOT/Resources/AppIcon.icon" \
 cp "$PROJECT_ROOT/Resources/MenuBarIcon.png" "$PROJECT_ROOT/Resources/MenuBarIcon@2x.png" "$CONTENTS/Resources/"
 printf 'APPL????' > "$CONTENTS/PkgInfo"
 
+# macOS remembers a permission — Calendars, Camera, Automation — against the app's
+# designated requirement. An ad-hoc signature's default one is the build's own hash,
+# so every update looked like a new app and every permission was asked for again. This
+# one names the app instead, so permissions carry over from one build to the next.
+REQUIREMENT='=designated => identifier "com.notchhover.NotchHover"'
+
 # The Share menu's "NotchHover": a small app extension, built outside SwiftPM — which
 # has no extension targets — and signed before the app that contains it.
 SHARE_SOURCE="$PROJECT_ROOT/Extensions/Share"
@@ -64,7 +70,7 @@ done
 codesign --force --sign - --entitlements "$SHARE_SOURCE/Share.entitlements" \
     --identifier com.notchhover.NotchHover.Share "$SHARE_BUNDLE"
 
-codesign --force --sign - --identifier com.notchhover.NotchHover "$APP_BUNDLE"
+codesign --force --sign - --identifier com.notchhover.NotchHover --requirements "$REQUIREMENT" "$APP_BUNDLE"
 
 echo "Built $APP_BUNDLE ($CONFIGURATION)"
 
@@ -74,7 +80,7 @@ if [ "$SHOULD_INSTALL" = "yes" ]; then
     rm -rf "$INSTALLED_APP"
     cp -R "$APP_BUNDLE" "$INSTALLED_APP"
     # Re-sign in place: macOS ties permissions to the installed copy, not the build one.
-    codesign --force --sign - --identifier com.notchhover.NotchHover "$INSTALLED_APP"
+    codesign --force --sign - --identifier com.notchhover.NotchHover --requirements "$REQUIREMENT" "$INSTALLED_APP"
     echo "Installed $INSTALLED_APP"
 fi
 
