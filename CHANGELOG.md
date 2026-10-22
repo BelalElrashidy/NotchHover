@@ -10,6 +10,18 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.17] — 2026-10-23
+
+A second board, and Screenshots on the right.
+
+### Fixed
+- **A second board beside Home.** A new tab after Home with widgets of its own —
+  Playlists, Apps and Timer to begin with. Settings → Layout has a Home / Board switch to
+  lay either out, and a name for the second one. ⌘7 opens it.
+- **Screenshots moves to the right**, beside Clipboard and Mirror.
+- **The Timer's buttons piled on top of each other** in a narrow column. The presets
+  now share the width equally, and Cancel only shows while a timer runs.
+
 ## [0.14.16] — 2026-10-23
 
 A camera that fills the panel.
@@ -546,7 +558,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.16...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.17...HEAD
+[0.14.17]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.16...v0.14.17
 [0.14.16]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.15...v0.14.16
 [0.14.15]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...v0.14.15
 [0.14.14]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.13...v0.14.14
