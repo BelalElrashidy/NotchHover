@@ -187,9 +187,10 @@ final class GlassCardView: NSView {
         let theme = ThemeStore.active
         switch theme.surface {
         case .glass:
-            // The colour of the notch itself.
-            menuBarBand.layer?.backgroundColor = NSColor.black.cgColor
-            menuBarBand.isHidden = menuBarHeight == 0
+            // Glass in its own never-focused window stays blurred, which already turns
+            // the menu bar behind it into a soft wash; painting the strip black made the
+            // top of the panel a different material from the rest of it.
+            menuBarBand.isHidden = true
         case .solid(let color):
             menuBarBand.layer?.backgroundColor = color.withAlphaComponent(1).cgColor
             menuBarBand.isHidden = menuBarHeight == 0 || color.alphaComponent >= 0.999
