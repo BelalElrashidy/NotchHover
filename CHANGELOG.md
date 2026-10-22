@@ -10,6 +10,16 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.14] — 2026-10-23
+
+Permissions that stay given.
+
+### Fixed
+- **Calendars, Camera and Automation were asked for again after every update.** macOS
+  remembered them against the exact build, so each new version looked like a new app.
+  NotchHover is now signed so that macOS recognises it by name: allow them once more
+  after this update, and later updates keep them.
+
 ## [0.14.13] — 2026-10-23
 
 Glass all the way up.
@@ -517,7 +527,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.13...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...HEAD
+[0.14.14]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.13...v0.14.14
 [0.14.13]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.12...v0.14.13
 [0.14.12]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.11...v0.14.12
 [0.14.11]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.10...v0.14.11
