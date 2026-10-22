@@ -10,6 +10,16 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.12] — 2026-10-23
+
+Glass all the way up.
+
+### Fixed
+- **The top of a Clear glass panel was solid black.** The strip over the menu bar was
+  painted black to stop menu titles showing through. Now that the glass stays blurred
+  while you type, it isn't needed: the whole panel, header included, is one glass, and
+  the menu bar behind it is a soft wash.
+
 ## [0.14.11] — 2026-10-23
 
 The notch on every desktop.
@@ -502,7 +512,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.11...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.12...HEAD
+[0.14.12]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.11...v0.14.12
 [0.14.11]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...v0.14.9
