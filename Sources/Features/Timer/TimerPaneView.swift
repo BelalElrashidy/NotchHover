@@ -12,20 +12,29 @@ final class TimerPaneView: NSView {
     init() {
         super.init(frame: .zero)
 
+        // The presets share the width equally, however narrow the column is; in a row
+        // that was allowed to shrink they used to pile on top of each other.
         let presetStack = NSStackView()
         presetStack.orientation = .horizontal
-        presetStack.spacing = 8
+        presetStack.distribution = .fillEqually
+        presetStack.spacing = 6
         for minutes in presets {
             let button = Style.pushButton("\(minutes)m", prominent: false, target: self, action: #selector(handlePreset(_:)))
             button.tag = minutes
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            // The panel's buttons size themselves to their title; here the row decides.
+            button.constraints.filter { $0.firstAttribute == .width }.forEach { $0.isActive = false }
             presetStack.addArrangedSubview(button)
         }
 
-        let row = NSStackView(views: [presetStack, cancelButton])
-        row.orientation = .horizontal
-        row.spacing = 12
+        // The countdown, with Cancel beside it only while one is running.
+        remainingLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        cancelButton.setContentHuggingPriority(.required, for: .horizontal)
+        let header = NSStackView(views: [remainingLabel, cancelButton])
+        header.orientation = .horizontal
+        header.spacing = 8
 
-        let root = NSStackView(views: [remainingLabel, row])
+        let root = NSStackView(views: [header, presetStack])
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = 10
@@ -34,8 +43,10 @@ final class TimerPaneView: NSView {
 
         NSLayoutConstraint.activate([
             root.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            root.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
-            root.centerYAnchor.constraint(equalTo: centerYAnchor)
+            root.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            root.centerYAnchor.constraint(equalTo: centerYAnchor),
+            header.widthAnchor.constraint(equalTo: root.widthAnchor),
+            presetStack.widthAnchor.constraint(equalTo: root.widthAnchor)
         ])
 
         update(remaining: 0)
@@ -49,8 +60,7 @@ final class TimerPaneView: NSView {
     func update(remaining: TimeInterval) {
         let running = remaining > 0
         remainingLabel.stringValue = running ? CountdownTimer.format(remaining) : "No timer running"
-        cancelButton.isEnabled = running
-        cancelButton.alphaValue = running ? 1 : 0.4
+        cancelButton.isHidden = running == false
     }
 
     @objc private func handlePreset(_ sender: NSButton) {

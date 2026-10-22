@@ -44,7 +44,8 @@ final class NotchContentView: NSView {
         static func panelSize(notchWidth: CGFloat, notchHeight: CGFloat) -> CGSize {
             let notch = max(notchWidth, fallbackNotchWidth)
             let width = PanelSizes.usesAutomaticWidth
-                ? PanelSizes.automaticWidth(for: PanelLayoutStore.widgets, notchWidth: notch)
+                // As wide as the wider of the boards in use, so both fit.
+                ? PanelLayoutStore.boardsInUse.map { PanelSizes.automaticWidth(for: PanelLayoutStore.widgets(for: $0), notchWidth: notch) }.max() ?? 0
                 : PanelSizes.width
             return CGSize(
                 // The visible slab is inset by the flare on each side; the widgets and
@@ -155,6 +156,22 @@ final class NotchContentView: NSView {
         onPasteClipboard: { [weak self] item in self?.onPasteClipboard?(item) },
         onDismiss: { [weak self] in self?.onDismiss?() }
     ))
+    /// The second board: Home's twin, with its own widgets.
+    private lazy var secondRow = WidgetRowView(callbacks: WidgetRowView.Callbacks(
+        onPlayPause: { [weak self] in self?.onPlayPause?() },
+        onNextTrack: { [weak self] in self?.onNextTrack?() },
+        onPreviousTrack: { [weak self] in self?.onPreviousTrack?() },
+        onOpenSource: { [weak self] in self?.onOpenSource?() },
+        onShuffle: { [weak self] in self?.onShuffle?() },
+        onVolume: { [weak self] volume in self?.onVolume?(volume) },
+        onSeek: { [weak self] seconds in self?.onSeek?(seconds) },
+        onPlayURI: { [weak self] uri in self?.onPlayURI?(uri) },
+        onSelectShortcut: { [weak self] shortcut in self?.onSelectShortcut?(shortcut) },
+        onStartTimer: { [weak self] minutes in self?.onStartTimer?(minutes) },
+        onCancelTimer: { [weak self] in self?.onCancelTimer?() },
+        onPasteClipboard: { [weak self] item in self?.onPasteClipboard?(item) },
+        onDismiss: { [weak self] in self?.onDismiss?() }
+    ), widgets: { PanelLayoutStore.widgets(for: .second) })
     /// Files beside recent clips: two things you put down to pick up later.
     private lazy var shelfRow = WidgetRowView(
         callbacks: WidgetRowView.Callbacks(
@@ -386,6 +403,7 @@ final class NotchContentView: NSView {
         if view !== mirrorPane { mirrorPane.stopIfNeeded() }
         if view !== systemPane { systemPane.stopTracking() }
         if view !== widgetRow { widgetRow.stopTracking() }
+        if view !== secondRow { secondRow.stopTracking() }
         if view !== shelfRow { shelfRow.stopTracking() }
         view.frame = paneContainer.bounds
         view.autoresizingMask = [.width, .height]
@@ -412,6 +430,7 @@ final class NotchContentView: NSView {
         headerActions.setOpen(tab)
         switch tab {
         case .home: widgetRow.startTracking(); widgetRow.reloadTray(); install(widgetRow)
+        case .board: secondRow.startTracking(); secondRow.reloadTray(); install(secondRow)
         case .shelf: shelfRow.startTracking(); shelfRow.reloadTray(); install(shelfRow)
         case .clipboard: install(clipboardPane)
         case .notes:
@@ -544,8 +563,8 @@ final class NotchContentView: NSView {
         switch modifiers {
         case [.command]:
             switch key {
-            case "1", "2", "3", "4", "5", "6":
-                let tabs: [PanelTab] = [.home, .shelf, .notes, .clipboard, .mirror, .screenshots]
+            case "1", "2", "3", "4", "5", "6", "7":
+                let tabs: [PanelTab] = [.home, .shelf, .notes, .clipboard, .mirror, .screenshots, .board]
                 let tab = tabs[Int(key)! - 1]
                 show(tab)
                 if tab == .clipboard { DispatchQueue.main.async { [weak self] in self?.clipboardPane.focus() } }
@@ -713,6 +732,7 @@ final class NotchContentView: NSView {
     func updateTimer(remaining: TimeInterval) {
         timerPane.update(remaining: remaining)
         widgetRow.updateTimer(remaining: remaining)
+        secondRow.updateTimer(remaining: remaining)
     }
 
     /// Puts a system event on the resting bar and makes the bar react to it: a bar
@@ -809,6 +829,7 @@ final class NotchContentView: NSView {
     /// New banner arrived while the pane is open.
     func refreshNotifications() {
         if selectedTab == .home { widgetRow.refreshNotifications() }
+        if selectedTab == .board { secondRow.refreshNotifications() }
         guard selectedTab == .notifications else { return }
         notificationsPane.reload()
     }
@@ -816,6 +837,8 @@ final class NotchContentView: NSView {
     func reloadLists() {
         // Tabs rearranged in Settings land here, like any other list.
         headerTabs.setTabs(PanelTab.headerTabs)
+        // The second board's name may have changed.
+        headerTabs.select(headerTabs.selected, notify: false, animated: false)
         headerActions.setTabs(HeaderLayout.right)
         playlistsPane.reload()
         shortcutsPane.reload()
@@ -1125,6 +1148,7 @@ final class NotchContentView: NSView {
 
         mediaDetail.render(state)
         widgetRow.render(state)
+        secondRow.render(state)
         refreshPanes()
     }
 
@@ -1185,8 +1209,11 @@ final class NotchContentView: NSView {
     /// The widget list changed in settings.
     func rebuildZones() {
         widgetRow.rebuild()
+        secondRow.rebuild()
         if selectedTab == .home {
             install(widgetRow)
+        } else if selectedTab == .board {
+            install(secondRow)
         }
     }
 

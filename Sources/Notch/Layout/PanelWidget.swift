@@ -189,4 +189,46 @@ enum PanelLayoutStore {
     static func set(_ widgets: [PanelWidget]) {
         UserDefaults.standard.set(widgets.map(\.rawValue), forKey: defaultsKey)
     }
+
+    // MARK: - Boards
+
+    /// Home, and a second board laid out the same way with its own widgets.
+    enum Board: Int, CaseIterable {
+        case home, second
+
+        var tab: PanelTab { self == .home ? .home : .board }
+        var title: String { self == .home ? "Home" : PanelLayoutStore.secondName }
+    }
+
+    static let secondKey = "PanelWidgets2"
+    static let secondNameKey = "SecondBoardName"
+    static let defaultSecondWidgets: [PanelWidget] = [.playlists, .apps, .timer]
+
+    /// What the second board is called in its tab: yours to name.
+    static var secondName: String {
+        let stored = UserDefaults.standard.string(forKey: secondNameKey)?.trimmingCharacters(in: .whitespaces) ?? ""
+        return stored.isEmpty ? "Board" : stored
+    }
+
+    static func widgets(for board: Board) -> [PanelWidget] {
+        switch board {
+        case .home:
+            return widgets
+        case .second:
+            let stored = UserDefaults.standard.stringArray(forKey: secondKey)?.compactMap(PanelWidget.init(rawValue:)) ?? []
+            return stored.isEmpty ? defaultSecondWidgets : stored
+        }
+    }
+
+    static func set(_ widgets: [PanelWidget], for board: Board) {
+        switch board {
+        case .home: set(widgets)
+        case .second: UserDefaults.standard.set(widgets.map(\.rawValue), forKey: secondKey)
+        }
+    }
+
+    /// The boards that are in the header, whose widths the panel has to fit.
+    static var boardsInUse: [Board] {
+        HeaderLayout.place(of: .board) == .hidden ? [.home] : [.home, .second]
+    }
 }

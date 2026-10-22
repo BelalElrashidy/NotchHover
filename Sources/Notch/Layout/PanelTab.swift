@@ -21,6 +21,8 @@ enum PanelTab: Int, CaseIterable {
     case apps
     case mirror
     case screenshots
+    /// A second board of widgets, beside Home. Added last so saved tabs keep their numbers.
+    case board
 
     /// The tabs left of the notch, in order: Home, then your choice.
     static var headerTabs: [PanelTab] { [.home] + HeaderLayout.left }
@@ -47,6 +49,7 @@ enum PanelTab: Int, CaseIterable {
         case .apps: return "square.grid.2x2.fill"
         case .mirror: return "video.fill"
         case .screenshots: return "camera.viewfinder"
+        case .board: return "rectangle.3.group.fill"
         }
     }
 
@@ -59,6 +62,7 @@ enum PanelTab: Int, CaseIterable {
         case .clipboard: return "⌘4"
         case .mirror: return "⌘5"
         case .screenshots: return "⌘6"
+        case .board: return "⌘7"
         default: return nil
         }
     }
@@ -80,6 +84,7 @@ enum PanelTab: Int, CaseIterable {
         case .apps: return "Apps"
         case .mirror: return "Mirror"
         case .screenshots: return "Screenshots"
+        case .board: return PanelLayoutStore.secondName
         }
     }
 }
@@ -105,7 +110,7 @@ enum HeaderLayout {
     /// What can be placed. Home is always there; the rest of the panel's views are
     /// reached from Home, so they can be given a place too.
     static let movable: [PanelTab] = [
-        .shelf, .notes, .screenshots, .clipboard, .mirror, .calendar, .timer,
+        .board, .shelf, .notes, .screenshots, .clipboard, .mirror, .calendar, .timer,
         .nowPlaying, .playlists, .apps, .shortcuts, .system, .notifications
     ]
 
@@ -113,8 +118,8 @@ enum HeaderLayout {
     static let maxLeft = 4
     static let maxRight = 4
 
-    private static let defaultLeft: [PanelTab] = [.shelf, .notes, .screenshots]
-    private static let defaultRight: [PanelTab] = [.clipboard, .mirror]
+    private static let defaultLeft: [PanelTab] = [.board, .shelf, .notes]
+    private static let defaultRight: [PanelTab] = [.screenshots, .clipboard, .mirror]
 
     static var left: [PanelTab] { read(leftKey, default: defaultLeft, limit: maxLeft) }
     static var right: [PanelTab] { read(rightKey, default: defaultRight, limit: maxRight).filter { left.contains($0) == false } }

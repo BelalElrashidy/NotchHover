@@ -443,8 +443,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
 
     // MARK: Layout
 
+    /// Which board the Layout pane is editing.
+    private var editingBoard: PanelLayoutStore.Board = .home
+
     private func layoutPane() -> NSView {
+        let board = editingBoard
         let canvas = PanelCanvasView()
+        canvas.board = board
         canvas.heightAnchor.constraint(equalToConstant: 128).isActive = true
         canvas.onChange = { [weak self] in
             self?.saved()
@@ -452,7 +457,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
             self?.select(.layout)
         }
 
-        let unused = PanelWidget.allCases.filter { PanelLayoutStore.widgets.contains($0) == false }
+        let unused = PanelWidget.allCases.filter { PanelLayoutStore.widgets(for: board).contains($0) == false }
+
+        // Home, or the second board — the same editor below works on whichever is picked.
+        let boardPicker = SettingsKit.segmented(PanelLayoutStore.Board.allCases.map(\.title), selected: board.rawValue) { [weak self] index in
+            self?.editingBoard = PanelLayoutStore.Board(rawValue: index) ?? .home
+            self?.select(.layout)
+        }
+        var boardRows: [NSView] = [SettingsKit.row("Board", detail: "Two boards of widgets: Home, and a second one of your own beside it", control: boardPicker)]
+        if board == .second {
+            let name = SettingsKit.field(UserDefaults.standard.string(forKey: PanelLayoutStore.secondNameKey) ?? "", placeholder: "Board",
+                                         width: 180) { [weak self] text in
+                UserDefaults.standard.set(text.trimmingCharacters(in: .whitespaces), forKey: PanelLayoutStore.secondNameKey)
+                self?.saved()
+                self?.select(.layout)
+            }
+            boardRows.append(SettingsKit.row("Name", detail: "What its tab says", control: name))
+        }
         let tiles = unused.map { widget -> NSView in
             let tile = WidgetGalleryTile(widget: widget)
             tile.onAdd = { canvas.append(widget) }
@@ -469,7 +490,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate, NSSe
         }
 
         return page([
-            SettingsKit.header("Layout", "Home's widgets, as they sit in the panel. Drag one sideways to move it, hover for × to take it out, drag one in from below."),
+            SettingsKit.header("Layout", "Your boards' widgets, as they sit in the panel. Drag one sideways to move it, hover for × to take it out, drag one in from below."),
+            SettingsKit.section(nil, rows: boardRows),
             canvas,
             labelled(unused.isEmpty ? "Every widget is in the panel" : "More widgets", gallery),
             SettingsKit.section("Beside the notch", footer: "Left: a tab after Home. Right: a circle before the gear. Off: not in the header — still on Home's cards and its keyboard shortcut. Each side has room for \(HeaderLayout.maxLeft).",

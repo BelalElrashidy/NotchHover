@@ -98,8 +98,13 @@ final class PanelCanvasView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Which board this canvas edits.
+    var board: PanelLayoutStore.Board = .home {
+        didSet { reload() }
+    }
+
     func reload() {
-        widgets = PanelLayoutStore.widgets
+        widgets = PanelLayoutStore.widgets(for: board)
         needsDisplay = true
     }
 
@@ -248,7 +253,7 @@ final class PanelCanvasView: NSView {
     }
 
     private func commit(_ list: [PanelWidget]) {
-        PanelLayoutStore.set(list)
+        PanelLayoutStore.set(list, for: board)
         reload()
         Haptics.tick()
         onChange?()

@@ -115,6 +115,10 @@ enum PreviewRenderer {
             view.selectTabForPreview(.shelf)
         }
 
+        write(named: "expanded-board", directory: directory) { view in
+            view.selectTabForPreview(.board)
+        }
+
         write(named: "expanded-mirror", directory: directory) { view in
             view.selectTabForPreview(.mirror)
         }
