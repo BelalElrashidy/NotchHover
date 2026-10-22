@@ -10,6 +10,15 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.15] — 2026-10-23
+
+Back where you left it.
+
+### Fixed
+- **The panel always reopened on Home.** It now opens on the view you left it on —
+  Notes, Clipboard, the camera, anything — including after NotchHover restarts. Coming
+  back to Notes on a hover doesn't put the cursor in it; a click does.
+
 ## [0.14.14] — 2026-10-23
 
 Permissions that stay given.
@@ -527,7 +536,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.15...HEAD
+[0.14.15]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...v0.14.15
 [0.14.14]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.13...v0.14.14
 [0.14.13]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.12...v0.14.13
 [0.14.12]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.11...v0.14.12
