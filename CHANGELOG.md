@@ -10,6 +10,16 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.16] — 2026-10-23
+
+A camera that fills the panel.
+
+### Fixed
+- **The camera was a small tile on the left with nothing beside it.** The preview now
+  fills the panel, mirrored like a mirror. Start camera sits in the middle while it's off,
+  and a small Stop in the corner while it's on. The camera still only starts when you
+  press Start.
+
 ## [0.14.15] — 2026-10-23
 
 Back where you left it.
@@ -536,7 +546,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.15...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.16...HEAD
+[0.14.16]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.15...v0.14.16
 [0.14.15]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.14...v0.14.15
 [0.14.14]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.13...v0.14.14
 [0.14.13]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.12...v0.14.13
