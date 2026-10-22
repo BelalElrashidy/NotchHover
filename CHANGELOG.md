@@ -10,6 +10,17 @@ so this file is the one place to write them.
 
 ## [Unreleased]
 
+## [0.14.11] — 2026-10-23
+
+The notch on every desktop.
+
+### Fixed
+- **Over a full-screen app's desktop the notch could be missing.** A window set to
+  appear on every desktop still isn't always brought into a full-screen app's own one —
+  over full-screen Safari the resting bar and the panel simply weren't there. Each time
+  the desktop changes, the notch is now brought to the front again, the way Boring Notch
+  and Atoll do it.
+
 ## [0.14.10] — 2026-10-21
 
 Clear glass stays the same while you type.
@@ -491,7 +502,8 @@ The first public release.
   gain and mute, Claude Code approvals.
 - A notch on every display, shown over full-screen apps.
 
-[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.10...HEAD
+[Unreleased]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.11...HEAD
+[0.14.11]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/BelalElrashidy/NotchHover/compare/v0.14.7...v0.14.8
