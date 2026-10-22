@@ -12,16 +12,6 @@ so this file is the one place to write them.
 
 ## [0.14.12] — 2026-10-23
 
-Glass all the way up.
-
-### Fixed
-- **The top of a Clear glass panel was solid black.** The strip over the menu bar was
-  painted black to stop menu titles showing through. Now that the glass stays blurred
-  while you type, it isn't needed: the whole panel, header included, is one glass, and
-  the menu bar behind it is a soft wash.
-
-## [0.14.11] — 2026-10-23
-
 The notch on every desktop.
 
 ### Fixed
@@ -30,6 +20,11 @@ The notch on every desktop.
   over full-screen Safari the resting bar and the panel simply weren't there. Each time
   the desktop changes, the notch is now brought to the front again, the way Boring Notch
   and Atoll do it.
+
+## [0.14.11] — 2026-10-23
+
+Published by mistake, with no changes — only the version number moved. Its notes
+described the desktops fix, which is in 0.14.12.
 
 ## [0.14.10] — 2026-10-21
 
